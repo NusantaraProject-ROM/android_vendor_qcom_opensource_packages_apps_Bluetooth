@@ -251,7 +251,6 @@ import java.util.UUID;
                 Connection connection = i.next();
                 if (connection.connId == connId) {
                     i.remove();
-                    break;
                 }
             }
         }
