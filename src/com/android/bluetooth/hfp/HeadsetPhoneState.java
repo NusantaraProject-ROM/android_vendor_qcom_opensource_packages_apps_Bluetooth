@@ -128,10 +128,15 @@ public class HeadsetPhoneState {
             if (SubscriptionManager.isValidSubscriptionId(subId)) {
                 mPhoneStateListener = new HeadsetPhoneStateListener(subId,
                         mHeadsetService.getStateMachinesThreadLooper());
-                mTelephonyManager.listen(mPhoneStateListener,
-                        PhoneStateListener.LISTEN_SERVICE_STATE
-                                | PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
+                if (mTelephonyManager == null) {
+                    Log.e(TAG, "mTelephonyManager is null, "
+                         + "cannot start listening for phone state changes");
+                } else {
+                    mTelephonyManager.listen(mPhoneStateListener,
+                                             PhoneStateListener.LISTEN_SERVICE_STATE |
+                                             PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
                 mListening = true;
+                }
             } else {
                 Log.w(TAG, "startListenForPhoneState, invalid subscription ID " + subId);
             }

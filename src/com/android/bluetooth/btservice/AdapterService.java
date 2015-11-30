@@ -128,6 +128,7 @@ public class AdapterService extends Service {
     private static final int CONTROLLER_ENERGY_UPDATE_TIMEOUT_MILLIS = 30;
 
     static {
+        System.loadLibrary("bluetooth_jni");
         classInitNative();
     }
 
@@ -269,9 +270,11 @@ public class AdapterService extends Service {
                     }
                     mRunningProfiles.add(profile);
                     if (GattService.class.getSimpleName().equals(profile.getName())) {
+                        Log.w(TAG,"onProfileServiceStateChange() - Gatt profile service started..");
                         mAdapterStateMachine.sendMessage(AdapterState.BLE_STARTED);
                     } else if (mRegisteredProfiles.size() == Config.getSupportedProfiles().length
                             && mRegisteredProfiles.size() == mRunningProfiles.size()) {
+                        Log.w(TAG,"onProfileServiceStateChange() - All profile services started..");
                         mAdapterStateMachine.sendMessage(AdapterState.BREDR_STARTED);
                     }
                     break;
@@ -288,8 +291,10 @@ public class AdapterService extends Service {
                     // If only GATT is left, send BREDR_STOPPED.
                     if ((mRunningProfiles.size() == 1 && (GattService.class.getSimpleName()
                             .equals(mRunningProfiles.get(0).getName())))) {
+                        Log.w(TAG,"onProfileServiceStateChange() - All profile services except gatt stopped..");
                         mAdapterStateMachine.sendMessage(AdapterState.BREDR_STOPPED);
                     } else if (mRunningProfiles.size() == 0) {
+                        Log.w(TAG,"onProfileServiceStateChange() - All profile services stopped..");
                         mAdapterStateMachine.sendMessage(AdapterState.BLE_STOPPED);
                     }
                     break;
@@ -397,6 +402,7 @@ public class AdapterService extends Service {
         } else {
             Log.i(TAG, "Phone policy disabled");
         }
+        mBondStateMachine = BondStateMachine.make(mPowerManager, this, mAdapterProperties, mRemoteDevices);
 
         mActiveDeviceManager = new ActiveDeviceManager(this, new ServiceFactory());
         mActiveDeviceManager.start();
@@ -435,6 +441,18 @@ public class AdapterService extends Service {
         int fuid = ActivityManager.getCurrentUser();
         Utils.setForegroundUserId(fuid);
         setForegroundUserIdNative(fuid);
+
+        // Reset |mRemoteDevices| whenever BLE is turned off then on
+        // This is to replace the fact that |mRemoteDevices| was
+        // reinitialized in previous code.
+        //
+        // TODO(apanicke): The reason is unclear but
+        // I believe it is to clear the variable every time BLE was
+        // turned off then on. The same effect can be achieved by
+        // calling cleanup but this may not be necessary at all
+        // We should figure out why this is needed later
+        mRemoteDevices.reset();
+        mAdapterProperties.init(mRemoteDevices);
     }
 
     @Override
@@ -445,7 +463,7 @@ public class AdapterService extends Service {
 
     @Override
     public boolean onUnbind(Intent intent) {
-        debugLog("onUnbind() - calling cleanup");
+        Log.w(TAG, "onUnbind, calling cleanup");
         cleanup();
         return super.onUnbind(intent);
     }
@@ -480,20 +498,7 @@ public class AdapterService extends Service {
             Config.init(getApplicationContext());
         }
 
-        // Reset |mRemoteDevices| whenever BLE is turned off then on
-        // This is to replace the fact that |mRemoteDevices| was
-        // reinitialized in previous code.
-        //
-        // TODO(apanicke): The reason is unclear but
-        // I believe it is to clear the variable every time BLE was
-        // turned off then on. The same effect can be achieved by
-        // calling cleanup but this may not be necessary at all
-        // We should figure out why this is needed later
-        mRemoteDevices.reset();
-        mAdapterProperties.init(mRemoteDevices);
-
-        debugLog("bleOnProcessStart() - Make Bond State Machine");
-        mBondStateMachine = BondStateMachine.make(this, mAdapterProperties, mRemoteDevices);
+        debugLog("BleOnProcessStart() - Make Bond State Machine");
 
         mJniCallbacks.init(mBondStateMachine, mRemoteDevices);
 
@@ -550,6 +555,24 @@ public class AdapterService extends Service {
             return;
         }
         setAllProfileServiceStates(supportedProfileServices, BluetoothAdapter.STATE_OFF);
+    }
+
+    void disableProfileServices() {
+        Class[] services = Config.getSupportedProfiles();
+        for (int i = 0; i < services.length; i++) {
+             boolean res = false;
+             String serviceName = services[i].getName();
+
+             mProfileServicesState.put(serviceName,BluetoothAdapter.STATE_OFF);
+             Intent intent = new Intent(this,services[i]);
+             intent.putExtra(EXTRA_ACTION,ACTION_SERVICE_STATE_CHANGED);
+             intent.putExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.STATE_OFF);
+             intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+             res = stopService(intent);
+             Log.d(TAG, "disableProfileServices() - Stopping service "
+                   + serviceName + " with result: " + res);
+        }
+        return;
     }
 
     boolean stopGattProfileService() {
@@ -659,6 +682,7 @@ public class AdapterService extends Service {
         Intent intent = new Intent(this, service);
         intent.putExtra(EXTRA_ACTION, ACTION_SERVICE_STATE_CHANGED);
         intent.putExtra(BluetoothAdapter.EXTRA_STATE, state);
+        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         startService(intent);
     }
 
@@ -1665,6 +1689,10 @@ public class AdapterService extends Service {
         debugLog("startDiscovery");
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
 
+        if (mAdapterProperties.isDiscovering()) {
+            Log.i(TAG,"discovery already active, ignore startDiscovery");
+            return false;
+        }
         return startDiscoveryNative();
     }
 
@@ -1672,6 +1700,10 @@ public class AdapterService extends Service {
         debugLog("cancelDiscovery");
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
 
+        if (!mAdapterProperties.isDiscovering()) {
+            Log.i(TAG,"discovery not active, ignore cancelDiscovery");
+            return false;
+        }
         return cancelDiscoveryNative();
     }
 
@@ -1729,7 +1761,11 @@ public class AdapterService extends Service {
 
         // Pairing is unreliable while scanning, so cancel discovery
         // Note, remove this when native stack improves
-        cancelDiscoveryNative();
+        if (!mAdapterProperties.isDiscovering()) {
+            Log.i(TAG,"discovery not active, no need to send cancelDiscovery");
+        } else {
+            cancelDiscoveryNative();
+        }
 
         Message msg = mBondStateMachine.obtainMessage(BondStateMachine.CREATE_BOND);
         msg.obj = device;

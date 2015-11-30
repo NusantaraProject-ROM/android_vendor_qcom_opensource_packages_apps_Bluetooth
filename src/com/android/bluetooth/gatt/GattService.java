@@ -179,6 +179,8 @@ public class GattService extends ProfileService {
     private Set<String> mReliableQueue = new HashSet<String>();
 
     static {
+        if (DBG) Log.d(TAG, "classInitNative called");
+        System.loadLibrary("bluetooth_jni");
         classInitNative();
     }
 
@@ -220,12 +222,15 @@ public class GattService extends ProfileService {
         mReliableQueue.clear();
         if (mAdvertiseManager != null) {
             mAdvertiseManager.cleanup();
+            mAdvertiseManager = null;
         }
         if (mScanManager != null) {
             mScanManager.cleanup();
+            mScanManager = null;
         }
         if (mPeriodicScanManager != null) {
             mPeriodicScanManager.cleanup();
+            mPeriodicScanManager = null;
         }
         return true;
     }
@@ -236,14 +241,18 @@ public class GattService extends ProfileService {
             Log.d(TAG, "cleanup()");
         }
         cleanupNative();
+
         if (mAdvertiseManager != null) {
             mAdvertiseManager.cleanup();
+            mAdvertiseManager = null;
         }
         if (mScanManager != null) {
             mScanManager.cleanup();
+            mScanManager = null;
         }
         if (mPeriodicScanManager != null) {
             mPeriodicScanManager.cleanup();
+            mPeriodicScanManager = null;
         }
     }
 

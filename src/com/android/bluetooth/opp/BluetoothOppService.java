@@ -503,7 +503,7 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
             String action = intent.getAction();
 
             if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
-                switch (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)) {
+                switch (mAdapter.getState()) {
                     case BluetoothAdapter.STATE_ON:
                         if (V) {
                             Log.v(TAG, "Bluetooth state changed: STATE_ON");

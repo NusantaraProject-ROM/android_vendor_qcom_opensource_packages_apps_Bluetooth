@@ -188,33 +188,34 @@ final class AdapterState extends StateMachine {
 
             debugLog("Current state: BLE ON, message: " + msg.what);
 
-            switch (msg.what) {
-                case USER_TURN_ON:
-                    notifyAdapterStateChange(BluetoothAdapter.STATE_TURNING_ON);
-                    mPendingCommandState.setTurningOn(true);
-                    transitionTo(mPendingCommandState);
-                    sendMessageDelayed(BREDR_START_TIMEOUT, BREDR_START_TIMEOUT_DELAY);
-                    adapterService.startCoreServices();
-                    break;
+            switch(msg.what) {
+               case USER_TURN_ON:
+                   notifyAdapterStateChange(BluetoothAdapter.STATE_TURNING_ON);
+                   adapterProperties.clearDisableFlag();
+                   mPendingCommandState.setTurningOn(true);
+                   transitionTo(mPendingCommandState);
+                   sendMessageDelayed(BREDR_START_TIMEOUT, BREDR_START_TIMEOUT_DELAY);
+                   adapterService.startCoreServices();
+                   break;
 
-                case USER_TURN_OFF:
-                    notifyAdapterStateChange(BluetoothAdapter.STATE_BLE_TURNING_OFF);
-                    mPendingCommandState.setBleTurningOff(true);
-                    adapterProperties.onBleDisable();
-                    transitionTo(mPendingCommandState);
-                    sendMessageDelayed(DISABLE_TIMEOUT, DISABLE_TIMEOUT_DELAY);
-                    boolean ret = adapterService.disableNative();
-                    if (!ret) {
+               case USER_TURN_OFF:
+                   notifyAdapterStateChange(BluetoothAdapter.STATE_BLE_TURNING_OFF);
+                   mPendingCommandState.setBleTurningOff(true);
+                   adapterProperties.onBleDisable();
+                   transitionTo(mPendingCommandState);
+                   sendMessageDelayed(DISABLE_TIMEOUT, DISABLE_TIMEOUT_DELAY);
+                   boolean ret = adapterService.disableNative();
+                   if (!ret) {
                         removeMessages(DISABLE_TIMEOUT);
                         errorLog("Error while calling disableNative");
                         //FIXME: what about post enable services
                         mPendingCommandState.setBleTurningOff(false);
                         notifyAdapterStateChange(BluetoothAdapter.STATE_BLE_ON);
-                    }
-                    break;
+                   }
+                   break;
 
-                default:
-                    return false;
+               default:
+                   return false;
             }
             return true;
         }
@@ -447,25 +448,31 @@ final class AdapterState extends StateMachine {
                 case BREDR_START_TIMEOUT:
                     errorLog("Error enabling Bluetooth (start timeout)");
                     mPendingCommandState.setTurningOn(false);
-                    adapterService.stopProfileServices();
-                    transitionTo(mBleOnState);
-                    notifyAdapterStateChange(BluetoothAdapter.STATE_BLE_ON);
+                    notifyAdapterStateChange(BluetoothAdapter.STATE_OFF);
+                    adapterService.disableProfileServices();
+                    transitionTo(mOffState);
+                    errorLog("BREDR_START_TIMEOUT:Killing the process to force a restart as part cleanup");
+                    android.os.Process.killProcess(android.os.Process.myPid());
                     break;
 
                 case ENABLE_TIMEOUT:
                     errorLog("Error enabling Bluetooth (enable timeout)");
                     mPendingCommandState.setBleTurningOn(false);
-                    transitionTo(mOffState);
-                    adapterService.stopProfileServices();
                     adapterService.stopGattProfileService();
                     notifyAdapterStateChange(BluetoothAdapter.STATE_OFF);
+                    transitionTo(mOffState);
+                    errorLog("ENABLE_TIMEOUT:Killing the process to force a restart as part cleanup");
+                    android.os.Process.killProcess(android.os.Process.myPid());
                     break;
 
                 case BREDR_STOP_TIMEOUT:
                     errorLog("Error stopping Bluetooth profiles (stop timeout)");
                     mPendingCommandState.setTurningOff(false);
-                    transitionTo(mBleOnState);
-                    notifyAdapterStateChange(BluetoothAdapter.STATE_BLE_ON);
+                    notifyAdapterStateChange(BluetoothAdapter.STATE_OFF);
+                    adapterService.disableProfileServices();
+                    transitionTo(mOffState);
+                    errorLog("BREDR_STOP_TIMEOUT:Killing the process to force a restart as part cleanup");
+                    android.os.Process.killProcess(android.os.Process.myPid());
                     break;
 
                 case BLE_STOP_TIMEOUT:
@@ -479,13 +486,15 @@ final class AdapterState extends StateMachine {
                     errorLog("Error disabling Bluetooth (disable timeout)");
                     if (isTurningOn) {
                         mPendingCommandState.setTurningOn(false);
+                        adapterService.stopProfileServices();
                     }
-                    adapterService.stopProfileServices();
                     adapterService.stopGattProfileService();
                     mPendingCommandState.setTurningOff(false);
                     setBleTurningOff(false);
                     transitionTo(mOffState);
                     notifyAdapterStateChange(BluetoothAdapter.STATE_OFF);
+                    errorLog("Killing the process to force a restart as part cleanup");
+                    android.os.Process.killProcess(android.os.Process.myPid());
                     break;
 
                 default:
