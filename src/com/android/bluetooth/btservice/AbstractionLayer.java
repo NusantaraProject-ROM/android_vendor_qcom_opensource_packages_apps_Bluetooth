@@ -82,4 +82,18 @@ public final class AbstractionLayer {
     public static final int BT_STATUS_RMT_DEV_DOWN = 10;
     public static final int BT_STATUS_AUTH_REJECTED = 11;
     public static final int BT_STATUS_AUTH_TIMEOUT = 12;
+
+    // Profile IDs to get profile features from profile_conf
+    public static final int AVRCP = 1;
+    public static final int PBAP = 2;
+    public static final int MAP = 3;
+
+    // Profile features supported in profile_conf
+    public static final int PROFILE_VERSION =1;
+    public static final int AVRCP_COVERART_SUPPORT = 2;
+    public static final int AVRCP_0103_SUPPORT = 3;
+    public static final int USE_SIM_SUPPORT = 4;
+    public static final int MAP_EMAIL_SUPPORT = 5;
+    public static final int PBAP_0102_SUPPORT = 6;
+
 }

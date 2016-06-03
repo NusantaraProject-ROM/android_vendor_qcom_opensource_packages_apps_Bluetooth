@@ -24,6 +24,8 @@ import android.content.pm.ResolveInfo;
 import android.database.ContentObserver;
 import android.net.Uri;
 import android.util.Log;
+import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.btservice.AbstractionLayer;
 
 import com.android.bluetooth.mapapi.BluetoothMapContract;
 
@@ -59,9 +61,17 @@ public class BluetoothMapAppObserver {
     public BluetoothMapAppObserver(final Context context, BluetoothMapService mapService) {
         mContext = context;
         mMapService = mapService;
-        mResolver = context.getContentResolver();
+        mResolver   = context.getContentResolver();
+        AdapterService adapterService = AdapterService.getAdapterService();
+        boolean isEmailSupported =false;
+
+        if (adapterService != null) {
+            isEmailSupported = adapterService.getProfileInfo(AbstractionLayer.MAP, AbstractionLayer.MAP_EMAIL_SUPPORT);
+            Log.d(TAG, "isEmailSupported: " + isEmailSupported);
+        }
+
         mLoader = new BluetoothMapAccountLoader(mContext);
-        mFullList = mLoader.parsePackages(false); /* Get the current list of apps */
+        mFullList   = mLoader.parsePackages(false); /* Get the current list of apps */
         createReceiver();
         initObservers();
     }

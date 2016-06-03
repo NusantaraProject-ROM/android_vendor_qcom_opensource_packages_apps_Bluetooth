@@ -68,6 +68,9 @@ import com.android.bluetooth.sdp.SdpManager;
 import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.app.IBatteryStats;
+import android.net.wifi.WifiManager;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 
 import com.google.protobuf.micro.InvalidProtocolBufferMicroException;
 
@@ -93,6 +96,7 @@ public class AdapterService extends Service {
     private long mRxTimeTotalMs;
     private long mIdleTimeTotalMs;
     private long mEnergyUsedTotalVoltAmpSecMicro;
+    private WifiManager mWifiManager;
     private final SparseArray<UidTraffic> mUidTraffic = new SparseArray<>();
 
     private final ArrayList<ProfileService> mRegisteredProfiles = new ArrayList<>();
@@ -155,6 +159,8 @@ public class AdapterService extends Service {
 
     private AdapterProperties mAdapterProperties;
     private AdapterState mAdapterStateMachine;
+    private Vendor mVendor;
+    private boolean mVendorAvailble;
     private BondStateMachine mBondStateMachine;
     private JniCallbacks mJniCallbacks;
     private RemoteDevices mRemoteDevices;
@@ -214,6 +220,28 @@ public class AdapterService extends Service {
         m.obj = profile;
         m.arg1 = state;
         mHandler.sendMessage(m);
+    }
+
+    public boolean getProfileInfo(int profile_id , int profile_info) {
+        if (isVendorIntfEnabled()) {
+            return mVendor.getProfileInfo(profile_id, profile_info);
+        } else {
+            return false;
+        }
+    }
+
+    private void fetchWifiState() {
+        if (!isVendorIntfEnabled()) {
+            return;
+        }
+        ConnectivityManager connMgr =
+              (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo networkInfo = connMgr.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
+        if (networkInfo.isConnected()) {
+            mVendor.setWifiState(true);
+        } else {
+            mVendor.setWifiState(false);
+        }
     }
 
     private static final int MESSAGE_PROFILE_SERVICE_STATE_CHANGED = 1;
@@ -276,6 +304,8 @@ public class AdapterService extends Service {
                             && mRegisteredProfiles.size() == mRunningProfiles.size()) {
                         Log.w(TAG,"onProfileServiceStateChange() - All profile services started..");
                         mAdapterStateMachine.sendMessage(AdapterState.BREDR_STARTED);
+                        //update wifi state to lower layers
+                        fetchWifiState();
                     }
                     break;
                 case BluetoothAdapter.STATE_OFF:
@@ -373,8 +403,9 @@ public class AdapterService extends Service {
         mRemoteDevices.init();
         mBinder = new AdapterServiceBinder(this);
         mAdapterProperties = new AdapterProperties(this);
-        mAdapterStateMachine = AdapterState.make(this, mAdapterProperties);
-        mJniCallbacks = new JniCallbacks(mAdapterStateMachine, mAdapterProperties);
+        mVendor = new Vendor(this);
+        mAdapterStateMachine =  AdapterState.make(this, mAdapterProperties, mVendor);
+        mJniCallbacks =  new JniCallbacks(mAdapterStateMachine, mAdapterProperties);
         initNative();
         mNativeAvailable = true;
         mCallbacks = new RemoteCallbackList<IBluetoothCallback>();
@@ -423,6 +454,8 @@ public class AdapterService extends Service {
                 return null;
             }
         }.execute();
+        mVendor.init();
+        mVendorAvailble = mVendor.getQtiStackStatus();
 
         try {
             int systemUiUid = getApplicationContext().getPackageManager().getPackageUidAsUser(
@@ -548,6 +581,13 @@ public class AdapterService extends Service {
         mAdapterStateMachine.sendMessage(AdapterState.BEGIN_DISABLE);
     }
 
+    void startBrEdrCleanup(){
+        if (isVendorIntfEnabled()) {
+            mAdapterStateMachine.sendMessage(
+            mAdapterStateMachine.obtainMessage(AdapterState.BEGIN_BREDR_CLEANUP));
+        }
+    }
+
     void stopProfileServices() {
         Class[] supportedProfileServices = Config.getSupportedProfiles();
         if (mRunningProfiles.size() == 0) {
@@ -650,6 +690,10 @@ public class AdapterService extends Service {
 
         if (mAdapterProperties != null) {
             mAdapterProperties.cleanup();
+        }
+
+        if (mVendor != null) {
+            mVendor.cleanup();
         }
 
         if (mJniCallbacks != null) {
@@ -1562,6 +1606,10 @@ public class AdapterService extends Service {
     public boolean isEnabled() {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         return mAdapterProperties.getState() == BluetoothAdapter.STATE_ON;
+    }
+
+    public boolean isVendorIntfEnabled() {
+        return mVendorAvailble;
     }
 
     public int getState() {
@@ -2481,6 +2529,23 @@ public class AdapterService extends Service {
         }
     };
 
+    private final BroadcastReceiver mWifiStateBroadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction().equals(WifiManager.NETWORK_STATE_CHANGED_ACTION) && isEnabled()) {
+                NetworkInfo networkInfo = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO);
+                NetworkInfo.DetailedState ds = networkInfo.getDetailedState();
+                if (ds == NetworkInfo.DetailedState.CONNECTED) {
+                    if(isVendorIntfEnabled())
+                        mVendor.setWifiState(true);
+                }
+                else if (ds == NetworkInfo.DetailedState.DISCONNECTED) {
+                    if(isVendorIntfEnabled())
+                        mVendor.setWifiState(false);
+                }
+            }
+        }
+    };
     private static native void classInitNative();
 
     native boolean initNative();

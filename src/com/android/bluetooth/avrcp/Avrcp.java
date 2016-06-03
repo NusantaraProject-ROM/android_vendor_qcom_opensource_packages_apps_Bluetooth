@@ -48,6 +48,8 @@ import android.os.UserManager;
 import android.util.Log;
 import android.view.KeyEvent;
 
+import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.btservice.AbstractionLayer;
 import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.ProfileService;
@@ -331,6 +333,19 @@ public final class Avrcp {
             mMediaSessionManager.setCallback(mButtonDispatchCallback, null);
         }
         mPackageManager = mContext.getApplicationContext().getPackageManager();
+
+        boolean isCoverArtSupported = false;
+        AdapterService adapterService = AdapterService.getAdapterService();
+        if ((adapterService != null) && (adapterService.isVendorIntfEnabled())) {
+            if (adapterService.getProfileInfo(AbstractionLayer.AVRCP, AbstractionLayer.AVRCP_0103_SUPPORT))
+            {
+                isCoverArtSupported = false;
+                if (DEBUG) Log.d(TAG, "isCoverArtSupported: " + isCoverArtSupported);
+            } else if(adapterService.getProfileInfo(AbstractionLayer.AVRCP, AbstractionLayer.AVRCP_COVERART_SUPPORT)){
+                isCoverArtSupported = true;
+                if (DEBUG) Log.d(TAG, "isCoverArtSupported: " + isCoverArtSupported);
+            }
+        }
 
         /* create object to communicate with addressed player */
         mAddressedMediaPlayer = new AddressedMediaPlayer(mAvrcpMediaRsp);
@@ -1369,6 +1384,7 @@ public final class Avrcp {
 
         Message msg = handler.obtainMessage(MSG_SET_ABSOLUTE_VOLUME, volume, 0);
         handler.sendMessage(msg);
+        Log.v(TAG, "Exit setAbsoluteVolume");
     }
 
     /* Called in the native layer as a btrc_callback to return the volume set on the carkit in the

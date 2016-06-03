@@ -70,9 +70,9 @@ static struct {
   jmethodID constructor;
 } android_bluetooth_UidTraffic;
 
-static const bt_interface_t* sBluetoothInterface = NULL;
-static const btsock_interface_t* sBluetoothSocketInterface = NULL;
-static JNIEnv* callbackEnv = NULL;
+static const bt_interface_t *sBluetoothInterface = NULL;
+static const btsock_interface_t *sBluetoothSocketInterface = NULL;
+static JNIEnv *callbackEnv = NULL;
 
 static jobject sJniAdapterServiceObj = NULL;
 static jobject sJniCallbacksObj = NULL;
@@ -1376,6 +1376,12 @@ jint JNI_OnLoad(JavaVM *jvm, void *reserved) {
   status = android::register_com_android_bluetooth_sdp(e);
   if (status < 0) {
     ALOGE("jni sdp registration failure: %d", status);
+    return JNI_ERR;
+  }
+
+  status = android::register_com_android_bluetooth_btservice_vendor(e);
+  if (status < 0) {
+    ALOGE("jni vendor registration failure: %d", status);
     return JNI_ERR;
   }
 
