@@ -40,7 +40,7 @@ import java.util.Stack;
  ************************************************************************************************/
 
 class BrowsedMediaPlayer {
-    private static final boolean DEBUG = false;
+    private static final boolean DEBUG = Avrcp.DEBUG;
     private static final String TAG = "BrowsedMediaPlayer";
 
     /* connection state with MediaBrowseService */
@@ -732,8 +732,8 @@ class BrowsedMediaPlayer {
                     break;
 
                 case AvrcpConstants.ATTRID_COVER_ART:
-                    Log.e(TAG, "getAttrValue: Cover art attribute not supported");
-                    return null;
+                    attrValue = Avrcp.getImgHandleFromTitle(desc.getTitle().toString());
+                    break;
 
                 default:
                     Log.e(TAG, "getAttrValue: Unknown attribute ID requested: " + attr);

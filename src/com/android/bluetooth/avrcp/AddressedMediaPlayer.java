@@ -42,7 +42,7 @@ import java.util.List;
 
 public class AddressedMediaPlayer {
     private static final String TAG = "AddressedMediaPlayer";
-    private static final Boolean DEBUG = false;
+    private static final Boolean DEBUG = Avrcp.DEBUG;
 
     private static final long SINGLE_QID = 1;
     private static final String UNKNOWN_TITLE = "(unknown)";
@@ -465,8 +465,8 @@ public class AddressedMediaPlayer {
                     break;
 
                 case AvrcpConstants.ATTRID_COVER_ART:
-                    Log.e(TAG, "getAttrValue: Cover art attribute not supported");
-                    return null;
+                    attrValue = Avrcp.getImgHandleFromTitle(desc.getTitle().toString());
+                    break;
 
                 default:
                     Log.e(TAG, "getAttrValue: Unknown attribute ID requested: " + attr);

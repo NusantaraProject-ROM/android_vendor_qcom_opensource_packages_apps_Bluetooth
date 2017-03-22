@@ -44,6 +44,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 import android.os.UserManager;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -71,9 +72,14 @@ import java.util.TreeMap;
  ******************************************************************************/
 
 public final class Avrcp {
-    private static final boolean DEBUG = true;
+    static final boolean DEBUG = true;
     private static final String TAG = "Avrcp";
     private static final String ABSOLUTE_VOLUME_BLACKLIST = "absolute_volume_blacklist";
+    private static final String AVRCP_VERSION_PROPERTY = "persist.bluetooth.avrcpversion";
+    private static final String AVRCP_1_4_STRING = "avrcp14";
+    private static final String AVRCP_1_5_STRING = "avrcp15";
+    private static final String AVRCP_1_6_STRING = "avrcp16";
+    private static final String AVRCP_NOTIFICATION_ID = "avrcp_notification";
 
     private Context mContext;
     private final AudioManager mAudioManager;
@@ -187,6 +193,8 @@ public final class Avrcp {
     /* Manage browsed players */
     private AvrcpBrowseManager mAvrcpBrowseManager;
 
+    /* BIP Responder */
+    static private AvrcpBipRsp mAvrcpBipRsp;
     /* Broadcast receiver for device connections intent broadcasts */
     private final BroadcastReceiver mAvrcpReceiver = new AvrcpServiceBroadcastReceiver();
     private final BroadcastReceiver mBootReceiver = new AvrcpServiceBootReceiver();
@@ -276,7 +284,7 @@ public final class Avrcp {
         mContext = context;
         mLastUsedPlayerID = 0;
         mAddressedMediaPlayer = null;
-
+        mAvrcpBipRsp = null;
         initNative();
 
         mMediaSessionManager =
@@ -340,11 +348,19 @@ public final class Avrcp {
             if (adapterService.getProfileInfo(AbstractionLayer.AVRCP, AbstractionLayer.AVRCP_0103_SUPPORT))
             {
                 isCoverArtSupported = false;
-                if (DEBUG) Log.d(TAG, "isCoverArtSupported: " + isCoverArtSupported);
             } else if(adapterService.getProfileInfo(AbstractionLayer.AVRCP, AbstractionLayer.AVRCP_COVERART_SUPPORT)){
                 isCoverArtSupported = true;
-                if (DEBUG) Log.d(TAG, "isCoverArtSupported: " + isCoverArtSupported);
             }
+        }
+        String avrcpVersion = SystemProperties.get(AVRCP_VERSION_PROPERTY, AVRCP_1_4_STRING);
+        if (DEBUG) Log.d(TAG, "avrcpVersion: " + avrcpVersion
+                + " isCoverArtSupported :"+isCoverArtSupported);
+        /* Enable Cover Art support is version is 1.6 and flag is set in config */
+        if (isCoverArtSupported && avrcpVersion != null &&
+            avrcpVersion.equals(AVRCP_1_6_STRING)) {
+            mAvrcpBipRsp = new AvrcpBipRsp(mContext);
+            mAvrcpBipRsp.start();
+            if (DEBUG) Log.d(TAG, "Starting AVRCP BIP Responder Service");
         }
 
         /* create object to communicate with addressed player */
@@ -399,7 +415,10 @@ public final class Avrcp {
         if (looper != null) {
             looper.quitSafely();
         }
-
+        if (mAvrcpBipRsp != null) {
+            mAvrcpBipRsp.stop();
+            mAvrcpBipRsp = null;
+        }
         mAudioManagerPlaybackHandler = null;
         mContext.unregisterReceiver(mAvrcpReceiver);
         mContext.unregisterReceiver(mBootReceiver);
@@ -904,6 +923,7 @@ public final class Avrcp {
         private String mMediaTotalNumber;
         private String mGenre;
         private long mPlayingTimeMs;
+        private String coverArt;
 
         private static final int ATTR_TITLE = 1;
         private static final int ATTR_ARTIST_NAME = 2;
@@ -912,6 +932,7 @@ public final class Avrcp {
         private static final int ATTR_MEDIA_TOTAL_NUMBER = 5;
         private static final int ATTR_GENRE = 6;
         private static final int ATTR_PLAYING_TIME_MS = 7;
+        private static final int ATTR_COVER_ART = 8;
 
 
         MediaAttributes(MediaMetadata data) {
@@ -927,6 +948,11 @@ public final class Avrcp {
                     longStringOrBlank(data.getLong(MediaMetadata.METADATA_KEY_NUM_TRACKS));
             mGenre = stringOrBlank(data.getString(MediaMetadata.METADATA_KEY_GENRE));
             mPlayingTimeMs = data.getLong(MediaMetadata.METADATA_KEY_DURATION);
+            if (mAvrcpBipRsp != null) {
+                coverArt = stringOrBlank(mAvrcpBipRsp.getImgHandle(mAlbumName));
+            } else {
+                coverArt = stringOrBlank(null);
+            }
 
             // Try harder for the title.
             mTitle = data.getString(MediaMetadata.METADATA_KEY_TITLE);
@@ -969,7 +995,8 @@ public final class Avrcp {
             return (mTitle.equals(other.mTitle)) && (mArtistName.equals(other.mArtistName))
                     && (mAlbumName.equals(other.mAlbumName)) && (mMediaNumber.equals(
                     other.mMediaNumber)) && (mMediaTotalNumber.equals(other.mMediaTotalNumber))
-                    && (mGenre.equals(other.mGenre)) && (mPlayingTimeMs == other.mPlayingTimeMs);
+                    && (mGenre.equals(other.mGenre)) && (mPlayingTimeMs == other.mPlayingTimeMs)
+                    && (coverArt.equals(other.coverArt));
         }
 
         public String getString(int attrId) {
@@ -992,6 +1019,15 @@ public final class Avrcp {
                     return mGenre;
                 case ATTR_PLAYING_TIME_MS:
                     return Long.toString(mPlayingTimeMs);
+                case ATTR_COVER_ART:
+                    if (mAvrcpBipRsp != null) {
+                        /* Fetch coverArt Handle now in case OBEX channel is established just
+                        * before retrieving get element attribute. */
+                        coverArt = stringOrBlank(mAvrcpBipRsp.getImgHandle(mAlbumName));
+                    } else {
+                        coverArt = stringOrBlank(null);
+                    }
+                    return coverArt;
                 default:
                     return new String();
             }
@@ -1013,7 +1049,7 @@ public final class Avrcp {
 
             return "[MediaAttributes: " + mTitle + " - " + mAlbumName + " by " + mArtistName + " ("
                     + mPlayingTimeMs + " " + mMediaNumber + "/" + mMediaTotalNumber + ") " + mGenre
-                    + "]";
+                    + "- " + coverArt + "]";
         }
 
         public String toRedactedString() {
@@ -2166,6 +2202,8 @@ public final class Avrcp {
             featureBitsList.add(AvrcpConstants.AVRC_PF_UID_UNIQUE_BIT_NO);
             featureBitsList.add(AvrcpConstants.AVRC_PF_NOW_PLAY_BIT_NO);
             featureBitsList.add(AvrcpConstants.AVRC_PF_GET_NUM_OF_ITEMS_BIT_NO);
+            if (mAvrcpBipRsp != null)
+                featureBitsList.add(AvrcpConstants.AVRC_PF_COVER_ART_BIT_NO);
         }
 
         // converting arraylist to array for response
@@ -3130,4 +3168,9 @@ public final class Avrcp {
 
     private native boolean registerNotificationRspNowPlayingChangedNative(int type);
 
+    public static String getImgHandleFromTitle(String title) {
+        if (mAvrcpBipRsp != null && title != null)
+            return mAvrcpBipRsp.getImgHandle(mAvrcpBipRsp.getAlbumName(title));
+        return null;
+    }
 }

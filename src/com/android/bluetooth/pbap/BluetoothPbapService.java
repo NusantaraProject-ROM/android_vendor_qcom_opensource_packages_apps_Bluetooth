@@ -146,7 +146,7 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
     private static final int PBAP_NOTIFICATION_ID_START = 1000000;
     private static final int PBAP_NOTIFICATION_ID_END = 2000000;
 
-    private int mSdpHandle = -1;
+    protected int mSdpHandle = -1;
 
     protected Context mContext;
 
@@ -214,7 +214,7 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
                 if (access == BluetoothDevice.CONNECTION_ACCESS_YES) {
                     if (savePreference) {
                         device.setPhonebookAccessPermission(BluetoothDevice.ACCESS_ALLOWED);
-                        if (VERBOSE) {
+                        if (DEBUG) {
                             Log.v(TAG, "setPhonebookAccessPermission(ACCESS_ALLOWED)");
                         }
                     }
@@ -222,7 +222,7 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
                 } else {
                     if (savePreference) {
                         device.setPhonebookAccessPermission(BluetoothDevice.ACCESS_REJECTED);
-                        if (VERBOSE) {
+                        if (DEBUG) {
                             Log.v(TAG, "setPhonebookAccessPermission(ACCESS_REJECTED)");
                         }
                     }
@@ -300,11 +300,16 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         if (mSdpHandle > -1) {
             Log.w(TAG, "createSdpRecord, SDP record already created");
         }
-        mSdpHandle = SdpManager.getDefaultManager()
+        BluetoothPbapFixes.getFeatureSupport(mContext);
+        if (!BluetoothPbapFixes.isSupportedPbap12 || BluetoothPbapFixes.isSimSupported) {
+            BluetoothPbapFixes.createSdpRecord(mServerSockets, this);
+        } else {
+            mSdpHandle = SdpManager.getDefaultManager()
                 .createPbapPseRecord("OBEX Phonebook Access Server",
                         mServerSockets.getRfcommChannel(), mServerSockets.getL2capPsm(),
                         SDP_PBAP_SERVER_VERSION, SDP_PBAP_SUPPORTED_REPOSITORIES,
                         SDP_PBAP_SUPPORTED_FEATURES);
+        }
         if (DEBUG) {
             Log.d(TAG, "created Sdp record, mSdpHandle=" + mSdpHandle);
         }
@@ -341,7 +346,9 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
 
             switch (msg.what) {
                 case START_LISTENER:
-                    mServerSockets = ObexServerSockets.create(BluetoothPbapService.this);
+                    mServerSockets = ObexServerSockets.createWithFixedChannels
+                            (sBluetoothPbapService, SdpManager.PBAP_RFCOMM_CHANNEL,
+                            SdpManager.PBAP_L2CAP_PSM);
                     if (mServerSockets == null) {
                         Log.w(TAG, "ObexServerSockets.create() returned null");
                         break;

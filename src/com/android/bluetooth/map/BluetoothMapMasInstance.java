@@ -287,9 +287,12 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
             mAcceptNewConnections = true;
         } else {
 
-            mServerSockets = ObexServerSockets.create(this);
-            mAcceptNewConnections = true;
+            mServerSockets = ObexServerSockets.createWithFixedChannels(this,
+                    (SdpManager.MAP_RFCOMM_CHANNEL +
+                        SdpManager.NEXT_RFCOMM_CHANNEL * mMasInstanceId),
+                    (SdpManager.MAP_L2CAP_PSM + SdpManager.NEXT_L2CAP_CHANNEL * mMasInstanceId));
 
+            mAcceptNewConnections = true;
             if (mServerSockets == null) {
                 // TODO: Handle - was not handled before
                 Log.e(mTag, "Failed to start the listeners");
@@ -361,12 +364,27 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
 
             mMnsClient = mnsClient;
             BluetoothMapObexServer mapServer;
-            mObserver = new BluetoothMapContentObserver(mContext, mMnsClient, this, mAccount,
-                    mEnableSmsMms);
+            if (mAccount != null && mAccount.getType() == TYPE.EMAIL) {
+                Log.d(mTag, "startObexServerSession getType = " + mAccount.getType());
+                mObserver = new  BluetoothMapContentObserverEmail(mContext,
+                                                         mMnsClient,
+                                                         this,
+                                                         mAccount,
+                                                         mEnableSmsMms);
+            } else {
+                mObserver = new  BluetoothMapContentObserver(mContext,
+                                                         mMnsClient,
+                                                         this,
+                                                         mAccount,
+                                                         mEnableSmsMms);
+            }
             mObserver.init();
-            mapServer =
-                    new BluetoothMapObexServer(mServiceHandler, mContext, mObserver, this, mAccount,
-                            mEnableSmsMms);
+            mapServer = new BluetoothMapObexServer(mServiceHandler,
+                                                    mContext,
+                                                    mObserver,
+                                                    this,
+                                                    mAccount,
+                                                    mEnableSmsMms);
 
             // setup transport
             BluetoothObexTransport transport = new BluetoothObexTransport(mConnSocket);
@@ -398,7 +416,7 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
         return (mConnSocket != null);
     }
 
-    public void shutdown() {
+    public synchronized void shutdown() {
         if (D) {
             Log.d(mTag, "MAP Service shutdown");
         }
@@ -432,6 +450,7 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
 
 
     private synchronized void closeServerSockets(boolean block) {
+        if(V) Log.d(mTag, "closeServerSock");
         // exit SocketAcceptThread early
         ObexServerSockets sockets = mServerSockets;
         if (sockets != null) {
@@ -441,6 +460,7 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
     }
 
     private synchronized void closeConnectionSocket() {
+        if(V) Log.d(mTag, "closeConnectionSock");
         if (mConnSocket != null) {
             try {
                 mConnSocket.close();
@@ -452,11 +472,11 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
         }
     }
 
-    public void setRemoteFeatureMask(int supportedFeatures) {
-        if (V) {
-            Log.v(mTag, "setRemoteFeatureMask : Curr: " + mRemoteFeatureMask);
-        }
-        mRemoteFeatureMask = supportedFeatures & SDP_MAP_MAS_FEATURES;
+    public void setRemoteFeatureMask(int supportedFeatures, int remoteProfileVersion) {
+       Log.d(mTag, "Current Feature Mask: " + Integer.toHexString(mRemoteFeatureMask)
+               + ", remote feature Mask: " + Integer.toHexString(supportedFeatures));
+       mRemoteFeatureMask = remoteProfileVersion > SDP_MAP_MAS_VERSION ?
+                SDP_MAP_MAS_FEATURES : supportedFeatures;
         if (mObserver != null) {
             mObserver.setObserverRemoteFeatureMask(mRemoteFeatureMask);
             if (V) {
@@ -477,6 +497,7 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
         /* Signal to the service that we have received an incoming connection.
          */
         boolean isValid = mMapService.onConnect(device, BluetoothMapMasInstance.this);
+        if(V) Log.d(mTag, "onConnect");
 
         if (isValid) {
             mRemoteDevice = device;

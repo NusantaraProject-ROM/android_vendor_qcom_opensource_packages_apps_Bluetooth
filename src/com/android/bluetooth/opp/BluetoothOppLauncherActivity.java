@@ -61,7 +61,7 @@ import java.util.regex.Pattern;
  * selection dialog.
  */
 public class BluetoothOppLauncherActivity extends Activity {
-    private static final String TAG = "BluetoothLauncherActivity";
+    private static final String TAG = "BluetoothOppLauncherActivity";
     private static final boolean D = Constants.DEBUG;
     private static final boolean V = Constants.VERBOSE;
 
@@ -87,6 +87,12 @@ public class BluetoothOppLauncherActivity extends Activity {
                 finish();
                 return;
             }
+
+            /*
+             * SECURITY_EXCEPTION Google Photo grant-uri-permission
+             */
+            BTOppUtils.grantPermissionToUri(getApplicationContext(),
+                    intent.getClipData());
 
             /*
              * Other application is trying to share a file via Bluetooth,
@@ -167,7 +173,7 @@ public class BluetoothOppLauncherActivity extends Activity {
                                 launchDevicePicker();
                                 finish();
                             } catch (IllegalArgumentException exception) {
-                                showToast(exception.getMessage());
+                                Log.e(TAG, "SEND_MULTIPLE :" +exception.getMessage());
                                 finish();
                             }
                         }
@@ -407,7 +413,7 @@ public class BluetoothOppLauncherActivity extends Activity {
             launchDevicePicker();
             finish();
         } catch (IllegalArgumentException exception) {
-            showToast(exception.getMessage());
+            Log.e(TAG, "sendFileInfo :" + exception.getMessage());
             finish();
         }
     }

@@ -36,6 +36,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
+import android.database.CursorWindowAllocationException;
 import android.database.sqlite.SQLiteException;
 import android.net.Uri;
 import android.provider.OpenableColumns;
@@ -119,9 +120,12 @@ public class BluetoothOppSendFileInfo {
             } catch (SQLiteException e) {
                 // some content providers don't support the DISPLAY_NAME or SIZE columns
                 metadataCursor = null;
-            } catch (SecurityException e) {
+            } catch (SecurityException | NullPointerException e) {
                 Log.e(TAG, "generateFileInfo: Permission error, could not access URI: " + uri);
                 return SEND_FILE_INFO_ERROR;
+            } catch (CursorWindowAllocationException e) {
+                Log.e(TAG, " generateFileInfo :" + e);
+                throw new IllegalArgumentException(e.toString());
             }
 
             if (metadataCursor != null) {
@@ -170,6 +174,10 @@ public class BluetoothOppSendFileInfo {
                 // As a second source of getting the correct file length,
                 // get a file descriptor and get the stat length
                 AssetFileDescriptor fd = contentResolver.openAssetFileDescriptor(uri, "r");
+                if (fd == null) {
+                    Log.e(TAG, "fd is NULL");
+                    throw new IllegalArgumentException("Memory related error");
+                }
                 long statLength = fd.getLength();
                 if (length != statLength && statLength > 0) {
                     Log.e(TAG, "Content provider length is wrong (" + Long.toString(length)
@@ -201,6 +209,9 @@ public class BluetoothOppSendFileInfo {
                 }
             } catch (FileNotFoundException e) {
                 // Ignore
+            } catch (IllegalStateException e) {
+                Log.e(TAG, "Error generateFileInfo ", e);
+                return SEND_FILE_INFO_ERROR;
             }
         }
 
@@ -218,6 +229,9 @@ public class BluetoothOppSendFileInfo {
             } catch (FileNotFoundException e) {
                 return SEND_FILE_INFO_ERROR;
             } catch (IOException e) {
+                return SEND_FILE_INFO_ERROR;
+            } catch (IllegalStateException e) {
+                Log.e(TAG, "Error generateFileInfo ", e);
                 return SEND_FILE_INFO_ERROR;
             }
         }

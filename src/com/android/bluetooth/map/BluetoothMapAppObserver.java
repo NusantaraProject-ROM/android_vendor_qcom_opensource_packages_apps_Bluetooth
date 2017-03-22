@@ -23,12 +23,13 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.database.ContentObserver;
 import android.net.Uri;
+import android.os.SystemProperties;
 import android.util.Log;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.AbstractionLayer;
 
 import com.android.bluetooth.mapapi.BluetoothMapContract;
-
+import com.android.bluetooth.R;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -63,14 +64,19 @@ public class BluetoothMapAppObserver {
         mMapService = mapService;
         mResolver   = context.getContentResolver();
         AdapterService adapterService = AdapterService.getAdapterService();
-        boolean isEmailSupported =false;
+        boolean isEmailSupported = false;
 
         if (adapterService != null) {
             isEmailSupported = adapterService.getProfileInfo(AbstractionLayer.MAP, AbstractionLayer.MAP_EMAIL_SUPPORT);
             Log.d(TAG, "isEmailSupported: " + isEmailSupported);
         }
-
-        mLoader = new BluetoothMapAccountLoader(mContext);
+        if (isEmailSupported) {
+            mLoader = new BluetoothMapAccountEmailLoader(mContext);
+            SystemProperties.set("persist.bluetooth.emailaccountcount",
+                String.valueOf(mLoader.getAccountsEnabledCount()));
+        } else {
+            mLoader = new BluetoothMapAccountLoader(mContext);
+        }
         mFullList   = mLoader.parsePackages(false); /* Get the current list of apps */
         createReceiver();
         initObservers();

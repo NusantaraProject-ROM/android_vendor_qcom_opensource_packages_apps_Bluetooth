@@ -28,6 +28,7 @@ LOCAL_JAVA_LIBRARIES := javax.obex telephony-common libprotobuf-java-micro servi
 LOCAL_STATIC_JAVA_LIBRARIES := com.android.vcard bluetooth.mapsapi sap-api-java-static services.net
 LOCAL_STATIC_ANDROID_LIBRARIES := \
         android-support-v4
+LOCAL_STATIC_JAVA_LIBRARIES += com.android.emailcommon
 LOCAL_PROTOC_OPTIMIZE_TYPE := micro
 
 LOCAL_REQUIRED_MODULES := libbluetooth

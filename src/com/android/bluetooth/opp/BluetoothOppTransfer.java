@@ -123,7 +123,7 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
                     }
                     if ((device.equals(mBatch.mDestination)) && (mCurrentShare.mConfirm
                             == BluetoothShare.USER_CONFIRMATION_PENDING)) {
-                        if (V) {
+                        if (D) {
                             Log.v(TAG, "ACTION_ACL_DISCONNECTED to be processed for batch: "
                                     + mBatch.mId);
                         }
@@ -203,6 +203,7 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
 
         @Override
         public void handleMessage(Message msg) {
+            Log.i(TAG, " handleMessage :" + msg.what);
             switch (msg.what) {
                 case SOCKET_ERROR_RETRY:
                     mConnectThread = new SocketConnectThread((BluetoothDevice) msg.obj, true);
@@ -217,7 +218,7 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
                     if (V) {
                         Log.v(TAG, "receive TRANSPORT_ERROR msg");
                     }
-                    mConnectThread = null;
+
                     markBatchFailed(BluetoothShare.STATUS_CONNECTION_ERROR);
                     mBatch.mStatus = Constants.BATCH_STATUS_FAILED;
 
@@ -230,7 +231,7 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
                     if (V) {
                         Log.v(TAG, "Transfer receive TRANSPORT_CONNECTED msg");
                     }
-                    mConnectThread = null;
+
                     mTransport = (ObexTransport) msg.obj;
                     startObexSession();
 
@@ -502,14 +503,14 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
      * Stop the transfer
      */
     public void stop() {
-        if (V) {
+        if (D) {
             Log.v(TAG, "stop");
         }
         cleanUp();
         if (mConnectThread != null) {
             try {
                 mConnectThread.interrupt();
-                if (V) {
+                if (D) {
                     Log.v(TAG, "waiting for connect thread to terminate");
                 }
                 mConnectThread.join();
@@ -519,6 +520,7 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
                 }
             }
             mConnectThread = null;
+            if (D) Log.d(TAG, "mConnectThread terminated");
         }
         if (mSession != null) {
             if (V) {
@@ -730,7 +732,7 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
             try {
                 mBtSocket.connect();
 
-                if (V) {
+                if (D) {
                     Log.v(TAG,
                             "Rfcomm socket connection attempt took " + (System.currentTimeMillis()
                                     - mTimestamp) + " ms");
@@ -798,7 +800,7 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
             }
             try {
                 mBtSocket.connect();
-                if (V) {
+                if (D) {
                     Log.v(TAG, "L2cap socket connection attempt took " + (System.currentTimeMillis()
                             - mTimestamp) + " ms");
                 }

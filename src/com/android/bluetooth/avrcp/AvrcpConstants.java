@@ -16,6 +16,8 @@
 
 package com.android.bluetooth.avrcp;
 
+import android.util.Log;
+
 /*************************************************************************************************
  * Grouped all HAL constants into a file to be consistent with the stack.
  * Moved the constants used in Avrcp to this new file to be used across multiple files.
@@ -145,7 +147,7 @@ final class AvrcpConstants {
     static final short AVRC_PF_UID_UNIQUE_BIT_NO = 62;
     static final short AVRC_PF_NOW_PLAY_BIT_NO = 65;
     static final short AVRC_PF_GET_NUM_OF_ITEMS_BIT_NO = 67;
-
+    static final short AVRC_PF_COVER_ART_BIT_NO = 68;
     static final byte PLAYER_TYPE_AUDIO = 1;
     static final int PLAYER_SUBTYPE_NONE = 0;
 
@@ -162,4 +164,6 @@ final class AvrcpConstants {
 
     static final int KEY_STATE_PRESS = 1;
     static final int KEY_STATE_RELEASE = 0;
+    public static final String TAG = "Avrcp";
+    public static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
 }
