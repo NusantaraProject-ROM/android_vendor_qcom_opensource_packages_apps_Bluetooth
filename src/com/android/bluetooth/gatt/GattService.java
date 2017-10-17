@@ -2055,6 +2055,20 @@ public class GattService extends ProfileService {
         }
     }
 
+    boolean isScanClient(int clientIf) {
+        for (ScanClient client : mScanManager.getRegularScanQueue()) {
+            if (client.scannerId == clientIf) {
+                return true;
+            }
+        }
+        for (ScanClient client : mScanManager.getBatchScanQueue()) {
+            if (client.scannerId == clientIf) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     void unregAll() {
         for (Integer appId : mClientMap.getAllAppsIds()) {
             if (DBG) {
@@ -2062,6 +2076,19 @@ public class GattService extends ProfileService {
             }
             unregisterClient(appId);
         }
+        for (Integer appId : mServerMap.getAllAppsIds()) {
+            if (DBG) Log.d(TAG, "unreg:" + appId);
+            unregisterServer(appId);
+        }
+        for (Integer appId : mScannerMap.getAllAppsIds()) {
+            if (DBG) Log.d(TAG, "unreg:" + appId);
+            if (isScanClient(appId)) {
+                ScanClient client = new ScanClient(appId);
+                stopScan(client);
+                unregisterScanner(appId);
+            }
+        }
+        mAdvertiseManager.stopAdvertisingSets();
     }
 
     /**************************************************************************

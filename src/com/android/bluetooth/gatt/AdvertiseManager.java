@@ -394,6 +394,29 @@ class AdvertiseManager {
         callback.onPeriodicAdvertisingEnabled(advertiserId, enable, status);
     }
 
+    void stopAdvertisingSets() {
+        Log.d(TAG, "stopAdvertisingSets()");
+        for (Map.Entry<IBinder, AdvertiserInfo> entry : mAdvertisers.entrySet()) {
+            Integer advertiser_id = entry.getValue().id;
+            IAdvertisingSetCallback callback = entry.getValue().callback;
+            IBinder binder = toBinder(callback);
+            binder.unlinkToDeath(entry.getValue().deathRecipient, 0);
+
+            if (advertiser_id < 0) {
+                Log.i(TAG, "stopAdvertisingSets() - advertiser not finished registration yet");
+                continue;
+            }
+
+            stopAdvertisingSetNative(advertiser_id);
+
+            try {
+                callback.onAdvertisingSetStopped(advertiser_id);
+            } catch (RemoteException e) {
+                Log.i(TAG, "error sending onAdvertisingSetStopped callback", e);
+            }
+        }
+    }
+
     static {
         classInitNative();
     }
