@@ -28,6 +28,9 @@ import com.android.bluetooth.Utils;
 
 import java.util.HashMap;
 
+/**
+ * Base class for a background service that runs a Bluetooth profile
+ */
 public abstract class ProfileService extends Service {
     private static final boolean DBG = false;
     private static final String TAG = "BluetoothProfileService";
@@ -41,7 +44,10 @@ public abstract class ProfileService extends Service {
             android.Manifest.permission.BLUETOOTH_PRIVILEGED;
 
     public interface IProfileServiceBinder extends IBinder {
-        boolean cleanup();
+        /**
+         * Called in {@link #onDestroy()}
+         */
+        void cleanup();
     }
 
     //Profile services will not be automatically restarted.
@@ -61,17 +67,36 @@ public abstract class ProfileService extends Service {
         return !mStartError && !mCleaningUp;
     }
 
+    /**
+     * Called in {@link #onCreate()} to init binder interface for this profile service
+     *
+     * @return initialized binder interface for this profile service
+     */
     protected abstract IProfileServiceBinder initBinder();
 
-    protected abstract boolean start();
-
-    protected abstract boolean stop();
-
+    /**
+     * Called in {@link #onCreate()} to init basic stuff in this service
+     */
     protected void create() {}
 
-    protected boolean cleanup() {
-        return true;
-    }
+    /**
+     * Called in {@link #onStartCommand(Intent, int, int)} when the service is started by intent
+     *
+     * @return True in successful condition, False otherwise
+     */
+    protected abstract boolean start();
+
+    /**
+     * Called in {@link #onStartCommand(Intent, int, int)} when the service is stopped by intent
+     *
+     * @return True in successful condition, False otherwise
+     */
+    protected abstract boolean stop();
+
+    /**
+     * Called in {@link #onDestroy()} when this object is completely discarded
+     */
+    protected void cleanup() {}
 
     protected ProfileService() {
         mName = getName();
@@ -239,7 +264,7 @@ public abstract class ProfileService extends Service {
             if (!mStartError) {
                 notifyProfileServiceStateChanged(BluetoothAdapter.STATE_ON);
             } else {
-                Log.e(mName, "Error starting profile. BluetoothAdapter is null");
+                Log.e(mName, "Error starting profile. start() returned false.");
             }
         }
     }

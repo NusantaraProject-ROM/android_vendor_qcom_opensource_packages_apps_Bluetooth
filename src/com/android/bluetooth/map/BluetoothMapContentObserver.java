@@ -762,7 +762,9 @@ public class BluetoothMapContentObserver {
                             subject.substring(0, subject.length() < 256 ? subject.length() : 256));
                 }
                 if (senderName != null) {
-                    xmlEvtReport.attribute("", "sender_name", senderName);
+                    xmlEvtReport.attribute("", "sender_name",
+                            senderName.substring(
+                                    0, senderName.length() < 256 ? senderName.length() : 255));
                 }
                 if (priority != null) {
                     xmlEvtReport.attribute("", "priority", priority);
@@ -1428,6 +1430,9 @@ public class BluetoothMapContentObserver {
                                 String date = BluetoothMapUtils.getDateTimeString(
                                         c.getLong(c.getColumnIndex(Sms.DATE)));
                                 String subject = c.getString(c.getColumnIndex(Sms.BODY));
+                                if (subject == null) {
+                                    subject = "";
+                                }
                                 String name = "";
                                 String phone = "";
                                 if (type == 1) { //inbox
@@ -1592,6 +1597,9 @@ public class BluetoothMapContentObserver {
                                 if (subject == null || subject.length() == 0) {
                                     /* Get subject from mms text body parts - if any exists */
                                     subject = BluetoothMapContent.getTextPartsMms(mResolver, id);
+                                    if (subject == null) {
+                                        subject = "";
+                                    }
                                 }
                                 int tmpPri = c.getInt(c.getColumnIndex(Mms.PRIORITY));
                                 Log.d(TAG, "TEMP handleMsgListChangesMms, "
@@ -1600,6 +1608,10 @@ public class BluetoothMapContentObserver {
 
                                 String address = BluetoothMapContent.getAddressMms(mResolver, id,
                                         BluetoothMapContent.MMS_FROM);
+                                if (address == null) {
+                                    address = "";
+                                }
+
                                 String priority = "no";
                                 if (tmpPri == PduHeaders.PRIORITY_HIGH) {
                                     priority = "yes";
@@ -3164,8 +3176,13 @@ public class BluetoothMapContentObserver {
 
             Log.d(TAG, "sendMessage to " + msgInfo.phone);
 
-            smsMng.sendMultipartTextMessage(msgInfo.phone, null, parts, sentIntents,
-                    deliveryIntents);
+            if (parts.size() == 1) {
+                smsMng.sendTextMessageWithoutPersisting(msgInfo.phone, null, parts.get(0),
+                        sentIntents.get(0), deliveryIntents.get(0));
+            } else {
+                smsMng.sendMultipartTextMessageWithoutPersisting(msgInfo.phone, null, parts,
+                        sentIntents, deliveryIntents);
+            }
         }
     }
 
@@ -3626,8 +3643,10 @@ public class BluetoothMapContentObserver {
             mSmsBroadcastReceiver.unregister();
         }
         unRegisterPhoneServiceStateListener();
-        failPendingMessages();
-        removeDeletedMessages();
+        if (UserManager.get(mContext).isUserUnlocked()) {
+            failPendingMessages();
+            removeDeletedMessages();
+        }
     }
 
     public boolean handleSmsSendIntent(Context context, Intent intent) {

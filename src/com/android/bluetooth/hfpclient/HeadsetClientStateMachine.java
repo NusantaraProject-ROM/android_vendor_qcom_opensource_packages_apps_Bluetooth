@@ -786,9 +786,6 @@ public class HeadsetClientStateMachine extends StateMachine {
             mQueuedActions = new LinkedList<Pair<Integer, Object>>();
             clearPendingAction();
 
-
-            mCurrentDevice = null;
-
             mCalls.clear();
             mCallsUpdate.clear();
 
@@ -807,6 +804,7 @@ public class HeadsetClientStateMachine extends StateMachine {
                 Log.e(TAG, "Connected: Illegal state transition from " + mPrevState.getName()
                         + " to Connecting, mCurrentDevice=" + mCurrentDevice);
             }
+            mCurrentDevice = null;
         }
 
         @Override
@@ -1226,19 +1224,12 @@ public class HeadsetClientStateMachine extends StateMachine {
                     }
                     break;
                 case QUERY_CURRENT_CALLS:
-                    // Whenever the timer expires we query calls if there are outstanding requests
-                    // for query calls.
-                    long currentElapsed = SystemClock.elapsedRealtime();
-                    if (mClccTimer < currentElapsed) {
-                        queryCallsStart();
-                        mClccTimer = currentElapsed + QUERY_CURRENT_CALLS_WAIT_MILLIS;
-                        // Request satisfied, ignore all other call query messages.
-                        removeMessages(QUERY_CURRENT_CALLS);
-                    } else {
-                        // Replace all messages with one concrete message.
-                        removeMessages(QUERY_CURRENT_CALLS);
+                    removeMessages(QUERY_CURRENT_CALLS);
+                    if (mCalls.size() > 0) {
+                        // If there are ongoing calls periodically check their status.
                         sendMessageDelayed(QUERY_CURRENT_CALLS, QUERY_CURRENT_CALLS_WAIT_MILLIS);
                     }
+                    queryCallsStart();
                     break;
                 case StackEvent.STACK_EVENT:
                     Intent intent = null;

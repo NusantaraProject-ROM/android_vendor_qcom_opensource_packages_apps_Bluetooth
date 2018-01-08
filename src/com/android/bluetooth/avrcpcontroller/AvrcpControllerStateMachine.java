@@ -423,6 +423,14 @@ class AvrcpControllerStateMachine extends StateMachine {
                         mAddressedPlayer.updateCurrentTrack((TrackInfo) msg.obj);
                         broadcastMetaDataChanged(
                                 mAddressedPlayer.getCurrentTrack().getMediaMetaData());
+
+                        //update playerList
+                        byte start = (byte) 0b00000000;
+                        byte end = (byte) 0b11111111;
+                        AvrcpControllerService.getPlayerListNative(
+                                mRemoteDevice.getBluetoothAddress(), start, end);
+                        transitionTo(mGetPlayerListing);
+                        sendMessageDelayed(MESSAGE_INTERNAL_CMD_TIMEOUT, CMD_TIMEOUT_MILLIS);
                         break;
 
                     case MESSAGE_PROCESS_PLAY_POS_CHANGED:
@@ -536,9 +544,10 @@ class AvrcpControllerStateMachine extends StateMachine {
 
         @Override
         public void enter() {
+            // Setup the timeouts.
+            super.enter();
             mCurrInd = 0;
             mFolderList.clear();
-
             callNativeFunctionForScope(mStartInd,
                     Math.min(mEndInd, mStartInd + GET_FOLDER_ITEMS_PAGINATION_SIZE - 1));
         }
@@ -735,6 +744,11 @@ class AvrcpControllerStateMachine extends StateMachine {
                     }
 
                     sendMessage(MESSAGE_INTERNAL_MOVE_N_LEVELS_UP);
+                    break;
+
+                case MESSAGE_INTERNAL_CMD_TIMEOUT:
+                    broadcastFolderList(BrowseTree.ROOT, EMPTY_MEDIA_ITEM_LIST);
+                    transitionTo(mConnected);
                     break;
 
                 default:

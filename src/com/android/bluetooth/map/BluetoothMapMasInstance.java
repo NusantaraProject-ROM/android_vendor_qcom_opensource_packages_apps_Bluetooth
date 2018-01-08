@@ -257,9 +257,12 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
         return combinedVersionCounter;
     }
 
-    public synchronized void startRfcommSocketListener() {
+    /**
+     * Start Obex Server Sockets and create the SDP record.
+     */
+    public synchronized void startSocketListeners() {
         if (D) {
-            Log.d(mTag, "Map Service startRfcommSocketListener");
+            Log.d(mTag, "Map Service startSocketListeners");
         }
 
         if (mServerSession != null) {
@@ -410,8 +413,9 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
         removeSdpRecord();
 
         closeConnectionSocket();
-
-        closeServerSockets(true);
+        // Do not block for Accept thread cleanup.
+        // Fix Handler Thread block during BT Turn OFF.
+        closeServerSockets(false);
     }
 
     /**
@@ -421,7 +425,7 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
         if (D) {
             Log.d(mTag, "MAP Service restartObexServerSession()");
         }
-        startRfcommSocketListener();
+        startSocketListeners();
     }
 
 
@@ -489,7 +493,7 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
             Log.e(mTag, "Failed to accept incomming connection - " + "shutdown");
         } else {
             Log.e(mTag, "Failed to accept incomming connection - " + "restarting");
-            startRfcommSocketListener();
+            startSocketListeners();
         }
     }
 

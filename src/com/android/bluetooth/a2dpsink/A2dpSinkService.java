@@ -80,12 +80,11 @@ public class A2dpSinkService extends ProfileService {
     }
 
     @Override
-    protected boolean cleanup() {
+    protected void cleanup() {
         if (mStateMachine != null) {
             mStateMachine.cleanup();
         }
         clearA2dpSinkService();
-        return true;
     }
 
     //API Methods
@@ -228,6 +227,19 @@ public class A2dpSinkService extends ProfileService {
         }
     }
 
+    /**
+     * Called by AVRCP controller to establish audio focus.
+     *
+     * In order to perform streaming the A2DP sink must have audio focus.  This interface allows the
+     * associated MediaSession to inform the sink of intent to play and then allows streaming to be
+     * started from either the source or the sink endpoint.
+     */
+    public void requestAudioFocus(BluetoothDevice device, boolean request) {
+        if (mStateMachine != null) {
+            mStateMachine.sendMessage(A2dpSinkStateMachine.EVENT_REQUEST_FOCUS);
+        }
+    }
+
     synchronized boolean isA2dpPlaying(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         if (DBG) {
@@ -263,9 +275,8 @@ public class A2dpSinkService extends ProfileService {
         }
 
         @Override
-        public boolean cleanup() {
+        public void cleanup() {
             mService = null;
-            return true;
         }
 
         @Override

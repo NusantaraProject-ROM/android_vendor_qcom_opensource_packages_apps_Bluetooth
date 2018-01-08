@@ -668,31 +668,6 @@ static jboolean cindResponseNative(JNIEnv* env, jobject object, jint service,
   return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
 }
 
-static jboolean bindResponseNative(JNIEnv* env, jobject object, jint ind_id,
-                                   jboolean ind_status, jbyteArray address) {
-  ALOGI("%s: sBluetoothHfpInterface: %p", __func__, sBluetoothHfpInterface);
-
-  std::shared_lock<std::shared_timed_mutex> lock(interface_mutex);
-  if (!sBluetoothHfpInterface) return JNI_FALSE;
-
-  jbyte* addr = env->GetByteArrayElements(address, NULL);
-  if (!addr) {
-    jniThrowIOException(env, EINVAL);
-    return JNI_FALSE;
-  }
-
-  bt_status_t status = sBluetoothHfpInterface->bind_response(
-      (bthf_hf_ind_type_t)ind_id,
-      ind_status ? BTHF_HF_IND_ENABLED : BTHF_HF_IND_DISABLED,
-      (RawAddress*)addr);
-
-  if (status != BT_STATUS_SUCCESS)
-    ALOGE("%s: Failed bind_response, status: %d", __func__, status);
-
-  env->ReleaseByteArrayElements(address, addr, 0);
-  return (status == BT_STATUS_SUCCESS ? JNI_TRUE : JNI_FALSE);
-}
-
 static jboolean atResponseStringNative(JNIEnv* env, jobject object,
                                        jstring response_str,
                                        jbyteArray address) {
@@ -786,8 +761,21 @@ static jboolean phoneStateChangeNative(JNIEnv* env, jobject object,
   return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
 }
 
-static jboolean configureWBSNative(JNIEnv* env, jobject object,
-                                   jbyteArray address, jint codec_config) {
+static jboolean setScoAllowedNative(JNIEnv* env, jobject object,
+                                    jboolean value) {
+  std::shared_lock<std::shared_timed_mutex> lock(interface_mutex);
+  if (!sBluetoothHfpInterface) return JNI_FALSE;
+
+  bt_status_t status =
+      sBluetoothHfpInterface->set_sco_allowed(value == JNI_TRUE);
+  if (status != BT_STATUS_SUCCESS) {
+    ALOGE("Failed HF set sco allowed, status: %d", status);
+  }
+  return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
+}
+
+static jboolean sendBsirNative(JNIEnv* env, jobject object, jboolean value,
+                               jbyteArray address) {
   std::shared_lock<std::shared_timed_mutex> lock(interface_mutex);
   if (!sBluetoothHfpInterface) return JNI_FALSE;
 
@@ -797,23 +785,10 @@ static jboolean configureWBSNative(JNIEnv* env, jobject object,
     return JNI_FALSE;
   }
 
-  bt_status_t status = sBluetoothHfpInterface->configure_wbs(
-      (RawAddress*)addr, (bthf_wbs_config_t)codec_config);
-  if (status != BT_STATUS_SUCCESS) {
-    ALOGE("Failed HF WBS codec config, status: %d", status);
-  }
-  env->ReleaseByteArrayElements(address, addr, 0);
-  return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
-}
-
-static jboolean setScoAllowedNative(JNIEnv* env, jobject object,
-                                    jboolean value) {
-  if (!sBluetoothHfpInterface) return JNI_FALSE;
-
   bt_status_t status =
-      sBluetoothHfpInterface->set_sco_allowed(value == JNI_TRUE);
+      sBluetoothHfpInterface->send_bsir(value == JNI_TRUE, (RawAddress*)addr);
   if (status != BT_STATUS_SUCCESS) {
-    ALOGE("Failed HF set sco allowed, status: %d", status);
+    ALOGE("Failed sending BSIR, value=%d, status=%d", value, status);
   }
   return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
 }
@@ -834,7 +809,6 @@ static JNINativeMethod sMethods[] = {
     {"copsResponseNative", "(Ljava/lang/String;[B)Z",
      (void*)copsResponseNative},
     {"cindResponseNative", "(IIIIIII[B)Z", (void*)cindResponseNative},
-    {"bindResponseNative", "(IZ[B)Z", (void*)bindResponseNative},
     {"atResponseStringNative", "(Ljava/lang/String;[B)Z",
      (void*)atResponseStringNative},
     {"atResponseCodeNative", "(II[B)Z", (void*)atResponseCodeNative},
@@ -842,13 +816,13 @@ static JNINativeMethod sMethods[] = {
      (void*)clccResponseNative},
     {"phoneStateChangeNative", "(IIILjava/lang/String;I)Z",
      (void*)phoneStateChangeNative},
-    {"configureWBSNative", "([BI)Z", (void*)configureWBSNative},
     {"setScoAllowedNative", "(Z)Z", (void*)setScoAllowedNative},
+    {"sendBsirNative", "(Z[B)Z", (void*)sendBsirNative},
 };
 
 int register_com_android_bluetooth_hfp(JNIEnv* env) {
   return jniRegisterNativeMethods(
-      env, "com/android/bluetooth/hfp/HeadsetStateMachine", sMethods,
+      env, "com/android/bluetooth/hfp/HeadsetNativeInterface", sMethods,
       NELEM(sMethods));
 }
 

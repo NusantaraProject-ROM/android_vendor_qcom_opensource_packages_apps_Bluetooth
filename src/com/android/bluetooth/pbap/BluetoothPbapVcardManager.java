@@ -691,6 +691,8 @@ public class BluetoothPbapVcardManager {
             int vcardType;
             if (vcardType21) {
                 vcardType = VCardConfig.VCARD_TYPE_V21_GENERIC;
+                vcardType |= VCardConfig.FLAG_CONVERT_PHONETIC_NAME_STRINGS;
+                vcardType |= VCardConfig.FLAG_REFRAIN_QP_TO_NAME_PROPERTIES;
             } else {
                 vcardType = VCardConfig.VCARD_TYPE_V30_GENERIC;
             }
@@ -970,10 +972,20 @@ public class BluetoothPbapVcardManager {
         String stripedVCard = "";
         for (int i = 0; i < attr.length; i++) {
             if (attr[i].startsWith("TEL")) {
-                attr[i] = attr[i].replace("(", "");
-                attr[i] = attr[i].replace(")", "");
-                attr[i] = attr[i].replace("-", "");
-                attr[i] = attr[i].replace(" ", "");
+                String[] vTagAndTel = attr[i].split(":", 2);
+                int telLenBefore = vTagAndTel[1].length();
+                // Remove '-', '(', ')' or ' ' from TEL number
+                vTagAndTel[1] = vTagAndTel[1].replace("-", "")
+                                             .replace("(", "")
+                                             .replace(")", "")
+                                             .replace(" ", "");
+                if (vTagAndTel[1].length() < telLenBefore) {
+                    if (V) {
+                        Log.v(TAG, "Fixing vCard TEL to " + vTagAndTel[1]);
+                    }
+                    attr[i] = new StringBuilder().append(vTagAndTel[0]).append(":")
+                                                 .append(vTagAndTel[1]).toString();
+                }
             }
         }
 
@@ -1064,6 +1076,7 @@ public class BluetoothPbapVcardManager {
             TITLE(12, "TITLE", false, false),
             ORG(16, "ORG", false, false),
             NOTE(17, "NOTE", false, false),
+            SOUND(19, "SOUND", false, false),
             URL(20, "URL", false, false),
             NICKNAME(23, "NICKNAME", false, true),
             DATETIME(28, "X-IRMC-CALL-DATETIME", false, false);
