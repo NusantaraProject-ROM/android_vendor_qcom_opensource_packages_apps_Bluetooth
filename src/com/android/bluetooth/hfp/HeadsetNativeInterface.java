@@ -203,11 +203,11 @@ public class HeadsetNativeInterface {
      * Initialize native stack
      *
      * @param maxHfClients maximum number of headset clients that can be connected simultaneously
-     * @param inbandRingingSupported whether in-band ringing is supported on this AG
+     * @param inbandRingingEnabled whether in-band ringing is enabled on this AG
      */
     @VisibleForTesting
-    public void init(int maxHfClients, boolean inbandRingingSupported) {
-        initializeNative(maxHfClients, inbandRingingSupported);
+    public void init(int maxHfClients, boolean inbandRingingEnabled) {
+        initializeNative(maxHfClients, inbandRingingEnabled);
     }
 
     /**
@@ -433,6 +433,16 @@ public class HeadsetNativeInterface {
         return sendBsirNative(value, Utils.getByteAddress(device));
     }
 
+    /**
+     * Set the current active headset device for SCO audio
+     * @param device current active SCO device
+     * @return true on success
+     */
+    @VisibleForTesting
+    public boolean setActiveDevice(BluetoothDevice device) {
+        return setActiveDeviceNative(Utils.getByteAddress(device));
+    }
+
     /* Native methods */
     private static native void classInitNative();
 
@@ -440,7 +450,7 @@ public class HeadsetNativeInterface {
 
     private native boolean atResponseStringNative(String responseString, byte[] address);
 
-    private native void initializeNative(int maxHfClients, boolean inbandRingEnable);
+    private native void initializeNative(int maxHfClients, boolean inbandRingingEnabled);
 
     private native void cleanupNative();
 
@@ -475,4 +485,6 @@ public class HeadsetNativeInterface {
     private native boolean setScoAllowedNative(boolean value);
 
     private native boolean sendBsirNative(boolean value, byte[] address);
+
+    private native boolean setActiveDeviceNative(byte[] address);
 }
