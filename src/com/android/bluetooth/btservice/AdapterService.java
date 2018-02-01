@@ -66,6 +66,7 @@ import com.android.bluetooth.btservice.RemoteDevices.DeviceProperties;
 import com.android.bluetooth.gatt.GattService;
 import com.android.bluetooth.sdp.SdpManager;
 import com.android.internal.R;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.app.IBatteryStats;
 
 import java.io.FileDescriptor;
@@ -83,13 +84,9 @@ public class AdapterService extends Service {
     private static final String TAG = "BluetoothAdapterService";
     private static final boolean DBG = true;
     private static final boolean VERBOSE = false;
-    private static final boolean TRACE_REF = false;
     private static final int MIN_ADVT_INSTANCES_FOR_MA = 5;
     private static final int MIN_OFFLOADED_FILTERS = 10;
     private static final int MIN_OFFLOADED_SCAN_STORAGE_BYTES = 1024;
-    //For Debugging only
-    private static int sRefCount = 0;
-    private long mBluetoothStartTime = 0;
 
     private final Object mEnergyInfoLock = new Object();
     private int mStackReportedState;
@@ -137,39 +134,22 @@ public class AdapterService extends Service {
     private static AdapterService sAdapterService;
 
     public static synchronized AdapterService getAdapterService() {
-        if (sAdapterService != null && !sAdapterService.mCleaningUp) {
-            Log.d(TAG, "getAdapterService() - returning " + sAdapterService);
-            return sAdapterService;
-        }
-        if (DBG) {
-            if (sAdapterService == null) {
-                Log.d(TAG, "getAdapterService() - Service not available");
-            } else if (sAdapterService.mCleaningUp) {
-                Log.d(TAG, "getAdapterService() - Service is cleaning up");
-            }
-        }
-        return null;
+        Log.d(TAG, "getAdapterService() - returning " + sAdapterService);
+        return sAdapterService;
     }
 
     private static synchronized void setAdapterService(AdapterService instance) {
-        if (instance != null && !instance.mCleaningUp) {
-            if (DBG) {
-                Log.d(TAG, "setAdapterService() - set to: " + instance);
-            }
-            sAdapterService = instance;
-        } else {
-            if (DBG) {
-                if (instance == null) {
-                    Log.d(TAG, "setAdapterService() - Service not available");
-                } else if (instance.mCleaningUp) {
-                    Log.d(TAG, "setAdapterService() - Service is cleaning up");
-                }
-            }
+        Log.d(TAG, "setAdapterService() - trying to set service to " + instance);
+        if (instance == null) {
+            return;
         }
+        sAdapterService = instance;
     }
 
-    private static synchronized void clearAdapterService() {
-        sAdapterService = null;
+    private static synchronized void clearAdapterService(AdapterService current) {
+        if (sAdapterService == current) {
+            sAdapterService = null;
+        }
     }
 
     private AdapterProperties mAdapterProperties;
@@ -200,16 +180,7 @@ public class AdapterService extends Service {
 
     private ProfileObserver mProfileObserver;
     private PhonePolicy mPhonePolicy;
-
-    public AdapterService() {
-        super();
-        if (TRACE_REF) {
-            synchronized (AdapterService.class) {
-                sRefCount++;
-                debugLog("AdapterService() - REFCOUNT: CREATED. INSTANCE_COUNT" + sRefCount);
-            }
-        }
-    }
+    private ActiveDeviceManager mActiveDeviceManager;
 
     public void addProfile(ProfileService profile) {
         synchronized (mProfiles) {
@@ -432,6 +403,9 @@ public class AdapterService extends Service {
             Log.i(TAG, "Phone policy disabled");
         }
 
+        mActiveDeviceManager = new ActiveDeviceManager(this, new ServiceFactory());
+        mActiveDeviceManager.start();
+
         setAdapterService(this);
 
         // First call to getSharedPreferences will result in a file read into
@@ -575,7 +549,9 @@ public class AdapterService extends Service {
         Class[] supportedProfileServices = Config.getSupportedProfiles();
 
         //Start profile services
-        if (!mProfilesStarted && supportedProfileServices.length > 0) {
+        if (!mProfilesStarted && supportedProfileServices.length > 0
+                && !(supportedProfileServices.length == 1
+                     && supportedProfileServices[0] == GattService.class)) {
             //Startup all profile services
             setProfileServiceState(supportedProfileServices, BluetoothAdapter.STATE_ON);
         } else {
@@ -632,6 +608,8 @@ public class AdapterService extends Service {
             return;
         }
 
+        clearAdapterService(this);
+
         mCleaningUp = true;
 
         unregisterReceiver(mAlarmBroadcastReceiver);
@@ -687,11 +665,13 @@ public class AdapterService extends Service {
             mPhonePolicy.cleanup();
         }
 
+        if (mActiveDeviceManager != null) {
+            mActiveDeviceManager.cleanup();
+        }
+
         if (mProfileServicesState != null) {
             mProfileServicesState.clear();
         }
-
-        clearAdapterService();
 
         if (mBinder != null) {
             mBinder.cleanup();
@@ -1496,6 +1476,16 @@ public class AdapterService extends Service {
         }
 
         @Override
+        public int getMaxConnectedAudioDevices() {
+            // don't check caller, may be called from system UI
+            AdapterService service = getService();
+            if (service == null) {
+                return AdapterProperties.MIN_CONNECTED_AUDIO_DEVICES;
+            }
+            return service.getMaxConnectedAudioDevices();
+        }
+
+        @Override
         public boolean factoryReset() {
             AdapterService service = getService();
             if (service == null) {
@@ -1690,7 +1680,6 @@ public class AdapterService extends Service {
         mQuietmode = quietMode;
         Message m = mAdapterStateMachine.obtainMessage(AdapterState.BLE_TURN_ON);
         mAdapterStateMachine.sendMessage(m);
-        mBluetoothStartTime = System.currentTimeMillis();
         return true;
     }
 
@@ -1984,7 +1973,14 @@ public class AdapterService extends Service {
         return deviceProp.getBluetoothClass();
     }
 
-    ParcelUuid[] getRemoteUuids(BluetoothDevice device) {
+    /**
+     * Get UUIDs for service supported by a remote device
+     *
+     * @param device the remote device that we want to get UUIDs from
+     * @return
+     */
+    @VisibleForTesting
+    public ParcelUuid[] getRemoteUuids(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
         if (deviceProp == null) {
@@ -2217,6 +2213,16 @@ public class AdapterService extends Service {
         return mAdapterProperties.getLeMaximumAdvertisingDataLength();
     }
 
+    /**
+     * Get the maximum number of connected audio devices.
+     *
+     * @return the maximum number of connected audio devices
+     */
+    public int getMaxConnectedAudioDevices() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.getMaxConnectedAudioDevices();
+    }
+
     private BluetoothActivityEnergyInfo reportActivityInfo() {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED, "Need BLUETOOTH permission");
         if (mAdapterProperties.getState() != BluetoothAdapter.STATE_ON
@@ -2249,27 +2255,18 @@ public class AdapterService extends Service {
                 }
             }
 
-            // Copy the traffic objects whose byte counts are > 0 and reset the originals.
+            // Copy the traffic objects whose byte counts are > 0
             final UidTraffic[] result = arrayLen > 0 ? new UidTraffic[arrayLen] : null;
             int putIdx = 0;
             for (int i = 0; i < mUidTraffic.size(); i++) {
                 final UidTraffic traffic = mUidTraffic.valueAt(i);
                 if (traffic.getTxBytes() != 0 || traffic.getRxBytes() != 0) {
                     result[putIdx++] = traffic.clone();
-                    traffic.setRxBytes(0);
-                    traffic.setTxBytes(0);
                 }
             }
 
             info.setUidTraffic(result);
 
-            // Read on clear values; a record of data is created with
-            // timstamp and new samples are collected until read again
-            mStackReportedState = 0;
-            mTxTimeTotalMs = 0;
-            mRxTimeTotalMs = 0;
-            mIdleTimeTotalMs = 0;
-            mEnergyUsedTotalVoltAmpSecMicro = 0;
             return info;
         }
     }
@@ -2617,18 +2614,6 @@ public class AdapterService extends Service {
     private native void interopDatabaseClearNative();
 
     private native void interopDatabaseAddNative(int feature, byte[] address, int length);
-
-    @Override
-    public void finalize() {
-        debugLog("finalize() - clean up object " + this);
-        cleanup();
-        if (TRACE_REF) {
-            synchronized (AdapterService.class) {
-                sRefCount--;
-                debugLog("finalize() - REFCOUNT: FINALIZED. INSTANCE_COUNT= " + sRefCount);
-            }
-        }
-    }
 
     // Returns if this is a mock object. This is currently used in testing so that we may not call
     // System.exit() while finalizing the object. Otherwise GC of mock objects unfortunately ends up

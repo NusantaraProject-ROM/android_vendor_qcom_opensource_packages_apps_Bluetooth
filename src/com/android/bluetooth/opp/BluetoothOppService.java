@@ -133,15 +133,17 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
      */
     private CharArrayBuffer mNewChars;
 
-    private boolean mListenStarted = false;
+    private boolean mListenStarted;
 
     private boolean mMediaScanInProgress;
 
-    private int mIncomingRetries = 0;
+    private int mIncomingRetries;
 
-    private ObexTransport mPendingConnection = null;
+    private ObexTransport mPendingConnection;
 
     private int mOppSdpHandle = -1;
+
+    boolean mAcceptNewConnections;
 
     private static final String INVISIBLE =
             BluetoothShare.VISIBILITY + "=" + BluetoothShare.VISIBILITY_HIDDEN;
@@ -254,11 +256,11 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
         if (mShares.size() > 0) {
             println(sb, "Shares:");
             for (BluetoothOppShareInfo info : mShares) {
-                String dir = info.mDirection == BluetoothShare.DIRECTION_OUTBOUND ? "->" : "<-";
-                SimpleDateFormat format = new SimpleDateFormat("MM'.'dd'@'HH':'mm':'ss", Locale.US);
+                String dir = info.mDirection == BluetoothShare.DIRECTION_OUTBOUND ? " -> " : " <- ";
+                SimpleDateFormat format = new SimpleDateFormat("MM-dd HH:mm:ss", Locale.US);
                 Date date = new Date(info.mTimestamp);
-                println(sb, "  " + format.format(date) + ": " + dir + " " + info.mCurrentBytes + "/"
-                        + info.mTotalBytes + "B ");
+                println(sb, "  " + format.format(date) + dir + info.mCurrentBytes + "/"
+                        + info.mTotalBytes);
             }
         }
     }
@@ -361,9 +363,6 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                             } catch (IOException e) {
                                 Log.e(TAG, "close tranport error");
                             }
-                        } else if (Constants.USE_TCP_DEBUG && !Constants.USE_TCP_SIMPLE_SERVER) {
-                            Log.i(TAG, "Start Obex Server in TCP DEBUG mode");
-                            createServerSession(transport);
                         } else {
                             Log.i(TAG, "OPP busy! Retry after 1 second");
                             mIncomingRetries = mIncomingRetries + 1;
@@ -389,7 +388,7 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                                 Log.e(TAG, "close tranport error");
                             }
                             if (mServerSocket != null) {
-                                mServerSocket.prepareForNewConnect();
+                                acceptNewConnections();
                             }
                             mIncomingRetries = 0;
                             mPendingConnection = null;
@@ -414,6 +413,7 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
         }
         stopListeners();
         mServerSocket = ObexServerSockets.createInsecure(this);
+        acceptNewConnections();
         SdpManager sdpManager = SdpManager.getDefaultManager();
         if (sdpManager == null || mServerSocket == null) {
             Log.e(TAG, "ERROR:serversocket object is NULL  sdp manager :" + sdpManager
@@ -459,7 +459,7 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
 
     /* suppose we auto accept an incoming OPUSH connection */
     private void createServerSession(ObexTransport transport) {
-        mServerSession = new BluetoothOppObexServerSession(this, transport, mServerSocket);
+        mServerSession = new BluetoothOppObexServerSession(this, transport, this);
         mServerSession.preStart();
         if (D) {
             Log.d(TAG, "Get ServerSession " + mServerSession.toString() + " for incoming connection"
@@ -786,19 +786,6 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                     if (V) {
                         Log.v(TAG,
                                 "Service add new Batch " + newBatch.mId + " for info " + info.mId);
-                    }
-                    if (Constants.USE_TCP_DEBUG && !Constants.USE_TCP_SIMPLE_SERVER) {
-                        // only allow  concurrent serverTransfer in debug mode
-                        if (info.mDirection == BluetoothShare.DIRECTION_INBOUND) {
-                            if (V) {
-                                Log.v(TAG,
-                                        "TCP_DEBUG start server transfer new Batch " + newBatch.mId
-                                                + " for info " + info.mId);
-                            }
-                            mServerTransfer =
-                                    new BluetoothOppTransfer(this, newBatch, mServerSession);
-                            mServerTransfer.start();
-                        }
                     }
                 }
             }
@@ -1149,13 +1136,19 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
 
     @Override
     public boolean onConnect(BluetoothDevice device, BluetoothSocket socket) {
+
         if (D) {
             Log.d(TAG, " onConnect BluetoothSocket :" + socket + " \n :device :" + device);
+        }
+        if (!mAcceptNewConnections) {
+            Log.d(TAG, " onConnect BluetoothSocket :" + socket + " rejected");
+            return false;
         }
         BluetoothObexTransport transport = new BluetoothObexTransport(socket);
         Message msg = mHandler.obtainMessage(MSG_INCOMING_BTOPP_CONNECTION);
         msg.obj = transport;
         msg.sendToTarget();
+        mAcceptNewConnections = false;
         return true;
     }
 
@@ -1163,5 +1156,12 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
     public void onAcceptFailed() {
         Log.d(TAG, " onAcceptFailed:");
         mHandler.sendMessage(mHandler.obtainMessage(START_LISTENER));
+    }
+
+    /**
+     * Set mAcceptNewConnections to true to allow new connections.
+     */
+    void acceptNewConnections() {
+        mAcceptNewConnections = true;
     }
 }
