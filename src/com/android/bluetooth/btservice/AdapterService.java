@@ -69,11 +69,12 @@ import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.app.IBatteryStats;
 
+import com.google.protobuf.micro.InvalidProtocolBufferMicroException;
+
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -589,7 +590,8 @@ public class AdapterService extends Service {
     void updateAdapterState(int prevState, int newState) {
         if (mCallbacks != null) {
             int n = mCallbacks.beginBroadcast();
-            debugLog("updateAdapterState() - Broadcasting state to " + n + " receivers.");
+            debugLog("updateAdapterState() - Broadcasting state " + BluetoothAdapter.nameForState(
+                    newState) + " to " + n + " receivers.");
             for (int i = 0; i < n; i++) {
                 try {
                     mCallbacks.getBroadcastItem(i).onBluetoothStateChange(prevState, newState);
@@ -1639,6 +1641,7 @@ public class AdapterService extends Service {
                 return;
             }
             service.dump(fd, writer, args);
+            writer.close();
         }
     }
 
@@ -1800,6 +1803,11 @@ public class AdapterService extends Service {
         return mAdapterProperties.discoveryEndMillis();
     }
 
+    /**
+     * Same as API method {@link BluetoothAdapter#getBondedDevices()}
+     *
+     * @return array of bonded {@link BluetoothDevice} or null on error
+     */
     public BluetoothDevice[] getBondedDevices() {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         return mAdapterProperties.getBondedDevices();
@@ -1895,7 +1903,17 @@ public class AdapterService extends Service {
         return true;
     }
 
-    int getBondState(BluetoothDevice device) {
+    /**
+     * Get the bond state of a particular {@link BluetoothDevice}
+     *
+     * @param device remote device of interest
+     * @return bond state <p>Possible values are
+     * {@link BluetoothDevice#BOND_NONE},
+     * {@link BluetoothDevice#BOND_BONDING},
+     * {@link BluetoothDevice#BOND_BONDED}.
+     */
+    @VisibleForTesting
+    public int getBondState(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
         if (deviceProp == null) {
@@ -1923,7 +1941,13 @@ public class AdapterService extends Service {
         return getConnectionStateNative(addr);
     }
 
-    String getRemoteName(BluetoothDevice device) {
+    /**
+     * Same as API method {@link BluetoothDevice#getName()}
+     *
+     * @param device remote device of interest
+     * @return remote device name
+     */
+    public String getRemoteName(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         if (mRemoteDevices == null) {
             return null;
@@ -2460,12 +2484,8 @@ public class AdapterService extends Service {
         }
 
         verboseLog("dumpsys arguments, check for protobuf output: " + TextUtils.join(" ", args));
-        if (args[0].startsWith("--proto")) {
-            if (args[0].equals("--proto-java-bin")) {
-                dumpJava(fd);
-            } else {
-                dumpNative(fd, args);
-            }
+        if (args[0].equals("--proto-bin")) {
+            dumpMetrics(fd);
             return;
         }
 
@@ -2490,21 +2510,28 @@ public class AdapterService extends Service {
         dumpNative(fd, args);
     }
 
-    private void dumpJava(FileDescriptor fd) {
-        BluetoothProto.BluetoothLog log = new BluetoothProto.BluetoothLog();
-        log.setNumBondedDevices(getBondedDevices().length);
-
+    private void dumpMetrics(FileDescriptor fd) {
+        BluetoothProto.BluetoothLog metrics = new BluetoothProto.BluetoothLog();
+        metrics.setNumBondedDevices(getBondedDevices().length);
         for (ProfileService profile : mProfiles) {
-            profile.dumpProto(log);
+            profile.dumpProto(metrics);
         }
-
-        try {
-            FileOutputStream protoOut = new FileOutputStream(fd);
-            String protoOutString = Base64.encodeToString(log.toByteArray(), Base64.DEFAULT);
-            protoOut.write(protoOutString.getBytes(StandardCharsets.UTF_8));
-            protoOut.close();
+        byte[] nativeMetricsBytes = dumpMetricsNative();
+        debugLog("dumpMetrics: native metrics size is " + nativeMetricsBytes.length);
+        if (nativeMetricsBytes.length > 0) {
+            try {
+                metrics.mergeFrom(nativeMetricsBytes);
+            } catch (InvalidProtocolBufferMicroException ex) {
+                Log.w(TAG, "dumpMetrics: problem parsing metrics protobuf, " + ex.getMessage());
+                return;
+            }
+        }
+        byte[] metricsBytes = Base64.encode(metrics.toByteArray(), Base64.DEFAULT);
+        debugLog("dumpMetrics: combined metrics size is " + metricsBytes.length);
+        try (FileOutputStream protoOut = new FileOutputStream(fd)) {
+            protoOut.write(metricsBytes);
         } catch (IOException e) {
-            errorLog("Unable to write Java protobuf to file descriptor.");
+            errorLog("dumpMetrics: error writing combined protobuf to fd, " + e.getMessage());
         }
     }
 
@@ -2610,6 +2637,8 @@ public class AdapterService extends Service {
     private native void alarmFiredNative();
 
     private native void dumpNative(FileDescriptor fd, String[] arguments);
+
+    private native byte[] dumpMetricsNative();
 
     private native void interopDatabaseClearNative();
 
