@@ -187,8 +187,7 @@ public class AdapterService extends Service {
      * @param profile the service being added.
      */
     public void addProfile(ProfileService profile) {
-        Message m = mHandler.obtainMessage(MESSAGE_PROFILE_SERVICE_REGISTERED, profile);
-        mHandler.sendMessage(m);
+        mHandler.obtainMessage(MESSAGE_PROFILE_SERVICE_REGISTERED, profile).sendToTarget();
     }
 
     /**
@@ -197,8 +196,7 @@ public class AdapterService extends Service {
      * @param profile the service being removed.
      */
     public void removeProfile(ProfileService profile) {
-        Message m = mHandler.obtainMessage(MESSAGE_PROFILE_SERVICE_UNREGISTERED, profile);
-        mHandler.sendMessage(m);
+        mHandler.obtainMessage(MESSAGE_PROFILE_SERVICE_UNREGISTERED, profile).sendToTarget();
     }
 
     /**
@@ -271,13 +269,10 @@ public class AdapterService extends Service {
                     }
                     mRunningProfiles.add(profile);
                     if (GattService.class.getSimpleName().equals(profile.getName())) {
-                        mAdapterStateMachine.sendMessage(
-                                mAdapterStateMachine.obtainMessage(AdapterState.BLE_STARTED));
-                    }
-                    if (mRegisteredProfiles.size() == Config.getSupportedProfiles().length
+                        mAdapterStateMachine.sendMessage(AdapterState.BLE_STARTED);
+                    } else if (mRegisteredProfiles.size() == Config.getSupportedProfiles().length
                             && mRegisteredProfiles.size() == mRunningProfiles.size()) {
-                        mAdapterStateMachine.sendMessage(
-                                mAdapterStateMachine.obtainMessage(AdapterState.BREDR_STARTED));
+                        mAdapterStateMachine.sendMessage(AdapterState.BREDR_STARTED);
                     }
                     break;
                 case BluetoothAdapter.STATE_OFF:
@@ -290,16 +285,12 @@ public class AdapterService extends Service {
                         return;
                     }
                     mRunningProfiles.remove(profile);
-                    // If the last profile was removed, or only GATT is left, send BREDR_STOPPED.
-                    if ((mRunningProfiles.size() == 0) || (mRunningProfiles.size() == 1
-                            && (GattService.class.getSimpleName()
+                    // If only GATT is left, send BREDR_STOPPED.
+                    if ((mRunningProfiles.size() == 1 && (GattService.class.getSimpleName()
                             .equals(mRunningProfiles.get(0).getName())))) {
-                        mAdapterStateMachine.sendMessage(
-                                mAdapterStateMachine.obtainMessage(AdapterState.BREDR_STOPPED));
-                    }
-                    if (mRunningProfiles.size() == 0) {
-                        mAdapterStateMachine.sendMessage(
-                                mAdapterStateMachine.obtainMessage(AdapterState.BLE_STOPPED));
+                        mAdapterStateMachine.sendMessage(AdapterState.BREDR_STOPPED);
+                    } else if (mRunningProfiles.size() == 0) {
+                        mAdapterStateMachine.sendMessage(AdapterState.BLE_STOPPED);
                     }
                     break;
                 default:
@@ -549,8 +540,7 @@ public class AdapterService extends Service {
     }
 
     void startBluetoothDisable() {
-        mAdapterStateMachine.sendMessage(
-                mAdapterStateMachine.obtainMessage(AdapterState.BEGIN_DISABLE));
+        mAdapterStateMachine.sendMessage(AdapterState.BEGIN_DISABLE);
     }
 
     void stopProfileServices() {
@@ -1577,17 +1567,15 @@ public class AdapterService extends Service {
 
         debugLog("enable() - Enable called with quiet mode status =  " + quietMode);
         mQuietmode = quietMode;
-        Message m = mAdapterStateMachine.obtainMessage(AdapterState.BLE_TURN_ON);
-        mAdapterStateMachine.sendMessage(m);
+        mAdapterStateMachine.sendMessage(AdapterState.BLE_TURN_ON);
         return true;
     }
 
     boolean disable() {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
 
-        debugLog("disable() called...");
-        Message m = mAdapterStateMachine.obtainMessage(AdapterState.BLE_TURN_OFF);
-        mAdapterStateMachine.sendMessage(m);
+        debugLog("disable() called with mRunningProfiles.size() = " + mRunningProfiles.size());
+        mAdapterStateMachine.sendMessage(AdapterState.BLE_TURN_OFF);
         return true;
     }
 
@@ -2197,13 +2185,11 @@ public class AdapterService extends Service {
     }
 
     public void onLeServiceUp() {
-        Message m = mAdapterStateMachine.obtainMessage(AdapterState.USER_TURN_ON);
-        mAdapterStateMachine.sendMessage(m);
+        mAdapterStateMachine.sendMessage(AdapterState.USER_TURN_ON);
     }
 
     public void onBrEdrDown() {
-        Message m = mAdapterStateMachine.obtainMessage(AdapterState.USER_TURN_OFF);
-        mAdapterStateMachine.sendMessage(m);
+        mAdapterStateMachine.sendMessage(AdapterState.USER_TURN_OFF);
     }
 
     private static int convertScanModeToHal(int mode) {

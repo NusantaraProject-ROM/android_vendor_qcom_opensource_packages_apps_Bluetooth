@@ -121,12 +121,12 @@ public class A2dpService extends ProfileService {
         mStateMachinesThread = new HandlerThread("A2dpService.StateMachines");
         mStateMachinesThread.start();
 
-        // Step 5: Setup codec config and clear active device
+        // Step 5: Setup codec config
         mA2dpCodecConfig = new A2dpCodecConfig(this, mA2dpNativeInterface);
-        mActiveDevice = null;
 
         // Step 6: Initialize native interface
-        mA2dpNativeInterface.init(mA2dpCodecConfig.codecConfigPriorities());
+        mA2dpNativeInterface.init(mMaxConnectedAudioDevices,
+                                  mA2dpCodecConfig.codecConfigPriorities());
 
         // Step 7: Setup broadcast receivers
         IntentFilter filter = new IntentFilter();
@@ -141,6 +141,9 @@ public class A2dpService extends ProfileService {
         // Step 8: Mark service as started
         setA2dpService(this);
 
+        // Step 9: Clear active device
+        setActiveDevice(null);
+
         return true;
     }
 
@@ -151,6 +154,9 @@ public class A2dpService extends ProfileService {
             Log.w(TAG, "stop() called before start()");
             return true;
         }
+
+        // Step 9: Clear active device
+        setActiveDevice(null);
 
         // Step 8: Mark service as stopped
         setA2dpService(null);
@@ -165,9 +171,8 @@ public class A2dpService extends ProfileService {
         mA2dpNativeInterface.cleanup();
         mA2dpNativeInterface = null;
 
-        // Step 5: Clear codec config and active device
+        // Step 5: Clear codec config
         mA2dpCodecConfig = null;
-        mActiveDevice = null;
 
         // Step 4: Destroy state machines and stop handler thread
         synchronized (mStateMachines) {
