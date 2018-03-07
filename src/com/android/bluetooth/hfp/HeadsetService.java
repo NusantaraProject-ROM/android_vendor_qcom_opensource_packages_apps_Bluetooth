@@ -58,7 +58,7 @@ import android.telecom.TelecomManager;
  */
 public class HeadsetService extends ProfileService {
     private static final String TAG = "HeadsetService";
-    private static final boolean DBG = false;
+    private static final boolean DBG = true;
     private static final String DISABLE_INBAND_RINGING_PROPERTY =
             "persist.bluetooth.disableinbandringing";
     private static final ParcelUuid[] HEADSET_UUIDS = {
@@ -139,6 +139,7 @@ public class HeadsetService extends ProfileService {
 
         setHeadsetService(this);
         mStarted = true;
+        Log.i(TAG, " HeadsetService Started ");
         return true;
     }
 
@@ -1302,7 +1303,6 @@ public class HeadsetService extends ProfileService {
         }
         return true;
     }
-
     /**
      * Remove state machine in {@link #mStateMachines} for a {@link BluetoothDevice}
      *

@@ -83,6 +83,9 @@ public class AtPhonebook {
     private static final String VISIBLE_PHONEBOOK_WHERE = null;
     private static final String VISIBLE_SIM_PHONEBOOK_WHERE = null;
 
+    public static final int OUTGOING_IMS_TYPE = 1001;
+    public static final int OUTGOING_WIFI_TYPE = 1004;
+
     private class PhonebookResult {
         public Cursor cursor; // result set of last query
         public int numberColumn;
@@ -135,8 +138,11 @@ public class AtPhonebook {
     public String getLastDialledNumber() {
         String[] projection = {Calls.NUMBER};
         Cursor cursor = mContentResolver.query(Calls.CONTENT_URI, projection,
-                Calls.TYPE + "=" + Calls.OUTGOING_TYPE, null,
-                Calls.DEFAULT_SORT_ORDER + " LIMIT 1");
+                Calls.TYPE + " = " + Calls.OUTGOING_TYPE + " OR " + Calls.TYPE +
+                " = " + OUTGOING_IMS_TYPE + " OR " + Calls.TYPE + " = " +
+                OUTGOING_WIFI_TYPE, null, Calls.DEFAULT_SORT_ORDER +
+                " LIMIT 1");
+        log("Queried the last dialled number for CS, IMS, WIFI calls");
         if (cursor == null) {
             return null;
         }
