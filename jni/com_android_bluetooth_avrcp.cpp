@@ -25,6 +25,8 @@
 
 #include <inttypes.h>
 #include <string.h>
+#include <mutex>
+#include <shared_mutex>
 
 namespace android {
 static jmethodID method_getRcFeatures;
@@ -46,6 +48,7 @@ static jmethodID method_getTotalNumOfItemsCallback;
 
 static const btrc_interface_t* sBluetoothAvrcpInterface = NULL;
 static jobject mCallbacksObj = NULL;
+static std::shared_timed_mutex callbacks_mutex;
 
 /* Function declarations */
 static bool copy_item_attributes(JNIEnv* env, jobject object,
@@ -61,6 +64,7 @@ static void cleanup_items(btrc_folder_items_t* p_items, int numItems);
 static void btavrcp_remote_features_callback(RawAddress* bd_addr,
                                              btrc_remote_features_t features) {
   CallbackEnv sCallbackEnv(__func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
 
   if (!mCallbacksObj) {
@@ -84,6 +88,7 @@ static void btavrcp_remote_features_callback(RawAddress* bd_addr,
 /** Callback for play status request */
 static void btavrcp_get_play_status_callback(RawAddress* bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
 
   if (!mCallbacksObj) {
@@ -107,6 +112,7 @@ static void btavrcp_get_element_attr_callback(uint8_t num_attr,
                                               btrc_media_attr_t* p_attrs,
                                               RawAddress* bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
 
   if (!mCallbacksObj) {
@@ -140,6 +146,7 @@ static void btavrcp_register_notification_callback(btrc_event_id_t event_id,
                                                    uint32_t param,
                                                    RawAddress* bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
 
   if (!mCallbacksObj) {
@@ -163,6 +170,7 @@ static void btavrcp_register_notification_callback(btrc_event_id_t event_id,
 static void btavrcp_volume_change_callback(uint8_t volume, uint8_t ctype,
                                            RawAddress* bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
 
   if (!mCallbacksObj) {
@@ -187,6 +195,7 @@ static void btavrcp_volume_change_callback(uint8_t volume, uint8_t ctype,
 static void btavrcp_passthrough_command_callback(int id, int pressed,
                                                  RawAddress* bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
 
   if (!mCallbacksObj) {
@@ -210,6 +219,7 @@ static void btavrcp_passthrough_command_callback(int id, int pressed,
 static void btavrcp_set_addressed_player_callback(uint16_t player_id,
                                                   RawAddress* bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
 
   if (!mCallbacksObj) {
@@ -233,6 +243,7 @@ static void btavrcp_set_addressed_player_callback(uint16_t player_id,
 static void btavrcp_set_browsed_player_callback(uint16_t player_id,
                                                 RawAddress* bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
   if (!mCallbacksObj) {
     ALOGE("%s: mCallbacksObj is null", __func__);
@@ -256,6 +267,7 @@ static void btavrcp_get_folder_items_callback(
     uint8_t scope, uint32_t start_item, uint32_t end_item, uint8_t num_attr,
     uint32_t* p_attr_ids, RawAddress* bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
 
   if (!mCallbacksObj) {
@@ -296,6 +308,7 @@ static void btavrcp_get_folder_items_callback(
 static void btavrcp_change_path_callback(uint8_t direction, uint8_t* folder_uid,
                                          RawAddress* bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
 
   if (!mCallbacksObj) {
@@ -331,6 +344,7 @@ static void btavrcp_get_item_attr_callback(uint8_t scope, uint8_t* uid,
                                            btrc_media_attr_t* p_attrs,
                                            RawAddress* bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
 
   if (!mCallbacksObj) {
@@ -373,6 +387,7 @@ static void btavrcp_get_item_attr_callback(uint8_t scope, uint8_t* uid,
 static void btavrcp_play_item_callback(uint8_t scope, uint16_t uid_counter,
                                        uint8_t* uid, RawAddress* bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
   if (!mCallbacksObj) {
     ALOGE("%s: mCallbacksObj is null", __func__);
@@ -405,6 +420,7 @@ static void btavrcp_play_item_callback(uint8_t scope, uint16_t uid_counter,
 static void btavrcp_get_total_num_items_callback(uint8_t scope,
                                                  RawAddress* bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
   if (!mCallbacksObj) {
     ALOGE("%s: mCallbacksObj is null", __func__);
@@ -427,6 +443,7 @@ static void btavrcp_get_total_num_items_callback(uint8_t scope,
 static void btavrcp_search_callback(uint16_t charset_id, uint16_t str_len,
                                     uint8_t* p_str, RawAddress* bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
   if (!mCallbacksObj) {
     ALOGE("%s: mCallbacksObj is null", __func__);
@@ -459,6 +476,7 @@ static void btavrcp_add_to_play_list_callback(uint8_t scope, uint8_t* uid,
                                               uint16_t uid_counter,
                                               RawAddress* bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
+  std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
   if (!mCallbacksObj) {
     ALOGE("%s: mCallbacksObj is null", __func__);
@@ -562,6 +580,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 }
 
 static void initNative(JNIEnv* env, jobject object) {
+  std::unique_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   const bt_interface_t* btInf = getBluetoothInterface();
   if (btInf == NULL) {
     ALOGE("Bluetooth module is not loaded");
@@ -599,6 +618,7 @@ static void initNative(JNIEnv* env, jobject object) {
 }
 
 static void cleanupNative(JNIEnv* env, jobject object) {
+  std::unique_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   const bt_interface_t* btInf = getBluetoothInterface();
   if (btInf == NULL) {
     ALOGE("Bluetooth module is not loaded");
@@ -742,18 +762,18 @@ static jboolean getItemAttrRspNative(JNIEnv* env, jobject object,
       env->ReleaseByteArrayElements(address, addr, 0);
       return JNI_FALSE;
     }
-  }
 
-  for (int attr_cnt = 0; attr_cnt < numAttr; ++attr_cnt) {
-    pAttrs[attr_cnt].attr_id = attr[attr_cnt];
-    ScopedLocalRef<jstring> text(
-        env, (jstring)env->GetObjectArrayElement(textArray, attr_cnt));
+    for (int attr_cnt = 0; attr_cnt < numAttr; ++attr_cnt) {
+      pAttrs[attr_cnt].attr_id = attr[attr_cnt];
+      ScopedLocalRef<jstring> text(
+          env, (jstring)env->GetObjectArrayElement(textArray, attr_cnt));
 
-    if (!copy_jstring(pAttrs[attr_cnt].text, BTRC_MAX_ATTR_STR_LEN, text.get(),
-                      env)) {
-      rspStatus = BTRC_STS_INTERNAL_ERR;
-      ALOGE("%s: Failed to copy attributes", __func__);
-      break;
+      if (!copy_jstring(pAttrs[attr_cnt].text, BTRC_MAX_ATTR_STR_LEN, text.get(),
+                        env)) {
+        rspStatus = BTRC_STS_INTERNAL_ERR;
+        ALOGE("%s: Failed to copy attributes", __func__);
+        break;
+      }
     }
   }
 
