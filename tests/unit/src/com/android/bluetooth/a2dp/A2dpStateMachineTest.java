@@ -29,19 +29,20 @@ import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.MediumTest;
 import android.support.test.runner.AndroidJUnit4;
 
+import com.android.bluetooth.R;
+import com.android.bluetooth.TestUtils;
 import com.android.bluetooth.btservice.AdapterService;
 
 import org.hamcrest.core.IsInstanceOf;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-
-import java.lang.reflect.Method;
 
 @MediumTest
 @RunWith(AndroidJUnit4.class)
@@ -59,18 +60,13 @@ public class A2dpStateMachineTest {
 
     @Before
     public void setUp() throws Exception {
+        mTargetContext = InstrumentationRegistry.getTargetContext();
+        Assume.assumeTrue("Ignore test when A2dpService is not enabled",
+                mTargetContext.getResources().getBoolean(R.bool.profile_supported_a2dp));
         // Set up mocks and test assets
         MockitoAnnotations.initMocks(this);
+        TestUtils.setAdapterService(mAdapterService);
 
-        // We cannot mock AdapterService.getAdapterService() with Mockito.
-        // Hence we need to use reflection to call a private method to
-        // initialize properly the AdapterService.sAdapterService field.
-        Method method = AdapterService.class.getDeclaredMethod("setAdapterService",
-                                                               AdapterService.class);
-        method.setAccessible(true);
-        method.invoke(mAdapterService, mAdapterService);
-
-        mTargetContext = InstrumentationRegistry.getTargetContext();
         mAdapter = BluetoothAdapter.getDefaultAdapter();
 
         // Get a device for testing
@@ -80,17 +76,20 @@ public class A2dpStateMachineTest {
         mHandlerThread = new HandlerThread("A2dpStateMachineTestHandlerThread");
         mHandlerThread.start();
         mA2dpStateMachine = new A2dpStateMachine(mTestDevice, mA2dpService,
-                                                 mTargetContext, mA2dpNativeInterface,
-                                                 mHandlerThread.getLooper());
+                                                 mA2dpNativeInterface, mHandlerThread.getLooper());
         // Override the timeout value to speed up the test
-        mA2dpStateMachine.sConnectTimeoutMs = 1000;     // 1s
+        A2dpStateMachine.sConnectTimeoutMs = 1000;     // 1s
         mA2dpStateMachine.start();
     }
 
     @After
-    public void tearDown() {
+    public void tearDown() throws Exception {
+        if (!mTargetContext.getResources().getBoolean(R.bool.profile_supported_a2dp)) {
+            return;
+        }
         mA2dpStateMachine.doQuit();
         mHandlerThread.quit();
+        TestUtils.clearAdapterService(mAdapterService);
     }
 
     /**
@@ -108,16 +107,7 @@ public class A2dpStateMachineTest {
      * @param allow if true, connection is allowed
      */
     private void allowConnection(boolean allow) {
-        if (allow) {
-            // Update the device priority so okToConnect() returns true
-            doReturn(BluetoothProfile.PRIORITY_ON).when(mA2dpService)
-                    .getPriority(any(BluetoothDevice.class));
-        } else {
-            // Update the device priority so okToConnect() returns false
-            doReturn(BluetoothProfile.PRIORITY_OFF).when(mA2dpService)
-                    .getPriority(any(BluetoothDevice.class));
-        }
-        doReturn(true).when(mA2dpService).canConnectToDevice(any(BluetoothDevice.class));
+        doReturn(allow).when(mA2dpService).okToConnect(any(BluetoothDevice.class));
     }
 
     /**
@@ -224,5 +214,44 @@ public class A2dpStateMachineTest {
         // Check that we are in Disconnected state
         Assert.assertThat(mA2dpStateMachine.getCurrentState(),
                           IsInstanceOf.instanceOf(A2dpStateMachine.Disconnected.class));
+    }
+
+    /**
+     * Test that an incoming connection times out
+     */
+    @Test
+    public void testIncomingTimeout() {
+        allowConnection(true);
+        doReturn(true).when(mA2dpNativeInterface).connectA2dp(any(BluetoothDevice.class));
+        doReturn(true).when(mA2dpNativeInterface).disconnectA2dp(any(BluetoothDevice.class));
+
+        // Inject an event for when incoming connection is requested
+        A2dpStackEvent connStCh =
+                new A2dpStackEvent(A2dpStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
+        connStCh.device = mTestDevice;
+        connStCh.valueInt = A2dpStackEvent.CONNECTION_STATE_CONNECTING;
+        mA2dpStateMachine.sendMessage(A2dpStateMachine.STACK_EVENT, connStCh);
+
+        // Verify that one connection state broadcast is executed
+        ArgumentCaptor<Intent> intentArgument1 = ArgumentCaptor.forClass(Intent.class);
+        verify(mA2dpService, timeout(TIMEOUT_MS).times(1)).sendBroadcast(intentArgument1.capture(),
+                anyString());
+        Assert.assertEquals(BluetoothProfile.STATE_CONNECTING,
+                intentArgument1.getValue().getIntExtra(BluetoothProfile.EXTRA_STATE, -1));
+
+        // Check that we are in Connecting state
+        Assert.assertThat(mA2dpStateMachine.getCurrentState(),
+                IsInstanceOf.instanceOf(A2dpStateMachine.Connecting.class));
+
+        // Verify that one connection state broadcast is executed
+        ArgumentCaptor<Intent> intentArgument2 = ArgumentCaptor.forClass(Intent.class);
+        verify(mA2dpService, timeout(A2dpStateMachine.sConnectTimeoutMs * 2).times(
+                2)).sendBroadcast(intentArgument2.capture(), anyString());
+        Assert.assertEquals(BluetoothProfile.STATE_DISCONNECTED,
+                intentArgument2.getValue().getIntExtra(BluetoothProfile.EXTRA_STATE, -1));
+
+        // Check that we are in Disconnected state
+        Assert.assertThat(mA2dpStateMachine.getCurrentState(),
+                IsInstanceOf.instanceOf(A2dpStateMachine.Disconnected.class));
     }
 }

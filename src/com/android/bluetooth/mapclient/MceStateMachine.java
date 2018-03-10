@@ -40,6 +40,7 @@
  */
 package com.android.bluetooth.mapclient;
 
+import android.app.Activity;
 import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -51,6 +52,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Message;
 import android.telecom.PhoneAccount;
+import android.telephony.SmsManager;
 import android.util.Log;
 
 import com.android.bluetooth.btservice.ProfileService;
@@ -437,7 +439,8 @@ final class MceStateMachine extends StateMachine {
                         if (DBG) {
                             Log.d(TAG, "Message Sent......." + messageHandle);
                         }
-                        mSentMessageLog.put(messageHandle,
+                        // ignore the top-order byte (converted to string) in the handle for now
+                        mSentMessageLog.put(messageHandle.substring(2),
                                 ((RequestPushMessage) message.obj).getBMsg());
                     } else if (message.obj instanceof RequestGetMessagesListing) {
                         processMessageListing((RequestGetMessagesListing) message.obj);
@@ -589,10 +592,14 @@ final class MceStateMachine extends StateMachine {
                 Log.d(TAG, "got a status for " + handle + " Status = " + status);
             }
             PendingIntent intentToSend = null;
-            if (status == EventReport.Type.SENDING_SUCCESS) {
-                intentToSend = mSentReceiptRequested.remove(mSentMessageLog.get(handle));
-            } else if (status == EventReport.Type.DELIVERY_SUCCESS) {
-                intentToSend = mDeliveryReceiptRequested.remove(mSentMessageLog.get(handle));
+            // ignore the top-order byte (converted to string) in the handle for now
+            String shortHandle = handle.substring(2);
+            if (status == EventReport.Type.SENDING_FAILURE
+                    || status == EventReport.Type.SENDING_SUCCESS) {
+                intentToSend = mSentReceiptRequested.remove(mSentMessageLog.get(shortHandle));
+            } else if (status == EventReport.Type.DELIVERY_SUCCESS
+                    || status == EventReport.Type.DELIVERY_FAILURE) {
+                intentToSend = mDeliveryReceiptRequested.remove(mSentMessageLog.get(shortHandle));
             }
 
             if (intentToSend != null) {
@@ -600,10 +607,18 @@ final class MceStateMachine extends StateMachine {
                     if (DBG) {
                         Log.d(TAG, "*******Sending " + intentToSend);
                     }
-                    intentToSend.send();
+                    int result = Activity.RESULT_OK;
+                    if (status == EventReport.Type.SENDING_FAILURE
+                            || status == EventReport.Type.DELIVERY_FAILURE) {
+                        result = SmsManager.RESULT_ERROR_GENERIC_FAILURE;
+                    }
+                    intentToSend.send(result);
                 } catch (PendingIntent.CanceledException e) {
                     Log.w(TAG, "Notification Request Canceled" + e);
                 }
+            } else {
+                Log.e(TAG, "Received a notification on message with handle = "
+                        + handle + ", but it is NOT found in mSentMessageLog! where did it go?");
             }
         }
     }
