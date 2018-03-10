@@ -67,17 +67,18 @@ import java.util.List;
 
 public class BluetoothPbapService extends ProfileService implements IObexConnectionHandler {
     private static final String TAG = "BluetoothPbapService";
+    private static final String LOG_TAG = "BluetoothPbap";
 
     /**
      * To enable PBAP DEBUG/VERBOSE logging - run below cmd in adb shell, and
      * restart com.android.bluetooth process. only enable DEBUG log:
      * "setprop log.tag.BluetoothPbapService DEBUG"; enable both VERBOSE and
-     * DEBUG log: "setprop log.tag.BluetoothPbapService VERBOSE"
+     * DEBUG log: "setprop log.tag.BluetoothPbap VERBOSE"
      */
 
     public static final boolean DEBUG = true;
 
-    public static final boolean VERBOSE = false;
+    public static final boolean VERBOSE = Log.isLoggable(LOG_TAG, Log.VERBOSE);
 
     /**
      * Intent indicating incoming obex authentication request which is from
@@ -507,6 +508,8 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
             Log.e(TAG, "SQLite exception: " + e);
         } catch (IllegalStateException e) {
             Log.e(TAG, "Illegal state exception, content observer is already registered");
+        } catch (SecurityException e) {
+            Log.e(TAG, "Error while rigistering ContactChangeObserver " + e);
         }
 
         TelephonyManager tm = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
@@ -654,7 +657,10 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
                     + " socket=" + socket);
             return false;
         }
-
+        if (getConnectedDevices().size() >= BluetoothPbapFixes.MAX_CONNECTED_DEVICES) {
+            Log.i(TAG, "Cannot connect to " + remoteDevice + " multiple devices connected already");
+            return false;
+        }
         PbapStateMachine sm = PbapStateMachine.make(this, mHandlerThread.getLooper(), remoteDevice,
                 socket,  this, mSessionStatusHandler, mNextNotificationId);
         mNextNotificationId++;
