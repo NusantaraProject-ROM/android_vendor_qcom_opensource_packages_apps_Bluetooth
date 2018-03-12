@@ -118,6 +118,10 @@ public class HeadsetService extends ProfileService {
         mSystemInterface.init();
         // Step 4: Initialize native interface
         mMaxHeadsetConnections = mAdapterService.getMaxConnectedAudioDevices();
+        if(mAdapterService.isVendorIntfEnabled()) {
+            mMaxHeadsetConnections = (mMaxHeadsetConnections > 2)? 2: mMaxHeadsetConnections;
+            Log.d(TAG," Max_HFP_Connections  " + mMaxHeadsetConnections);
+        }
         mNativeInterface = HeadsetObjectsFactory.getInstance().getNativeInterface();
         // Add 1 to allow a pending device to be connecting or disconnecting
         mNativeInterface.init(mMaxHeadsetConnections + 1, isInbandRingingEnabled());
@@ -720,12 +724,15 @@ public class HeadsetService extends ProfileService {
     }
 
     public boolean isInCall() {
-        Log.d(TAG," isInCall ");
-        return mSystemInterface.isInCall();
+        boolean isCallOngoing = mSystemInterface.isInCall();
+        Log.d(TAG," isInCall " + isCallOngoing);
+        return isCallOngoing;
     }
+
     public boolean isRinging() {
-        Log.d(TAG," isRinging ");
-        return mSystemInterface.isRinging();
+        boolean isRingOngoing = mSystemInterface.isRinging();
+        Log.d(TAG," isRinging " + isRingOngoing);
+        return isRingOngoing;
     }
 
     public List<BluetoothDevice> getConnectedDevices() {
@@ -843,7 +850,10 @@ public class HeadsetService extends ProfileService {
 
     boolean isAudioOn() {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
-        return getNonIdleAudioDevices().size() > 0;
+        int numConnectedAudioDevices = getNonIdleAudioDevices().size();
+        Log.d(TAG," isAudioOn: The number of audio connected devices "
+                 + numConnectedAudioDevices);
+        return numConnectedAudioDevices > 0;
     }
 
     boolean isAudioConnected(BluetoothDevice device) {
@@ -1269,6 +1279,7 @@ public class HeadsetService extends ProfileService {
      */
     public boolean okToAcceptConnection(BluetoothDevice device) {
         // Check if this is an incoming connection in Quiet mode.
+        boolean isPts = SystemProperties.getBoolean("bt.pts.certification", false);
         if (mAdapterService.isQuietModeEnabled()) {
             Log.w(TAG, "okToAcceptConnection: return false as quiet mode enabled");
             return false;
@@ -1279,15 +1290,17 @@ public class HeadsetService extends ProfileService {
         int bondState = mAdapterService.getBondState(device);
         // If priority is undefined, it is likely that our SDP has not completed and peer is
         // initiating the connection. Allow this connection only if the device is bonded or bonding
-        if ((priority == BluetoothProfile.PRIORITY_UNDEFINED) && (bondState
-                == BluetoothDevice.BOND_NONE)) {
-            Log.w(TAG, "okToAcceptConnection: return false, priority=" + priority + ", bondState="
-                    + bondState);
-            return false;
-        } else if (priority <= BluetoothProfile.PRIORITY_OFF) {
-            // Otherwise, reject the connection if priority is less than or equal to PRIORITY_OFF
-            Log.w(TAG, "okToAcceptConnection: return false, priority=" + priority);
-            return false;
+        if(!isPts) {
+            if ((priority == BluetoothProfile.PRIORITY_UNDEFINED) && (bondState
+                   == BluetoothDevice.BOND_NONE)) {
+                Log.w(TAG, "okToAcceptConnection: return false, priority=" + priority + ", bondState="
+                        + bondState);
+                return false;
+            } else if (priority <= BluetoothProfile.PRIORITY_OFF) {
+                // Otherwise, reject the connection if priority is less than or equal to PRIORITY_OFF
+                Log.w(TAG, "okToAcceptConnection: return false, priority=" + priority);
+                return false;
+            }
         }
         List<BluetoothDevice> connectingConnectedDevices =
                 getDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES);
