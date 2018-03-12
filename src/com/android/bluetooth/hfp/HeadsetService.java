@@ -76,6 +76,7 @@ public class HeadsetService extends ProfileService {
     private final HashMap<BluetoothDevice, HeadsetStateMachine> mStateMachines = new HashMap<>();
     private HeadsetNativeInterface mNativeInterface;
     private HeadsetSystemInterface mSystemInterface;
+    private HeadsetA2dpSync mHfpA2dpSyncInterface;
     private boolean mAudioRouteAllowed = true;
     // Indicates whether SCO audio needs to be forced to open regardless ANY OTHER restrictions
     private boolean mForceScoAudio;
@@ -139,6 +140,8 @@ public class HeadsetService extends ProfileService {
 
         setHeadsetService(this);
         mStarted = true;
+
+        mHfpA2dpSyncInterface = new HeadsetA2dpSync(mSystemInterface, this);
         Log.i(TAG, " HeadsetService Started ");
         return true;
     }
@@ -348,35 +351,13 @@ public class HeadsetService extends ProfileService {
                 }
                 //TODO: below 2 should be done for all stateMachines ( doForEachConnectedStateMachine )
                 case BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED: {
-                    BluetoothDevice device = Objects.requireNonNull(
-                            intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE),
-                            "A2DP-ACTION_PLAYING_STATE_CHANGED with no EXTRA_DEVICE");
                     logD("Received BluetoothA2dp Play State changed");
-                    synchronized (mStateMachines) {
-                        final HeadsetStateMachine stateMachine = mStateMachines.get(device);
-                        if (stateMachine == null) {
-                            Log.wtfStack(TAG, "Cannot find state machine for " + device);
-                            return;
-                        }
-                        stateMachine.sendMessage(HeadsetStateMachine.UPDATE_A2DP_PLAY_STATE,
-                                intent);
-                    }
+                    mHfpA2dpSyncInterface.updateA2DPPlayingState(intent);
                     break;
                 }
                 case BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED: {
-                    BluetoothDevice device = Objects.requireNonNull(
-                            intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE),
-                            "A2DP-ACTION_CONNECTION_STATE_CHANGED with no EXTRA_DEVICE");
-                    logD("Received BluetoothA2dp Play State changed");
-                    synchronized (mStateMachines) {
-                        final HeadsetStateMachine stateMachine = mStateMachines.get(device);
-                        if (stateMachine == null) {
-                            Log.wtfStack(TAG, "Cannot find state machine for " + device);
-                            return;
-                        }
-                        stateMachine.sendMessage(HeadsetStateMachine.UPDATE_A2DP_CONN_STATE,
-                                intent);
-                    }
+                    logD("Received BluetoothA2dp Connection State changed");
+                    mHfpA2dpSyncInterface.updateA2DPConnectionState(intent);
                     break;
                 }
                 default:
@@ -741,6 +722,10 @@ public class HeadsetService extends ProfileService {
     public boolean isInCall() {
         Log.d(TAG," isInCall ");
         return mSystemInterface.isInCall();
+    }
+    public boolean isRinging() {
+        Log.d(TAG," isRinging ");
+        return mSystemInterface.isRinging();
     }
 
     public List<BluetoothDevice> getConnectedDevices() {
@@ -1227,6 +1212,16 @@ public class HeadsetService extends ProfileService {
         }
     }
 
+    public HeadsetA2dpSync getHfpA2DPSyncInterface(){
+        return mHfpA2dpSyncInterface;
+    }
+
+    public void sendA2dpStateChangeUpdate(int state) {
+        Log.d(TAG," sendA2dpStateChange newState = " + state);
+        doForEachConnectedConnectingStateMachine(
+              stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.A2DP_STATE_CHANGED,
+                                    state));
+    }
     /**
      * Called from {@link HeadsetStateMachine} in state machine thread when there is a audio
      * connection state change
