@@ -187,6 +187,7 @@ public class AdapterService extends Service {
     private ProfileObserver mProfileObserver;
     private PhonePolicy mPhonePolicy;
     private ActiveDeviceManager mActiveDeviceManager;
+    private VendorSocket mVendorSocket;
 
     /**
      * Register a {@link ProfileService} with AdapterService.
@@ -406,6 +407,7 @@ public class AdapterService extends Service {
         mVendor = new Vendor(this);
         mAdapterStateMachine =  AdapterState.make(this, mAdapterProperties, mVendor);
         mJniCallbacks =  new JniCallbacks(mAdapterStateMachine, mAdapterProperties);
+        mVendorSocket = new VendorSocket(this);
         initNative();
         mNativeAvailable = true;
         mCallbacks = new RemoteCallbackList<IBluetoothCallback>();
@@ -456,6 +458,7 @@ public class AdapterService extends Service {
         }.execute();
         mVendor.init();
         mVendorAvailble = mVendor.getQtiStackStatus();
+        mVendorSocket.init();
 
         try {
             int systemUiUid = getApplicationContext().getPackageManager().getPackageUidAsUser(
@@ -694,6 +697,10 @@ public class AdapterService extends Service {
 
         if (mVendor != null) {
             mVendor.cleanup();
+        }
+
+        if (mVendorSocket!= null) {
+            mVendorSocket.cleanup();
         }
 
         if (mJniCallbacks != null) {
@@ -1587,6 +1594,29 @@ public class AdapterService extends Service {
             service.onBrEdrDown();
         }
 
+        public int setSocketOpt(int type, int channel, int optionName, byte [] optionVal,
+                                                    int optionLen) {
+            if (!Utils.checkCaller()) {
+                Log.w(TAG,"setSocketOpt(): not allowed for non-active user");
+                return -1;
+            }
+
+            AdapterService service = getService();
+            if (service == null) return -1;
+            return service.setSocketOpt(type, channel, optionName, optionVal, optionLen);
+        }
+
+        public int getSocketOpt(int type, int channel, int optionName, byte [] optionVal) {
+            if (!Utils.checkCaller()) {
+                Log.w(TAG,"getSocketOpt(): not allowed for non-active user");
+                return -1;
+            }
+
+            AdapterService service = getService();
+            if (service == null) return -1;
+            return service.getSocketOpt(type, channel, optionName, optionVal);
+        }
+
         @Override
         public void dump(FileDescriptor fd, String[] args) {
             PrintWriter writer = new PrintWriter(new FileOutputStream(fd));
@@ -2274,6 +2304,19 @@ public class AdapterService extends Service {
 
     public void onBrEdrDown() {
         mAdapterStateMachine.sendMessage(AdapterState.USER_TURN_OFF);
+    }
+
+    int setSocketOpt(int type, int channel, int optionName, byte [] optionVal,
+             int optionLen) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+
+        return mVendorSocket.setSocketOpt(type, channel, optionName, optionVal, optionLen);
+    }
+
+    int getSocketOpt(int type, int channel, int optionName, byte [] optionVal) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+
+        return mVendorSocket.getSocketOpt(type, channel, optionName, optionVal);
     }
 
     private static int convertScanModeToHal(int mode) {
