@@ -65,7 +65,9 @@ public class MasClient {
     };
     private static final byte OAP_TAGID_MAP_SUPPORTED_FEATURES = 0x29;
     private static final int MAP_FEATURE_NOTIFICATION_REGISTRATION = 0x00000001;
-    private static final int MAP_SUPPORTED_FEATURES = MAP_FEATURE_NOTIFICATION_REGISTRATION;
+    private static final int MAP_FEATURE_NOTIFICATION = 0x00000002;
+    static final int MAP_SUPPORTED_FEATURES =
+            MAP_FEATURE_NOTIFICATION_REGISTRATION | MAP_FEATURE_NOTIFICATION;
 
     private final StateMachine mCallback;
     private Handler mHandler;
@@ -123,7 +125,7 @@ public class MasClient {
                     Log.d(TAG, "Connection Successful");
                 }
                 mConnected = true;
-                mCallback.obtainMessage(MceStateMachine.MSG_MAS_CONNECTED).sendToTarget();
+                mCallback.sendMessage(MceStateMachine.MSG_MAS_CONNECTED);
             } else {
                 disconnect();
             }
@@ -150,14 +152,13 @@ public class MasClient {
         }
 
         mConnected = false;
-        mCallback.obtainMessage(MceStateMachine.MSG_MAS_DISCONNECTED).sendToTarget();
+        mCallback.sendMessage(MceStateMachine.MSG_MAS_DISCONNECTED);
     }
 
     private void executeRequest(Request request) {
         try {
             request.execute(mSession);
-            mCallback.obtainMessage(MceStateMachine.MSG_MAS_REQUEST_COMPLETED, request)
-                    .sendToTarget();
+            mCallback.sendMessage(MceStateMachine.MSG_MAS_REQUEST_COMPLETED, request);
         } catch (IOException e) {
             if (DBG) {
                 Log.d(TAG, "Request failed: " + request);

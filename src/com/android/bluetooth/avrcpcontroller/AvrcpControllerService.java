@@ -44,8 +44,8 @@ import java.util.UUID;
  */
 public class AvrcpControllerService extends ProfileService {
     static final String TAG = "AvrcpControllerService";
-    static final boolean DBG = true;
-    static final boolean VDBG = Log.isLoggable(TAG, Log.VERBOSE);
+    static final boolean DBG = false;
+    static final boolean VDBG = false;
     /*
      *  Play State Values from JNI
      */
@@ -222,6 +222,7 @@ public class AvrcpControllerService extends ProfileService {
 
     @Override
     protected boolean stop() {
+        setAvrcpControllerService(null);
         if (mAvrcpCtSm != null) {
             mAvrcpCtSm.doQuit();
         }
@@ -231,41 +232,22 @@ public class AvrcpControllerService extends ProfileService {
     //API Methods
 
     public static synchronized AvrcpControllerService getAvrcpControllerService() {
-        if (sAvrcpControllerService != null && sAvrcpControllerService.isAvailable()) {
-            if (DBG) {
-                Log.d(TAG, "getAvrcpControllerService(): returning " + sAvrcpControllerService);
-            }
-            return sAvrcpControllerService;
+        if (sAvrcpControllerService == null) {
+            Log.w(TAG, "getAvrcpControllerService(): service is null");
+            return null;
         }
-        if (DBG) {
-            if (sAvrcpControllerService == null) {
-                Log.d(TAG, "getAvrcpControllerService(): service is NULL");
-            } else if (!(sAvrcpControllerService.isAvailable())) {
-                Log.d(TAG, "getAvrcpControllerService(): service is not available");
-            }
+        if (!sAvrcpControllerService.isAvailable()) {
+            Log.w(TAG, "getAvrcpControllerService(): service is not available ");
+            return null;
         }
-        return null;
+        return sAvrcpControllerService;
     }
 
     private static synchronized void setAvrcpControllerService(AvrcpControllerService instance) {
-        if (instance != null && instance.isAvailable()) {
-            if (DBG) {
-                Log.d(TAG, "setAvrcpControllerService(): set to: " + sAvrcpControllerService);
-            }
-            sAvrcpControllerService = instance;
-        } else {
-            if (DBG) {
-                if (instance == null) {
-                    Log.d(TAG, "setAvrcpControllerService(): service not available");
-                } else if (!instance.isAvailable()) {
-                    Log.d(TAG, "setAvrcpControllerService(): service is cleaning up");
-                }
-            }
+        if (DBG) {
+            Log.d(TAG, "setAvrcpControllerService(): set to: " + instance);
         }
-    }
-
-    private static synchronized void clearAvrcpControllerService() {
-        sAvrcpControllerService = null;
+        sAvrcpControllerService = instance;
     }
 
     public synchronized List<BluetoothDevice> getConnectedDevices() {
@@ -852,7 +834,7 @@ public class AvrcpControllerService extends ProfileService {
         }
         List<String> attrValList = Arrays.asList(attribVals);
         TrackInfo trackInfo = new TrackInfo(attrList, attrValList);
-        if (DBG) {
+        if (VDBG) {
             Log.d(TAG, "onTrackChanged " + trackInfo);
         }
         Message msg = mAvrcpCtSm.obtainMessage(
@@ -961,7 +943,7 @@ public class AvrcpControllerService extends ProfileService {
         }
 
         for (MediaItem item : items) {
-            if (DBG) {
+            if (VDBG) {
                 Log.d(TAG, "media item: " + item + " uid: " + item.getDescription().getMediaId());
             }
         }
@@ -979,7 +961,7 @@ public class AvrcpControllerService extends ProfileService {
             Log.d(TAG, "handleGetFolderItemsRsp called with " + items.length + " items.");
         }
         for (AvrcpPlayer item : items) {
-            if (DBG) {
+            if (VDBG) {
                 Log.d(TAG, "bt player item: " + item);
             }
         }
@@ -996,7 +978,7 @@ public class AvrcpControllerService extends ProfileService {
     // JNI Helper functions to convert native objects to java.
     MediaItem createFromNativeMediaItem(byte[] uid, int type, String name, int[] attrIds,
             String[] attrVals) {
-        if (DBG) {
+        if (VDBG) {
             Log.d(TAG, "createFromNativeMediaItem uid: " + uid + " type " + type + " name " + name
                     + " attrids " + attrIds + " attrVals " + attrVals);
         }
@@ -1020,7 +1002,7 @@ public class AvrcpControllerService extends ProfileService {
     }
 
     MediaItem createFromNativeFolderItem(byte[] uid, int type, String name, int playable) {
-        if (DBG) {
+        if (VDBG) {
             Log.d(TAG, "createFromNativeFolderItem uid: " + uid + " type " + type + " name " + name
                     + " playable " + playable);
         }
@@ -1044,7 +1026,7 @@ public class AvrcpControllerService extends ProfileService {
 
     AvrcpPlayer createFromNativePlayerItem(int id, String name, byte[] transportFlags,
             int playStatus, int playerType) {
-        if (DBG) {
+        if (VDBG) {
             Log.d(TAG,
                     "createFromNativePlayerItem name: " + name + " transportFlags " + transportFlags
                             + " play status " + playStatus + " player type " + playerType);
