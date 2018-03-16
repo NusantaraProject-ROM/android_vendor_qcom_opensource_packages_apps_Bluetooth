@@ -70,6 +70,12 @@ public class HeadsetPhoneState {
     private int mCindRoam = HeadsetHalConstants.SERVICE_TYPE_HOME;
     // HFP 1.6 CIND battchg value
     private int mCindBatteryCharge;
+    // Current Call Number
+    private String mCindNumber;
+    //Current Phone Number Type
+    private int mType = 0;
+    // if its a CS call
+    private boolean mIsCsCall = true;
 
     private boolean mListening;
     private PhoneStateListener mPhoneStateListener;
@@ -162,6 +168,14 @@ public class HeadsetPhoneState {
         mNumActive = numActive;
     }
 
+    boolean getIsCsCall() {
+        return mIsCsCall;
+    }
+
+    void setIsCsCall(boolean isCsCall) {
+        mIsCsCall = isCsCall;
+    }
+
     int getCallState() {
         return mCallState;
     }
@@ -180,6 +194,22 @@ public class HeadsetPhoneState {
 
     int getCindSignal() {
         return mCindSignal;
+    }
+
+    void setNumber(String mNumberCall ) {
+        mCindNumber = mNumberCall;
+    }
+
+    String getNumber() {
+        return mCindNumber;
+    }
+
+    void setType(int mTypeCall) {
+        mType = mTypeCall;
+    }
+
+    int getType() {
+        return mType;
     }
 
     int getCindRoam() {

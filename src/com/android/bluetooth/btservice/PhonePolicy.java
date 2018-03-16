@@ -354,6 +354,9 @@ class PhonePolicy {
         A2dpService a2dpService = mFactory.getA2dpService();
         PanService panService = mFactory.getPanService();
 
+        boolean a2dpConnected = false;
+        boolean hsConnected = false;
+
         boolean allProfilesEmpty = true;
         List<BluetoothDevice> a2dpConnDevList = null;
         List<BluetoothDevice> hsConnDevList = null;
@@ -380,23 +383,91 @@ class PhonePolicy {
             return;
         }
 
-        if (hsService != null) {
-            if (!mHeadsetRetrySet.contains(device) && (
-                    hsService.getPriority(device) >= BluetoothProfile.PRIORITY_ON) && (
-                    hsService.getConnectionState(device) == BluetoothProfile.STATE_DISCONNECTED)) {
-                debugLog("Retrying connection to Headset with device " + device);
-                mHeadsetRetrySet.add(device);
-                hsService.connect(device);
+        if(!a2dpConnDevList.isEmpty()) {
+            for (BluetoothDevice a2dpDevice : a2dpConnDevList)
+            {
+                if(a2dpDevice.equals(device))
+                {
+                    a2dpConnected = true;
+                }
             }
         }
+
+        if(!hsConnDevList.isEmpty()) {
+            for (BluetoothDevice hsDevice : hsConnDevList)
+            {
+                if(hsDevice.equals(device))
+                {
+                    hsConnected = true;
+                }
+            }
+        }
+
+        // This change makes sure that we try to re-connect
+        // the profile if its connection failed and priority
+        // for desired profile is ON.
+        debugLog("HF connected for device : " + device + " " + hsConnDevList.contains(device));
+        debugLog("A2DP connected for device : " + device + " " + a2dpConnDevList.contains(device));
+
+        if (hsService != null) {
+            if ((hsConnDevList.isEmpty() || !(hsConnDevList.contains(device)))
+                    && (!mHeadsetRetrySet.contains(device))
+                    && (hsService.getPriority(device) >= BluetoothProfile.PRIORITY_ON)
+                    && (hsService.getConnectionState(device)
+                               == BluetoothProfile.STATE_DISCONNECTED)
+                    && (a2dpConnected || (a2dpService.getPriority(device) == BluetoothProfile.PRIORITY_OFF))) {
+                debugLog("Retrying connection to HS with device " + device);
+                int maxConnections = 1;
+                int maxHfpConnectionSysProp = mAdapterService.getMaxConnectedAudioDevices();                  
+                if (maxHfpConnectionSysProp == 2)
+                        maxConnections = maxHfpConnectionSysProp;
+
+                if (!hsConnDevList.isEmpty() && maxConnections == 1) {
+                    Log.v(TAG,"HFP is already connected, ignore");
+                    return;
+                }
+
+                // proceed connection only if a2dp is connected to this device
+                // add here as if is already overloaded
+                if (a2dpConnDevList.contains(device) ||
+                     (hsService.getPriority(device) >= BluetoothProfile.PRIORITY_ON)) {
+                    debugLog("Retrying connection to HS with device " + device);
+                    mHeadsetRetrySet.add(device);
+                    hsService.connect(device);
+                } else {
+                    debugLog("do not initiate connect as A2dp is not connected");
+                }
+            }
+        }
+
         if (a2dpService != null) {
-            if (!mA2dpRetrySet.contains(device) && (
-                    a2dpService.getPriority(device) >= BluetoothProfile.PRIORITY_ON) && (
-                    a2dpService.getConnectionState(device)
-                            == BluetoothProfile.STATE_DISCONNECTED)) {
+            if ((a2dpConnDevList.isEmpty() || !(a2dpConnDevList.contains(device)))
+                    && (!mA2dpRetrySet.contains(device))
+                    && (a2dpService.getPriority(device) >= BluetoothProfile.PRIORITY_ON)
+                    && (a2dpService.getConnectionState(device)
+                               == BluetoothProfile.STATE_DISCONNECTED)
+                    && (hsConnected || (hsService.getPriority(device) == BluetoothProfile.PRIORITY_OFF))) {
                 debugLog("Retrying connection to A2DP with device " + device);
-                mA2dpRetrySet.add(device);
-                a2dpService.connect(device);
+                int maxConnections = 1;
+                int maxA2dpConnectionSysProp = mAdapterService.getMaxConnectedAudioDevices();
+                if (maxA2dpConnectionSysProp == 2)
+                        maxConnections = maxA2dpConnectionSysProp;
+
+                if (!a2dpConnDevList.isEmpty() && maxConnections == 1) {
+                    Log.v(TAG,"a2dp is already connected, ignore");
+                    return;
+                }
+
+                // proceed connection only if HFP is connected to this device
+                // add here as if is already overloaded
+                if (hsConnDevList.contains(device) ||
+                    (a2dpService.getPriority(device) >= BluetoothProfile.PRIORITY_ON)) {
+                    debugLog("Retrying connection to A2DP with device " + device);
+                    mA2dpRetrySet.add(device);
+                    a2dpService.connect(device);
+                } else {
+                    debugLog("do not initiate connect as HFP is not connected");
+                }
             }
         }
         if (panService != null) {
