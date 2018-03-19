@@ -1904,7 +1904,9 @@ public class HeadsetStateMachine extends StateMachine {
 
     private void processVolumeEvent(int volumeType, int volume) {
         // Only current active device can change SCO volume
-        if (!mDevice.equals(mHeadsetService.getActiveDevice())) {
+        AdapterService adapterService = AdapterService.getAdapterService();
+        if (!adapterService.isTwsPlusDevice(mDevice) &&
+            !mDevice.equals(mHeadsetService.getActiveDevice())) {
             Log.w(TAG, "processVolumeEvent, ignored because " + mDevice + " is not active");
             return;
         }
