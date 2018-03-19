@@ -170,11 +170,14 @@ final class RemoteDevices {
     }
 
     BluetoothDevice getDevice(byte[] address) {
-        DeviceProperties prop = mDevices.get(Utils.getAddressStringFromByte(address));
-        if (prop == null) {
-            return null;
+        DeviceProperties prop;
+        synchronized (mDevices) {
+            prop = mDevices.get(Utils.getAddressStringFromByte(address));
         }
-        return prop.getDevice();
+        if (prop != null) {
+            return prop.getDevice();
+        }
+        return null;
     }
 
     DeviceProperties addDeviceProperties(byte[] address) {
@@ -373,7 +376,9 @@ final class RemoteDevices {
         sAdapterService.sendBroadcast(intent, AdapterService.BLUETOOTH_ADMIN_PERM);
 
         //Remove the outstanding UUID request
-        sSdpTracker.remove(device);
+        if (sSdpTracker.contains(device)) {
+            sSdpTracker.remove(device);
+        }
     }
 
     /**
@@ -485,6 +490,11 @@ final class RemoteDevices {
             bdDevice = getDevice(address);
         } else {
             device = getDeviceProperties(bdDevice);
+        }
+
+        if (device == null) {
+            errorLog("device null ");
+            return;
         }
 
         if (types.length <= 0) {
@@ -611,13 +621,6 @@ final class RemoteDevices {
                     "aclStateChangeCallback: Adapter State: " + BluetoothAdapter.nameForState(state)
                             + " Connected: " + device);
         } else {
-            if (device.getBondState() == BluetoothDevice.BOND_BONDING) {
-                // Send PAIRING_CANCEL intent to dismiss any dialog requesting bonding.
-                intent = new Intent(BluetoothDevice.ACTION_PAIRING_CANCEL);
-                intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
-                intent.setPackage(sAdapterService.getString(R.string.pairing_ui_package));
-                sAdapterService.sendBroadcast(intent, sAdapterService.BLUETOOTH_PERM);
-            }
             if (state == BluetoothAdapter.STATE_ON || state == BluetoothAdapter.STATE_TURNING_OFF) {
                 intent = new Intent(BluetoothDevice.ACTION_ACL_DISCONNECTED);
             } else if (state == BluetoothAdapter.STATE_BLE_ON

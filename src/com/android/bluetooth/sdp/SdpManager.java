@@ -49,6 +49,21 @@ public class SdpManager {
     public static final byte PBAP_REPO_SPEED_DAIL = 0x01 << 2;
     public static final byte PBAP_REPO_FAVORITES = 0x01 << 3;
 
+    public static final int OPP_L2CAP_PSM = 0x1023;
+    public static final int PBAP_L2CAP_PSM = 0x1025;
+    public static final int MNS_L2CAP_PSM = 0x1027;
+    public static final int MAP_L2CAP_PSM = 0x1029;
+
+    public static final int OPP_RFCOMM_CHANNEL = 12;
+    public static final int SAP_RFCOMM_CHANNEL = 16;
+    public static final int PBAP_RFCOMM_CHANNEL = 19;
+    public static final int MNS_RFCOMM_CHANNEL = 22;
+    /* SMS/MMS will use channel 26 & Email channels are set from 27 to 30*/
+    public static final int MAP_RFCOMM_CHANNEL = 26;
+
+    public static final int NEXT_RFCOMM_CHANNEL = 1;
+    public static final int NEXT_L2CAP_CHANNEL = 2;
+
     /* Variables to keep track of ongoing and queued search requests.
      * mTrackerLock must be held, when using/changing sSdpSearchTracker
      * and mSearchInProgress. */

@@ -594,6 +594,7 @@ class BluetoothOppNotification {
                             .setLocalOnly(true)
                             .build();
             mNotificationMgr.notify(NOTIFICATION_ID_PROGRESS, n);
+            Log.i(TAG, " Incoming Notification ");
         }
         cursor.close();
     }

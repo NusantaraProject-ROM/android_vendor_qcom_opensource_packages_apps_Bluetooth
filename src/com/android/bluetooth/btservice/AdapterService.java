@@ -61,6 +61,7 @@ import android.util.Log;
 import android.util.Slog;
 import android.util.SparseArray;
 
+import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.RemoteDevices.DeviceProperties;
 import com.android.bluetooth.gatt.GattService;
@@ -68,8 +69,11 @@ import com.android.bluetooth.sdp.SdpManager;
 import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.app.IBatteryStats;
+import android.net.wifi.WifiManager;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 
-import com.google.protobuf.micro.InvalidProtocolBufferMicroException;
+import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
@@ -93,6 +97,7 @@ public class AdapterService extends Service {
     private long mRxTimeTotalMs;
     private long mIdleTimeTotalMs;
     private long mEnergyUsedTotalVoltAmpSecMicro;
+    private WifiManager mWifiManager;
     private final SparseArray<UidTraffic> mUidTraffic = new SparseArray<>();
 
     private final ArrayList<ProfileService> mRegisteredProfiles = new ArrayList<>();
@@ -128,6 +133,7 @@ public class AdapterService extends Service {
     private static final int CONTROLLER_ENERGY_UPDATE_TIMEOUT_MILLIS = 30;
 
     static {
+        System.loadLibrary("bluetooth_jni");
         classInitNative();
     }
 
@@ -154,6 +160,8 @@ public class AdapterService extends Service {
 
     private AdapterProperties mAdapterProperties;
     private AdapterState mAdapterStateMachine;
+    private Vendor mVendor;
+    private boolean mVendorAvailble;
     private BondStateMachine mBondStateMachine;
     private JniCallbacks mJniCallbacks;
     private RemoteDevices mRemoteDevices;
@@ -180,6 +188,7 @@ public class AdapterService extends Service {
     private ProfileObserver mProfileObserver;
     private PhonePolicy mPhonePolicy;
     private ActiveDeviceManager mActiveDeviceManager;
+    private VendorSocket mVendorSocket;
 
     /**
      * Register a {@link ProfileService} with AdapterService.
@@ -213,6 +222,28 @@ public class AdapterService extends Service {
         m.obj = profile;
         m.arg1 = state;
         mHandler.sendMessage(m);
+    }
+
+    public boolean getProfileInfo(int profile_id , int profile_info) {
+        if (isVendorIntfEnabled()) {
+            return mVendor.getProfileInfo(profile_id, profile_info);
+        } else {
+            return false;
+        }
+    }
+
+    private void fetchWifiState() {
+        if (!isVendorIntfEnabled()) {
+            return;
+        }
+        ConnectivityManager connMgr =
+              (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo networkInfo = connMgr.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
+        if (networkInfo.isConnected()) {
+            mVendor.setWifiState(true);
+        } else {
+            mVendor.setWifiState(false);
+        }
     }
 
     private static final int MESSAGE_PROFILE_SERVICE_STATE_CHANGED = 1;
@@ -269,10 +300,17 @@ public class AdapterService extends Service {
                     }
                     mRunningProfiles.add(profile);
                     if (GattService.class.getSimpleName().equals(profile.getName())) {
-                        mAdapterStateMachine.sendMessage(AdapterState.BLE_STARTED);
+                        Log.w(TAG,"onProfileServiceStateChange() - Gatt profile service started..");
+                        enableNativeWithGuestFlag();
                     } else if (mRegisteredProfiles.size() == Config.getSupportedProfiles().length
                             && mRegisteredProfiles.size() == mRunningProfiles.size()) {
+                        Log.w(TAG,"onProfileServiceStateChange() - All profile services started..");
+                        mAdapterProperties.onBluetoothReady();
+                        updateUuids();
+                        setBluetoothClassFromConfig();
                         mAdapterStateMachine.sendMessage(AdapterState.BREDR_STARTED);
+                        //update wifi state to lower layers
+                        fetchWifiState();
                     }
                     break;
                 case BluetoothAdapter.STATE_OFF:
@@ -288,8 +326,11 @@ public class AdapterService extends Service {
                     // If only GATT is left, send BREDR_STOPPED.
                     if ((mRunningProfiles.size() == 1 && (GattService.class.getSimpleName()
                             .equals(mRunningProfiles.get(0).getName())))) {
+                        Log.w(TAG,"onProfileServiceStateChange() - All profile services except gatt stopped..");
                         mAdapterStateMachine.sendMessage(AdapterState.BREDR_STOPPED);
                     } else if (mRunningProfiles.size() == 0) {
+                        Log.w(TAG,"onProfileServiceStateChange() - All profile services stopped..");
+                        disableNative();
                         mAdapterStateMachine.sendMessage(AdapterState.BLE_STOPPED);
                     }
                     break;
@@ -368,8 +409,10 @@ public class AdapterService extends Service {
         mRemoteDevices.init();
         mBinder = new AdapterServiceBinder(this);
         mAdapterProperties = new AdapterProperties(this);
-        mAdapterStateMachine = AdapterState.make(this, mAdapterProperties);
-        mJniCallbacks = new JniCallbacks(mAdapterStateMachine, mAdapterProperties);
+        mVendor = new Vendor(this);
+        mAdapterStateMachine =  AdapterState.make(this);
+        mJniCallbacks = new JniCallbacks(this, mAdapterProperties);
+        mVendorSocket = new VendorSocket(this);
         initNative();
         mNativeAvailable = true;
         mCallbacks = new RemoteCallbackList<IBluetoothCallback>();
@@ -397,6 +440,7 @@ public class AdapterService extends Service {
         } else {
             Log.i(TAG, "Phone policy disabled");
         }
+        mBondStateMachine = BondStateMachine.make(mPowerManager, this, mAdapterProperties, mRemoteDevices);
 
         mActiveDeviceManager = new ActiveDeviceManager(this, new ServiceFactory());
         mActiveDeviceManager.start();
@@ -417,6 +461,9 @@ public class AdapterService extends Service {
                 return null;
             }
         }.execute();
+        mVendor.init();
+        mVendorAvailble = mVendor.getQtiStackStatus();
+        mVendorSocket.init();
 
         try {
             int systemUiUid = getApplicationContext().getPackageManager().getPackageUidAsUser(
@@ -435,6 +482,18 @@ public class AdapterService extends Service {
         int fuid = ActivityManager.getCurrentUser();
         Utils.setForegroundUserId(fuid);
         setForegroundUserIdNative(fuid);
+
+        // Reset |mRemoteDevices| whenever BLE is turned off then on
+        // This is to replace the fact that |mRemoteDevices| was
+        // reinitialized in previous code.
+        //
+        // TODO(apanicke): The reason is unclear but
+        // I believe it is to clear the variable every time BLE was
+        // turned off then on. The same effect can be achieved by
+        // calling cleanup but this may not be necessary at all
+        // We should figure out why this is needed later
+        mRemoteDevices.reset();
+        mAdapterProperties.init(mRemoteDevices);
     }
 
     @Override
@@ -445,7 +504,7 @@ public class AdapterService extends Service {
 
     @Override
     public boolean onUnbind(Intent intent) {
-        debugLog("onUnbind() - calling cleanup");
+        Log.w(TAG, "onUnbind, calling cleanup");
         cleanup();
         return super.onUnbind(intent);
     }
@@ -472,7 +531,7 @@ public class AdapterService extends Service {
         }
     };
 
-    void bleOnProcessStart() {
+    void bringUpBle() {
         debugLog("bleOnProcessStart()");
 
         if (getResources().getBoolean(
@@ -480,20 +539,7 @@ public class AdapterService extends Service {
             Config.init(getApplicationContext());
         }
 
-        // Reset |mRemoteDevices| whenever BLE is turned off then on
-        // This is to replace the fact that |mRemoteDevices| was
-        // reinitialized in previous code.
-        //
-        // TODO(apanicke): The reason is unclear but
-        // I believe it is to clear the variable every time BLE was
-        // turned off then on. The same effect can be achieved by
-        // calling cleanup but this may not be necessary at all
-        // We should figure out why this is needed later
-        mRemoteDevices.reset();
-        mAdapterProperties.init(mRemoteDevices);
-
-        debugLog("bleOnProcessStart() - Make Bond State Machine");
-        mBondStateMachine = BondStateMachine.make(this, mAdapterProperties, mRemoteDevices);
+        debugLog("BleOnProcessStart() - Make Bond State Machine");
 
         mJniCallbacks.init(mBondStateMachine, mRemoteDevices);
 
@@ -505,6 +551,20 @@ public class AdapterService extends Service {
 
         //Start Gatt service
         setProfileServiceState(GattService.class, BluetoothAdapter.STATE_ON);
+    }
+
+    void bringDownBle() {
+        stopGattProfileService();
+    }
+
+    void stateChangeCallback(int status) {
+        if (status == AbstractionLayer.BT_STATE_OFF) {
+            debugLog("stateChangeCallback: disableNative() completed");
+        } else if (status == AbstractionLayer.BT_STATE_ON) {
+            mAdapterStateMachine.sendMessage(AdapterState.BLE_STARTED);
+        } else {
+            Log.e(TAG, "Incorrect status " + status + " in stateChangeCallback");
+        }
     }
 
     /**
@@ -533,31 +593,72 @@ public class AdapterService extends Service {
         return result;
     }
 
-    void startCoreServices() {
-        debugLog("startCoreServices()");
-        Class[] supportedProfileServices = Config.getSupportedProfiles();
-        setAllProfileServiceStates(supportedProfileServices, BluetoothAdapter.STATE_ON);
-    }
-
     void startBluetoothDisable() {
         mAdapterStateMachine.sendMessage(AdapterState.BEGIN_DISABLE);
     }
 
-    void stopProfileServices() {
+    void startProfileServices() {
+        debugLog("startCoreServices()");
         Class[] supportedProfileServices = Config.getSupportedProfiles();
-        if (mRunningProfiles.size() == 0) {
-            debugLog("stopProfileServices() - No profiles services to stop or already stopped.");
-            return;
+        if (supportedProfileServices.length == 1 && GattService.class.getSimpleName()
+                .equals(supportedProfileServices[0].getSimpleName())) {
+            mAdapterProperties.onBluetoothReady();
+            updateUuids();
+            setBluetoothClassFromConfig();
+            mAdapterStateMachine.sendMessage(AdapterState.BREDR_STARTED);
+        } else {
+            setAllProfileServiceStates(supportedProfileServices, BluetoothAdapter.STATE_ON);
         }
-        setAllProfileServiceStates(supportedProfileServices, BluetoothAdapter.STATE_OFF);
     }
 
-    boolean stopGattProfileService() {
+    void startBrEdrCleanup(){
+        if (isVendorIntfEnabled()) {
+            mAdapterStateMachine.sendMessage(
+            mAdapterStateMachine.obtainMessage(AdapterState.BEGIN_BREDR_CLEANUP));
+        }
+    }
+
+    void stopProfileServices() {
+        mAdapterProperties.onBluetoothDisable();
+        Class[] supportedProfileServices = Config.getSupportedProfiles();
+        if (supportedProfileServices.length == 1 && (mRunningProfiles.size() == 1
+                && GattService.class.getSimpleName().equals(mRunningProfiles.get(0).getName()))) {
+            debugLog("stopProfileServices() - No profiles services to stop or already stopped.");
+            mAdapterStateMachine.sendMessage(AdapterState.BREDR_STOPPED);
+        } else {
+            setAllProfileServiceStates(supportedProfileServices, BluetoothAdapter.STATE_OFF);
+        }
+    }
+
+    void disableProfileServices() {
+        Class[] services = Config.getSupportedProfiles();
+        for (int i = 0; i < services.length; i++) {
+             boolean res = false;
+             String serviceName = services[i].getName();
+
+             mProfileServicesState.put(serviceName,BluetoothAdapter.STATE_OFF);
+             Intent intent = new Intent(this,services[i]);
+             intent.putExtra(EXTRA_ACTION,ACTION_SERVICE_STATE_CHANGED);
+             intent.putExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.STATE_OFF);
+             intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+             res = stopService(intent);
+             Log.d(TAG, "disableProfileServices() - Stopping service "
+                   + serviceName + " with result: " + res);
+        }
+        return;
+    }
+
+    private void stopGattProfileService() {
+        mAdapterProperties.onBleDisable();
+        if (mRunningProfiles.size() == 0) {
+            debugLog("stopGattProfileService() - No profiles services to stop.");
+            mAdapterStateMachine.sendMessage(AdapterState.BLE_STOPPED);
+        }
         setProfileServiceState(GattService.class, BluetoothAdapter.STATE_OFF);
-        return true;
     }
 
     void updateAdapterState(int prevState, int newState) {
+        mAdapterProperties.setState(newState);
         if (mCallbacks != null) {
             int n = mCallbacks.beginBroadcast();
             debugLog("updateAdapterState() - Broadcasting state " + BluetoothAdapter.nameForState(
@@ -629,6 +730,14 @@ public class AdapterService extends Service {
             mAdapterProperties.cleanup();
         }
 
+        if (mVendor != null) {
+            mVendor.cleanup();
+        }
+
+        if (mVendorSocket!= null) {
+            mVendorSocket.cleanup();
+        }
+
         if (mJniCallbacks != null) {
             mJniCallbacks.cleanup();
         }
@@ -659,6 +768,7 @@ public class AdapterService extends Service {
         Intent intent = new Intent(this, service);
         intent.putExtra(EXTRA_ACTION, ACTION_SERVICE_STATE_CHANGED);
         intent.putExtra(BluetoothAdapter.EXTRA_STATE, state);
+        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         startService(intent);
     }
 
@@ -1368,7 +1478,7 @@ public class AdapterService extends Service {
             // don't check caller, may be called from system UI
             AdapterService service = getService();
             if (service == null) {
-                return AdapterProperties.MIN_CONNECTED_AUDIO_DEVICES;
+                return AdapterProperties.MAX_CONNECTED_AUDIO_DEVICES_LOWER_BOND;
             }
             return service.getMaxConnectedAudioDevices();
         }
@@ -1519,6 +1629,29 @@ public class AdapterService extends Service {
             service.onBrEdrDown();
         }
 
+        public int setSocketOpt(int type, int channel, int optionName, byte [] optionVal,
+                                                    int optionLen) {
+            if (!Utils.checkCaller()) {
+                Log.w(TAG,"setSocketOpt(): not allowed for non-active user");
+                return -1;
+            }
+
+            AdapterService service = getService();
+            if (service == null) return -1;
+            return service.setSocketOpt(type, channel, optionName, optionVal, optionLen);
+        }
+
+        public int getSocketOpt(int type, int channel, int optionName, byte [] optionVal) {
+            if (!Utils.checkCaller()) {
+                Log.w(TAG,"getSocketOpt(): not allowed for non-active user");
+                return -1;
+            }
+
+            AdapterService service = getService();
+            if (service == null) return -1;
+            return service.getSocketOpt(type, channel, optionName, optionVal);
+        }
+
         @Override
         public void dump(FileDescriptor fd, String[] args) {
             PrintWriter writer = new PrintWriter(new FileOutputStream(fd));
@@ -1538,6 +1671,10 @@ public class AdapterService extends Service {
     public boolean isEnabled() {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         return mAdapterProperties.getState() == BluetoothAdapter.STATE_ON;
+    }
+
+    public boolean isVendorIntfEnabled() {
+        return mVendorAvailble;
     }
 
     public int getState() {
@@ -1575,7 +1712,7 @@ public class AdapterService extends Service {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
 
         debugLog("disable() called with mRunningProfiles.size() = " + mRunningProfiles.size());
-        mAdapterStateMachine.sendMessage(AdapterState.BLE_TURN_OFF);
+        mAdapterStateMachine.sendMessage(AdapterState.USER_TURN_OFF);
         return true;
     }
 
@@ -1665,6 +1802,10 @@ public class AdapterService extends Service {
         debugLog("startDiscovery");
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
 
+        if (mAdapterProperties.isDiscovering()) {
+            Log.i(TAG,"discovery already active, ignore startDiscovery");
+            return false;
+        }
         return startDiscoveryNative();
     }
 
@@ -1672,6 +1813,10 @@ public class AdapterService extends Service {
         debugLog("cancelDiscovery");
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
 
+        if (!mAdapterProperties.isDiscovering()) {
+            Log.i(TAG,"discovery not active, ignore cancelDiscovery");
+            return false;
+        }
         return cancelDiscoveryNative();
     }
 
@@ -1729,7 +1874,11 @@ public class AdapterService extends Service {
 
         // Pairing is unreliable while scanning, so cancel discovery
         // Note, remove this when native stack improves
-        cancelDiscoveryNative();
+        if (!mAdapterProperties.isDiscovering()) {
+            Log.i(TAG,"discovery not active, no need to send cancelDiscovery");
+        } else {
+            cancelDiscoveryNative();
+        }
 
         Message msg = mBondStateMachine.obtainMessage(BondStateMachine.CREATE_BOND);
         msg.obj = device;
@@ -2184,12 +2333,25 @@ public class AdapterService extends Service {
         return mAdapterProperties.getTotalNumOfTrackableAdvertisements();
     }
 
-    public void onLeServiceUp() {
+    void onLeServiceUp() {
         mAdapterStateMachine.sendMessage(AdapterState.USER_TURN_ON);
     }
 
-    public void onBrEdrDown() {
-        mAdapterStateMachine.sendMessage(AdapterState.USER_TURN_OFF);
+    void onBrEdrDown() {
+        mAdapterStateMachine.sendMessage(AdapterState.BLE_TURN_OFF);
+    }
+
+    int setSocketOpt(int type, int channel, int optionName, byte [] optionVal,
+             int optionLen) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+
+        return mVendorSocket.setSocketOpt(type, channel, optionName, optionVal, optionLen);
+    }
+
+    int getSocketOpt(int type, int channel, int optionName, byte [] optionVal) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+
+        return mVendorSocket.getSocketOpt(type, channel, optionName, optionVal);
     }
 
     private static int convertScanModeToHal(int mode) {
@@ -2371,12 +2533,20 @@ public class AdapterService extends Service {
             return;
         }
 
+        writer.println("AdapterProperties");
+        writer.println("  " + "MaxConnectedAudioDevices: " + getMaxConnectedAudioDevices());
+        writer.println();
+
+
         writer.println("Bonded devices:");
         for (BluetoothDevice device : getBondedDevices()) {
             writer.println(
                     "  " + device.getAddress() + " [" + DEVICE_TYPE_NAMES[device.getType()] + "] "
                             + device.getName());
         }
+
+        writer.println();
+        mAdapterStateMachine.dump(fd, writer, args);
 
         StringBuilder sb = new StringBuilder();
         for (ProfileService profile : mRegisteredProfiles) {
@@ -2390,22 +2560,23 @@ public class AdapterService extends Service {
     }
 
     private void dumpMetrics(FileDescriptor fd) {
-        BluetoothProto.BluetoothLog metrics = new BluetoothProto.BluetoothLog();
-        metrics.setNumBondedDevices(getBondedDevices().length);
-        for (ProfileService profile : mRegisteredProfiles) {
-            profile.dumpProto(metrics);
-        }
+        BluetoothMetricsProto.BluetoothLog.Builder metricsBuilder =
+                BluetoothMetricsProto.BluetoothLog.newBuilder();
         byte[] nativeMetricsBytes = dumpMetricsNative();
         debugLog("dumpMetrics: native metrics size is " + nativeMetricsBytes.length);
         if (nativeMetricsBytes.length > 0) {
             try {
-                metrics.mergeFrom(nativeMetricsBytes);
-            } catch (InvalidProtocolBufferMicroException ex) {
+                metricsBuilder.mergeFrom(nativeMetricsBytes);
+            } catch (InvalidProtocolBufferException ex) {
                 Log.w(TAG, "dumpMetrics: problem parsing metrics protobuf, " + ex.getMessage());
                 return;
             }
         }
-        byte[] metricsBytes = Base64.encode(metrics.toByteArray(), Base64.DEFAULT);
+        metricsBuilder.setNumBondedDevices(getBondedDevices().length);
+        for (ProfileService profile : mRegisteredProfiles) {
+            profile.dumpProto(metricsBuilder);
+        }
+        byte[] metricsBytes = Base64.encode(metricsBuilder.build().toByteArray(), Base64.DEFAULT);
         debugLog("dumpMetrics: combined metrics size is " + metricsBytes.length);
         try (FileOutputStream protoOut = new FileOutputStream(fd)) {
             protoOut.write(metricsBytes);
@@ -2440,7 +2611,32 @@ public class AdapterService extends Service {
         }
     };
 
-    private static native void classInitNative();
+    private final BroadcastReceiver mWifiStateBroadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction().equals(WifiManager.NETWORK_STATE_CHANGED_ACTION) && isEnabled()) {
+                NetworkInfo networkInfo = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO);
+                NetworkInfo.DetailedState ds = networkInfo.getDetailedState();
+                if (ds == NetworkInfo.DetailedState.CONNECTED) {
+                    if(isVendorIntfEnabled())
+                        mVendor.setWifiState(true);
+                }
+                else if (ds == NetworkInfo.DetailedState.DISCONNECTED) {
+                    if(isVendorIntfEnabled())
+                        mVendor.setWifiState(false);
+                }
+            }
+        }
+    };
+
+    private void enableNativeWithGuestFlag() {
+        boolean isGuest = UserManager.get(this).isGuestUser();
+        if (!enableNative(isGuest)) {
+            Log.e(TAG, "enableNative() returned false");
+        }
+    }
+
+    static native void classInitNative();
 
     native boolean initNative();
 

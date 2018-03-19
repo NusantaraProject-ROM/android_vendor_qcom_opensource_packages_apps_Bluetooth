@@ -44,10 +44,13 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 import android.os.UserManager;
 import android.util.Log;
 import android.view.KeyEvent;
 
+import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.btservice.AbstractionLayer;
 import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.ProfileService;
@@ -69,9 +72,14 @@ import java.util.TreeMap;
  ******************************************************************************/
 
 public final class Avrcp {
-    private static final boolean DEBUG = true;
+    static final boolean DEBUG = true;
     private static final String TAG = "Avrcp";
     private static final String ABSOLUTE_VOLUME_BLACKLIST = "absolute_volume_blacklist";
+    private static final String AVRCP_VERSION_PROPERTY = "persist.bluetooth.avrcpversion";
+    private static final String AVRCP_1_4_STRING = "avrcp14";
+    private static final String AVRCP_1_5_STRING = "avrcp15";
+    private static final String AVRCP_1_6_STRING = "avrcp16";
+    private static final String AVRCP_NOTIFICATION_ID = "avrcp_notification";
 
     private Context mContext;
     private final AudioManager mAudioManager;
@@ -115,7 +123,6 @@ public final class Avrcp {
     private int mLastDirection;
     private final int mVolumeStep;
     private final int mAudioStreamMax;
-    private boolean mVolCmdAdjustInProgress;
     private boolean mVolCmdSetInProgress;
     private int mAbsVolRetryTimes;
 
@@ -160,7 +167,6 @@ public final class Avrcp {
 
     /* other AVRC messages */
     private static final int MSG_PLAY_INTERVAL_TIMEOUT = 14;
-    private static final int MSG_ADJUST_VOLUME = 15;
     private static final int MSG_SET_ABSOLUTE_VOLUME = 16;
     private static final int MSG_ABS_VOL_TIMEOUT = 17;
     private static final int MSG_SET_A2DP_AUDIO_STATE = 18;
@@ -187,6 +193,8 @@ public final class Avrcp {
     /* Manage browsed players */
     private AvrcpBrowseManager mAvrcpBrowseManager;
 
+    /* BIP Responder */
+    static private AvrcpBipRsp mAvrcpBipRsp;
     /* Broadcast receiver for device connections intent broadcasts */
     private final BroadcastReceiver mAvrcpReceiver = new AvrcpServiceBroadcastReceiver();
     private final BroadcastReceiver mBootReceiver = new AvrcpServiceBootReceiver();
@@ -264,7 +272,6 @@ public final class Avrcp {
         mInitialRemoteVolume = -1;
         mLastRemoteVolume = -1;
         mLastDirection = 0;
-        mVolCmdAdjustInProgress = false;
         mVolCmdSetInProgress = false;
         mAbsVolRetryTimes = 0;
         mLocalVolume = -1;
@@ -277,7 +284,7 @@ public final class Avrcp {
         mContext = context;
         mLastUsedPlayerID = 0;
         mAddressedMediaPlayer = null;
-
+        mAvrcpBipRsp = null;
         initNative();
 
         mMediaSessionManager =
@@ -335,6 +342,27 @@ public final class Avrcp {
         }
         mPackageManager = mContext.getApplicationContext().getPackageManager();
 
+        boolean isCoverArtSupported = false;
+        AdapterService adapterService = AdapterService.getAdapterService();
+        if ((adapterService != null) && (adapterService.isVendorIntfEnabled())) {
+            if (adapterService.getProfileInfo(AbstractionLayer.AVRCP, AbstractionLayer.AVRCP_0103_SUPPORT))
+            {
+                isCoverArtSupported = false;
+            } else if(adapterService.getProfileInfo(AbstractionLayer.AVRCP, AbstractionLayer.AVRCP_COVERART_SUPPORT)){
+                isCoverArtSupported = true;
+            }
+        }
+        String avrcpVersion = SystemProperties.get(AVRCP_VERSION_PROPERTY, AVRCP_1_4_STRING);
+        if (DEBUG) Log.d(TAG, "avrcpVersion: " + avrcpVersion
+                + " isCoverArtSupported :"+isCoverArtSupported);
+        /* Enable Cover Art support is version is 1.6 and flag is set in config */
+        if (isCoverArtSupported && avrcpVersion != null &&
+            avrcpVersion.equals(AVRCP_1_6_STRING)) {
+            mAvrcpBipRsp = new AvrcpBipRsp(mContext);
+            mAvrcpBipRsp.start();
+            if (DEBUG) Log.d(TAG, "Starting AVRCP BIP Responder Service");
+        }
+
         /* create object to communicate with addressed player */
         mAddressedMediaPlayer = new AddressedMediaPlayer(mAvrcpMediaRsp);
 
@@ -387,7 +415,10 @@ public final class Avrcp {
         if (looper != null) {
             looper.quitSafely();
         }
-
+        if (mAvrcpBipRsp != null) {
+            mAvrcpBipRsp.stop();
+            mAvrcpBipRsp = null;
+        }
         mAudioManagerPlaybackHandler = null;
         mContext.unregisterReceiver(mAvrcpReceiver);
         mContext.unregisterReceiver(mBootReceiver);
@@ -584,16 +615,13 @@ public final class Avrcp {
                                 + msg.arg2);
                     }
 
-                    boolean volAdj = false;
                     if (msg.arg2 == AVRC_RSP_ACCEPT || msg.arg2 == AVRC_RSP_REJ) {
-                        if (!mVolCmdAdjustInProgress && !mVolCmdSetInProgress) {
+                        if (!mVolCmdSetInProgress) {
                             Log.e(TAG, "Unsolicited response, ignored");
                             break;
                         }
                         removeMessages(MSG_ABS_VOL_TIMEOUT);
 
-                        volAdj = mVolCmdAdjustInProgress;
-                        mVolCmdAdjustInProgress = false;
                         mVolCmdSetInProgress = false;
                         mAbsVolRetryTimes = 0;
                     }
@@ -633,16 +661,6 @@ public final class Avrcp {
                                 mLastLocalVolume = mLocalVolume;
                             }
                         }
-                        // remember the remote volume value, as it's the one supported by remote
-                        if (volAdj) {
-                            synchronized (mVolumeMapping) {
-                                mVolumeMapping.put(volIndex, (int) absVol);
-                                if (DEBUG) {
-                                    Log.v(TAG,
-                                            "remember volume mapping " + volIndex + "-" + absVol);
-                                }
-                            }
-                        }
 
                         notifyVolumeChanged(mLocalVolume);
                         mRemoteVolume = absVol;
@@ -650,119 +668,6 @@ public final class Avrcp {
                         Log.e(TAG, "percent volume changed: " + pecentVolChanged + "%");
                     } else if (msg.arg2 == AVRC_RSP_REJ) {
                         Log.e(TAG, "setAbsoluteVolume call rejected");
-                    } else if (volAdj && mLastRemoteVolume > 0 && mLastRemoteVolume < AVRCP_MAX_VOL
-                            && mLocalVolume == volIndex && (msg.arg2 == AVRC_RSP_ACCEPT)) {
-                    /* oops, the volume is still same, remote does not like the value
-                     * retry a volume one step up/down */
-                        if (DEBUG) {
-                            Log.d(TAG,
-                                    "Remote device didn't tune volume, let's try one more step.");
-                        }
-                        int retryVolume = Math.min(AVRCP_MAX_VOL,
-                                Math.max(0, mLastRemoteVolume + mLastDirection));
-                        if (setVolumeNative(retryVolume)) {
-                            mLastRemoteVolume = retryVolume;
-                            sendMessageDelayed(obtainMessage(MSG_ABS_VOL_TIMEOUT),
-                                    CMD_TIMEOUT_DELAY);
-                            mVolCmdAdjustInProgress = true;
-                        }
-                    }
-                    break;
-
-                case MSG_ADJUST_VOLUME:
-                    if (!isAbsoluteVolumeSupported()) {
-                        if (DEBUG) {
-                            Log.v(TAG, "ignore MSG_ADJUST_VOLUME");
-                        }
-                        break;
-                    }
-
-                    if (DEBUG) {
-                        Log.d(TAG, "MSG_ADJUST_VOLUME: direction=" + msg.arg1);
-                    }
-
-                    if (mVolCmdAdjustInProgress || mVolCmdSetInProgress) {
-                        if (DEBUG) {
-                            Log.w(TAG, "There is already a volume command in progress.");
-                        }
-                        break;
-                    }
-
-                    // Remote device didn't set initial volume. Let's black list it
-                    if (mInitialRemoteVolume == -1) {
-                        Log.d(TAG, "remote " + mAddress
-                                + " never tell us initial volume, black list it.");
-                        blackListCurrentDevice("MSG_ADJUST_VOLUME");
-                        break;
-                    }
-
-                    // Wait on verification on volume from device, before changing the volume.
-                    if (mRemoteVolume != -1 && (msg.arg1 == -1 || msg.arg1 == 1)) {
-                        int setVol = -1;
-                        int targetVolIndex = -1;
-                        if (mLocalVolume == 0 && msg.arg1 == -1) {
-                            if (DEBUG) {
-                                Log.w(TAG, "No need to Vol down from 0.");
-                            }
-                            break;
-                        }
-                        if (mLocalVolume == mAudioStreamMax && msg.arg1 == 1) {
-                            if (DEBUG) {
-                                Log.w(TAG, "No need to Vol up from max.");
-                            }
-                            break;
-                        }
-
-                        targetVolIndex = mLocalVolume + msg.arg1;
-                        if (DEBUG) {
-                            Log.d(TAG, "Adjusting volume to  " + targetVolIndex);
-                        }
-
-                        Integer i;
-                        synchronized (mVolumeMapping) {
-                            i = mVolumeMapping.get(targetVolIndex);
-                        }
-
-                        if (i != null) {
-                        /* if we already know this volume mapping, use it */
-                            setVol = i.byteValue();
-                            if (setVol == mRemoteVolume) {
-                                if (DEBUG) {
-                                    Log.d(TAG, "got same volume from mapping for " + targetVolIndex
-                                            + ", ignore.");
-                                }
-                                setVol = -1;
-                            }
-                            if (DEBUG) {
-                                Log.d(TAG,
-                                        "set volume from mapping " + targetVolIndex + "-" + setVol);
-                            }
-                        }
-
-                        if (setVol == -1) {
-                        /* otherwise use phone steps */
-                            setVol = Math.min(AVRCP_MAX_VOL,
-                                    convertToAvrcpVolume(Math.max(0, targetVolIndex)));
-                            if (DEBUG) {
-                                Log.d(TAG, "set volume from local volume " + targetVolIndex + "-"
-                                        + setVol);
-                            }
-                        }
-
-                        if (setVolumeNative(setVol)) {
-                            sendMessageDelayed(obtainMessage(MSG_ABS_VOL_TIMEOUT),
-                                    CMD_TIMEOUT_DELAY);
-                            mVolCmdAdjustInProgress = true;
-                            mLastDirection = msg.arg1;
-                            mLastRemoteVolume = setVol;
-                            mLastLocalVolume = targetVolIndex;
-                        } else {
-                            if (DEBUG) {
-                                Log.d(TAG, "setVolumeNative failed");
-                            }
-                        }
-                    } else {
-                        Log.e(TAG, "Unknown direction in MSG_ADJUST_VOLUME");
                     }
                     break;
 
@@ -778,7 +683,7 @@ public final class Avrcp {
                         Log.v(TAG, "MSG_SET_ABSOLUTE_VOLUME");
                     }
 
-                    if (mVolCmdSetInProgress || mVolCmdAdjustInProgress) {
+                    if (mVolCmdSetInProgress) {
                         if (DEBUG) {
                             Log.w(TAG, "There is already a volume command in progress.");
                         }
@@ -816,7 +721,6 @@ public final class Avrcp {
                     if (DEBUG) {
                         Log.v(TAG, "MSG_ABS_VOL_TIMEOUT: Volume change cmd timed out.");
                     }
-                    mVolCmdAdjustInProgress = false;
                     mVolCmdSetInProgress = false;
                     if (mAbsVolRetryTimes >= MAX_ERROR_RETRY_TIMES) {
                         mAbsVolRetryTimes = 0;
@@ -1019,6 +923,7 @@ public final class Avrcp {
         private String mMediaTotalNumber;
         private String mGenre;
         private long mPlayingTimeMs;
+        private String coverArt;
 
         private static final int ATTR_TITLE = 1;
         private static final int ATTR_ARTIST_NAME = 2;
@@ -1027,6 +932,7 @@ public final class Avrcp {
         private static final int ATTR_MEDIA_TOTAL_NUMBER = 5;
         private static final int ATTR_GENRE = 6;
         private static final int ATTR_PLAYING_TIME_MS = 7;
+        private static final int ATTR_COVER_ART = 8;
 
 
         MediaAttributes(MediaMetadata data) {
@@ -1042,6 +948,11 @@ public final class Avrcp {
                     longStringOrBlank(data.getLong(MediaMetadata.METADATA_KEY_NUM_TRACKS));
             mGenre = stringOrBlank(data.getString(MediaMetadata.METADATA_KEY_GENRE));
             mPlayingTimeMs = data.getLong(MediaMetadata.METADATA_KEY_DURATION);
+            if (mAvrcpBipRsp != null) {
+                coverArt = stringOrBlank(mAvrcpBipRsp.getImgHandle(mAlbumName));
+            } else {
+                coverArt = stringOrBlank(null);
+            }
 
             // Try harder for the title.
             mTitle = data.getString(MediaMetadata.METADATA_KEY_TITLE);
@@ -1084,7 +995,8 @@ public final class Avrcp {
             return (mTitle.equals(other.mTitle)) && (mArtistName.equals(other.mArtistName))
                     && (mAlbumName.equals(other.mAlbumName)) && (mMediaNumber.equals(
                     other.mMediaNumber)) && (mMediaTotalNumber.equals(other.mMediaTotalNumber))
-                    && (mGenre.equals(other.mGenre)) && (mPlayingTimeMs == other.mPlayingTimeMs);
+                    && (mGenre.equals(other.mGenre)) && (mPlayingTimeMs == other.mPlayingTimeMs)
+                    && (coverArt.equals(other.coverArt));
         }
 
         public String getString(int attrId) {
@@ -1107,6 +1019,15 @@ public final class Avrcp {
                     return mGenre;
                 case ATTR_PLAYING_TIME_MS:
                     return Long.toString(mPlayingTimeMs);
+                case ATTR_COVER_ART:
+                    if (mAvrcpBipRsp != null) {
+                        /* Fetch coverArt Handle now in case OBEX channel is established just
+                        * before retrieving get element attribute. */
+                        coverArt = stringOrBlank(mAvrcpBipRsp.getImgHandle(mAlbumName));
+                    } else {
+                        coverArt = stringOrBlank(null);
+                    }
+                    return coverArt;
                 default:
                     return new String();
             }
@@ -1128,7 +1049,7 @@ public final class Avrcp {
 
             return "[MediaAttributes: " + mTitle + " - " + mAlbumName + " by " + mArtistName + " ("
                     + mPlayingTimeMs + " " + mMediaNumber + "/" + mMediaTotalNumber + ") " + mGenre
-                    + "]";
+                    + "- " + coverArt + "]";
         }
 
         public String toRedactedString() {
@@ -1483,17 +1404,6 @@ public final class Avrcp {
      * We get this call from AudioService. This will send a message to our handler object,
      * requesting our handler to call setVolumeNative()
      */
-    public void adjustVolume(int direction) {
-        final AvrcpMessageHandler handler = mHandler;
-        if (handler == null) {
-            if (DEBUG) Log.d(TAG, "adjustVolume: mHandler is already null");
-            return;
-        }
-
-        Message msg = handler.obtainMessage(MSG_ADJUST_VOLUME, direction, 0);
-        handler.sendMessage(msg);
-    }
-
     public void setAbsoluteVolume(int volume) {
         if (volume == mLocalVolume) {
             if (DEBUG) {
@@ -1508,9 +1418,9 @@ public final class Avrcp {
             return;
         }
 
-        handler.removeMessages(MSG_ADJUST_VOLUME);
         Message msg = handler.obtainMessage(MSG_SET_ABSOLUTE_VOLUME, volume, 0);
         handler.sendMessage(msg);
+        Log.v(TAG, "Exit setAbsoluteVolume");
     }
 
     /* Called in the native layer as a btrc_callback to return the volume set on the carkit in the
@@ -2292,6 +2202,8 @@ public final class Avrcp {
             featureBitsList.add(AvrcpConstants.AVRC_PF_UID_UNIQUE_BIT_NO);
             featureBitsList.add(AvrcpConstants.AVRC_PF_NOW_PLAY_BIT_NO);
             featureBitsList.add(AvrcpConstants.AVRC_PF_GET_NUM_OF_ITEMS_BIT_NO);
+            if (mAvrcpBipRsp != null)
+                featureBitsList.add(AvrcpConstants.AVRC_PF_COVER_ART_BIT_NO);
         }
 
         // converting arraylist to array for response
@@ -2704,7 +2616,6 @@ public final class Avrcp {
         ProfileService.println(sb, "mLastDirection: " + mLastDirection);
         ProfileService.println(sb, "mVolumeStep: " + mVolumeStep);
         ProfileService.println(sb, "mAudioStreamMax: " + mAudioStreamMax);
-        ProfileService.println(sb, "mVolCmdAdjustInProgress: " + mVolCmdAdjustInProgress);
         ProfileService.println(sb, "mVolCmdSetInProgress: " + mVolCmdSetInProgress);
         ProfileService.println(sb, "mAbsVolRetryTimes: " + mAbsVolRetryTimes);
         ProfileService.println(sb, "mVolumeMapping: " + mVolumeMapping.toString());
@@ -3257,4 +3168,9 @@ public final class Avrcp {
 
     private native boolean registerNotificationRspNowPlayingChangedNative(int type);
 
+    public static String getImgHandleFromTitle(String title) {
+        if (mAvrcpBipRsp != null && title != null)
+            return mAvrcpBipRsp.getImgHandle(mAvrcpBipRsp.getAlbumName(title));
+        return null;
+    }
 }

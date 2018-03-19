@@ -153,7 +153,7 @@ public class BluetoothMapbMessageMime extends BluetoothMapbMessage {
     private ArrayList<Rfc822Token> mBcc = null;    // Can be empty
     private ArrayList<Rfc822Token> mReplyTo = null; // Can be empty
     private String mMessageId = null;
-    private ArrayList<MimePart> mParts = null;
+    ArrayList<MimePart> mParts = null;
     private String mContentType = null;
     private String mBoundary = null;
     private boolean mTextonly = false;
@@ -161,7 +161,7 @@ public class BluetoothMapbMessageMime extends BluetoothMapbMessage {
     private boolean mHasHeaders = false;
     private String mMyEncoding = null;
 
-    private String getBoundary() {
+    String getBoundary() {
         // Include "=_" as these cannot occur in quoted printable text
         if (mBoundary == null) {
             mBoundary = "--=_" + UUID.randomUUID();
