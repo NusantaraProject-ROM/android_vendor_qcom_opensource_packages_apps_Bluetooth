@@ -1226,24 +1226,29 @@ static jboolean setBrowsedPlayerRspNative(JNIEnv* env, jobject object,
   if (rspStatus == BTRC_STS_NO_ERROR) {
     if (depth > 0) {
       p_folders = new btrc_br_folder_name_t[depth];
-    }
 
-    for (int folder_idx = 0; folder_idx < depth; folder_idx++) {
-      /* copy folder names */
-      ScopedLocalRef<jstring> text(
-          env, (jstring)env->GetObjectArrayElement(textArray, folder_idx));
-
-      if (!copy_jstring(p_folders[folder_idx].p_str, BTRC_MAX_ATTR_STR_LEN,
-                        text.get(), env)) {
-        rspStatus = BTRC_STS_INTERNAL_ERR;
-        delete[] p_folders;
-        env->ReleaseByteArrayElements(address, addr, 0);
-        ALOGE("%s: Failed to copy folder name", __func__);
+      if (!p_folders ) {
+        jniThrowIOException(env, EINVAL);
+        ALOGE("%s: not have enough memeory", __func__);
         return JNI_FALSE;
       }
+      for (int folder_idx = 0; folder_idx < depth; folder_idx++) {
+        /* copy folder names */
+        ScopedLocalRef<jstring> text(
+            env, (jstring)env->GetObjectArrayElement(textArray, folder_idx));
 
-      p_folders[folder_idx].str_len =
-          strlen((char*)p_folders[folder_idx].p_str);
+        if (!copy_jstring(p_folders[folder_idx].p_str, BTRC_MAX_ATTR_STR_LEN,
+                          text.get(), env)) {
+          rspStatus = BTRC_STS_INTERNAL_ERR;
+          delete[] p_folders;
+          env->ReleaseByteArrayElements(address, addr, 0);
+          ALOGE("%s: Failed to copy folder name", __func__);
+          return JNI_FALSE;
+        }
+
+        p_folders[folder_idx].str_len =
+            strlen((char*)p_folders[folder_idx].p_str);
+      }
     }
   }
 

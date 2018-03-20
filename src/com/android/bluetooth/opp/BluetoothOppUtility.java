@@ -43,6 +43,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.database.Cursor;
+import android.database.SQLException;
 import android.net.Uri;
 import android.os.Environment;
 import android.util.Log;
@@ -76,17 +77,22 @@ public class BluetoothOppUtility {
 
     public static BluetoothOppTransferInfo queryRecord(Context context, Uri uri) {
         BluetoothOppTransferInfo info = new BluetoothOppTransferInfo();
-        Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
-        if (cursor != null) {
-            if (cursor.moveToFirst()) {
-                fillRecord(context, cursor, info);
+        try {
+            Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
+            if (cursor != null) {
+                if (cursor.moveToFirst()) {
+                    fillRecord(context, cursor, info);
+                }
+                cursor.close();
+            } else {
+                info = null;
+                if (V) {
+                    Log.v(TAG, "BluetoothOppManager Error: not got data from db for uri:" + uri);
+                }
             }
-            cursor.close();
-        } else {
+        } catch (SQLException | NullPointerException e) {
             info = null;
-            if (V) {
-                Log.v(TAG, "BluetoothOppManager Error: not got data from db for uri:" + uri);
-            }
+            Log.e(TAG, "queryRecord Error: ", e);
         }
         return info;
     }

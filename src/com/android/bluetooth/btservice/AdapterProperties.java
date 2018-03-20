@@ -56,7 +56,9 @@ class AdapterProperties {
 
     private static final String MAX_CONNECTED_AUDIO_DEVICES_PROPERTY =
             "persist.bluetooth.maxconnectedaudiodevices";
-    static final int MIN_CONNECTED_AUDIO_DEVICES = 1;
+    static final int MAX_CONNECTED_AUDIO_DEVICES_LOWER_BOND = 1;
+    private static final int MAX_CONNECTED_AUDIO_DEVICES_UPPER_BOUND = 5;
+    private static final int BLUETOOTH_NAME_MAX_LENGTH_BYTES = 248;
 
     private static final long DEFAULT_DISCOVERY_TIMEOUT_MS = 12800;
     private static final int BD_ADDR_LEN = 6; // in bytes
@@ -170,8 +172,20 @@ class AdapterProperties {
         mProfileConnectionState.clear();
         mRemoteDevices = remoteDevices;
 
-        mMaxConnectedAudioDevices = SystemProperties.getInt(
-                MAX_CONNECTED_AUDIO_DEVICES_PROPERTY, MIN_CONNECTED_AUDIO_DEVICES);
+        // Get default max connected audio devices from config.xml in frameworks/base/core
+        int configDefaultMaxConnectedAudioDevices = mService.getResources().getInteger(
+                com.android.internal.R.integer.config_bluetooth_max_connected_audio_devices);
+        // Override max connected audio devices if MAX_CONNECTED_AUDIO_DEVICES_PROPERTY is set
+        int propertyOverlayedMaxConnectedAudioDevices =
+                SystemProperties.getInt(MAX_CONNECTED_AUDIO_DEVICES_PROPERTY,
+                        configDefaultMaxConnectedAudioDevices);
+        // Make sure the final value of max connected audio devices is within allowed range
+        mMaxConnectedAudioDevices = Math.min(Math.max(propertyOverlayedMaxConnectedAudioDevices,
+                MAX_CONNECTED_AUDIO_DEVICES_LOWER_BOND), MAX_CONNECTED_AUDIO_DEVICES_UPPER_BOUND);
+        Log.i(TAG, "init(), maxConnectedAudioDevices, default="
+                + configDefaultMaxConnectedAudioDevices + ", propertyOverlayed="
+                + propertyOverlayedMaxConnectedAudioDevices + ", finalValue="
+                + mMaxConnectedAudioDevices);
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
@@ -194,7 +208,9 @@ class AdapterProperties {
         mRemoteDevices = null;
         mProfileConnectionState.clear();
         if (mReceiverRegistered) {
-            mService.unregisterReceiver(mReceiver);
+            if (mReceiver != null) {
+                mService.unregisterReceiver(mReceiver);
+            }
             mReceiverRegistered = false;
         }
         mService = null;
@@ -219,6 +235,9 @@ class AdapterProperties {
      */
     boolean setName(String name) {
         synchronized (mObject) {
+            if (name.length() > BLUETOOTH_NAME_MAX_LENGTH_BYTES) {
+                name =  name.substring(0, BLUETOOTH_NAME_MAX_LENGTH_BYTES);
+            }
             return mService.setAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_BDNAME,
                     name.getBytes());
         }
@@ -731,10 +750,6 @@ class AdapterProperties {
                         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
                         mService.sendBroadcast(intent, AdapterService.BLUETOOTH_PERM);
                         debugLog("Scan Mode:" + mScanMode);
-                        if (mBluetoothDisabling) {
-                            mBluetoothDisabling = false;
-                            mService.startBluetoothDisable();
-                        }
                         break;
                     case AbstractionLayer.BT_PROPERTY_UUIDS:
                         mUuids = Utils.byteArrayToUuid(val);
@@ -829,8 +844,6 @@ class AdapterProperties {
         }
     }
 
-    private boolean mBluetoothDisabling = false;
-
     void onBleDisable() {
         // Sequence BLE_ON to STATE_OFF - that is _complete_ OFF state.
         // When BT disable is invoked, set the scan_mode to NONE
@@ -849,7 +862,6 @@ class AdapterProperties {
         //Set flag to indicate we are disabling. When property change of scan mode done
         //continue with disable sequence
         debugLog("onBluetoothDisable()");
-        mBluetoothDisabling = true;
         if (getState() == BluetoothAdapter.STATE_TURNING_OFF) {
             // Turn off any Device Search/Inquiry
             mService.cancelDiscovery();
@@ -861,7 +873,7 @@ class AdapterProperties {
         infoLog("Callback:discoveryStateChangeCallback with state:" + state);
         synchronized (mObject) {
             Intent intent;
-            if (state == AbstractionLayer.BT_DISCOVERY_STOPPED) {
+            if ((state == AbstractionLayer.BT_DISCOVERY_STOPPED) && mDiscovering) {
                 mDiscovering = false;
                 mDiscoveryEndMs = System.currentTimeMillis();
                 intent = new Intent(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);

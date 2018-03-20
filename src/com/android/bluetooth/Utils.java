@@ -62,6 +62,7 @@ public final class Utils {
     }
 
     public static byte[] getByteAddress(BluetoothDevice device) {
+        if (device == null) return new byte[BD_ADDR_LEN];
         return getBytesFromAddress(device.getAddress());
     }
 

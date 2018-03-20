@@ -81,19 +81,33 @@ public class ObexServerSockets {
     }
 
     /**
-     * Creates an Insecure RFCOMM {@link BluetoothServerSocket} and a L2CAP
-     *                  {@link BluetoothServerSocket}
+     * Creates a fixed Insecure RFCOMM {@link BluetoothServerSocket} and a L2CAP
+         *                  {@link BluetoothServerSocket}
      * @param validator a reference to the {@link IObexConnectionHandler} object to call
      *                  to validate an incoming connection.
+     * @param rfcommChannel is a fixed RFCOMM channnel to allocate
+     * @param l2capPsm is a fixed L2CAP PSM to allocate
      * @return a reference to a {@link ObexServerSockets} object instance.
      * @throws IOException if it occurs while creating the {@link BluetoothServerSocket}s.
      */
-    public static ObexServerSockets createInsecure(IObexConnectionHandler validator) {
-        return create(validator, BluetoothAdapter.SOCKET_CHANNEL_AUTO_STATIC_NO_SDP,
-                BluetoothAdapter.SOCKET_CHANNEL_AUTO_STATIC_NO_SDP, false);
+    public static ObexServerSockets createInsecureWithFixedChannels(IObexConnectionHandler
+            validator, int rfcommChannel, int l2capPsm) {
+        return create(validator, rfcommChannel, l2capPsm , false);
     }
-
     private static final int CREATE_RETRY_TIME = 10;
+    /**
+     * Creates an RFCOMM {@link BluetoothServerSocket} and a L2CAP {@link BluetoothServerSocket}
+     * @param validator a reference to the {@link IObexConnectionHandler} object to call
+     *                  to validate an incoming connection.
+     * @param rfcommChannel fixed rfcomm channel number to listen on
+     * @param l2capPsm fixed l2cap psm to listen on
+     * @return a reference to a {@link ObexServerSockets} object instance.
+     * @throws IOException if it occurs while creating the {@link BluetoothServerSocket}s.
+     */
+    public static ObexServerSockets createWithFixedChannels(IObexConnectionHandler validator,
+            int rfcommChannel, int l2capPsm) {
+        return create(validator, rfcommChannel, l2capPsm, true);
+    }
 
     /**
      * Creates an RFCOMM {@link BluetoothServerSocket} and a L2CAP {@link BluetoothServerSocket}
@@ -126,14 +140,14 @@ public class ObexServerSockets {
         for (int i = 0; i < CREATE_RETRY_TIME; i++) {
             initSocketOK = true;
             try {
-                if (rfcommSocket == null) {
+                if (rfcommSocket == null && rfcommChannel != -1) {
                     if (isSecure) {
                         rfcommSocket = bt.listenUsingRfcommOn(rfcommChannel);
                     } else {
                         rfcommSocket = bt.listenUsingInsecureRfcommOn(rfcommChannel);
                     }
                 }
-                if (l2capSocket == null) {
+                if (l2capSocket == null && l2capPsm != -1) {
                     if (isSecure) {
                         l2capSocket = bt.listenUsingL2capOn(l2capPsm);
                     } else {
@@ -205,12 +219,15 @@ public class ObexServerSockets {
         if (D) {
             Log.d(mTag, "startAccept()");
         }
+        if (mRfcommSocket != null) {
+            mRfcommThread = new SocketAcceptThread(mRfcommSocket);
+            mRfcommThread.start();
+        }
 
-        mRfcommThread = new SocketAcceptThread(mRfcommSocket);
-        mRfcommThread.start();
-
-        mL2capThread = new SocketAcceptThread(mL2capSocket);
-        mL2capThread.start();
+        if (mL2capSocket != null) {
+            mL2capThread = new SocketAcceptThread(mL2capSocket);
+            mL2capThread.start();
+        }
     }
 
     /**

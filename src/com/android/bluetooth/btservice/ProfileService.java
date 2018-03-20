@@ -30,6 +30,7 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.Log;
 
+import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.Utils;
 
 /**
@@ -129,7 +130,7 @@ public abstract class ProfileService extends Service {
         if (DBG) {
             Log.d(mName, "onStartCommand()");
         }
-
+        AdapterService adapterService = AdapterService.getAdapterService();
         if (checkCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM)
                 != PackageManager.PERMISSION_GRANTED) {
             Log.e(mName, "Permission denied!");
@@ -144,10 +145,31 @@ public abstract class ProfileService extends Service {
         String action = intent.getStringExtra(AdapterService.EXTRA_ACTION);
         if (AdapterService.ACTION_SERVICE_STATE_CHANGED.equals(action)) {
             int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
+            int currentState = (adapterService != null) ? adapterService.getState() : -1;
             if (state == BluetoothAdapter.STATE_OFF) {
-                doStop();
+                if ((currentState == BluetoothAdapter.STATE_TURNING_OFF &&
+                     !mName.equals("GattService")) ||
+                     (currentState == BluetoothAdapter.STATE_BLE_TURNING_OFF &&
+                     mName.equals("GattService")) ) {
+                    Log.d(mName, ": Received stop request...Stopping profile...");
+                    doStop();
+                } else {
+                    Log.e(mName, ":intent received late, not Stopping profile");
+                }
             } else if (state == BluetoothAdapter.STATE_ON) {
-                doStart();
+                if ((currentState == BluetoothAdapter.STATE_TURNING_ON &&
+                     !mName.equals("GattService")) ||
+                     (currentState == BluetoothAdapter.STATE_BLE_TURNING_ON &&
+                     mName.equals("GattService")) ) {
+
+                     Log.d(mName, "Received start request. Starting profile...");
+                     doStart();
+                } else {
+                     Log.e(mName, ":intent received late, not starting profile");
+                     if (adapterService != null) {
+                         adapterService.removeProfile(this);
+                     }
+                }
             }
         }
         return PROFILE_SERVICE_MODE;
@@ -187,9 +209,9 @@ public abstract class ProfileService extends Service {
     /**
      * Support dumping scan events from GattService
      *
-     * @param proto
+     * @param builder metrics proto builder
      */
-    public void dumpProto(BluetoothProto.BluetoothLog proto) {
+    public void dumpProto(BluetoothMetricsProto.BluetoothLog.Builder builder) {
         // Do nothing
     }
 
@@ -268,6 +290,7 @@ public abstract class ProfileService extends Service {
             Log.e(mName, "Error starting profile. start() returned false.");
             return;
         }
+        Log.d(mName, " profile started successfully");
         mAdapterService.onProfileServiceStateChanged(this, BluetoothAdapter.STATE_ON);
     }
 
@@ -276,11 +299,13 @@ public abstract class ProfileService extends Service {
             Log.w(mName, "doStop() called, but the profile is not running.");
         }
         mProfileStarted = false;
-        if (mAdapterService != null) {
-            mAdapterService.onProfileServiceStateChanged(this, BluetoothAdapter.STATE_OFF);
-        }
         if (!stop()) {
             Log.e(mName, "Unable to stop profile");
+        } else {
+            Log.d(mName, " profile stopped successfully");
+        }
+        if (mAdapterService != null) {
+            mAdapterService.onProfileServiceStateChanged(this, BluetoothAdapter.STATE_OFF);
         }
         if (mUserSwitchedReceiver != null) {
             getApplicationContext().unregisterReceiver(mUserSwitchedReceiver);

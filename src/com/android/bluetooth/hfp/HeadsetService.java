@@ -19,6 +19,7 @@ package com.android.bluetooth.hfp;
 import static android.Manifest.permission.MODIFY_PHONE_STATE;
 
 import android.annotation.Nullable;
+import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile;
@@ -49,13 +50,15 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
+import android.telecom.TelecomManager;
+
 
 /**
  * Provides Bluetooth Headset and Handsfree profile, as a service in the Bluetooth application.
  */
 public class HeadsetService extends ProfileService {
     private static final String TAG = "HeadsetService";
-    private static final boolean DBG = false;
+    private static final boolean DBG = true;
     private static final String DISABLE_INBAND_RINGING_PROPERTY =
             "persist.bluetooth.disableinbandringing";
     private static final ParcelUuid[] HEADSET_UUIDS = {
@@ -129,10 +132,14 @@ public class HeadsetService extends ProfileService {
         filter.addAction(AudioManager.VOLUME_CHANGED_ACTION);
         filter.addAction(BluetoothDevice.ACTION_CONNECTION_ACCESS_REPLY);
         filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
+        filter.addAction(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED);
+        filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
         registerReceiver(mHeadsetReceiver, filter);
         // Step 7: Mark service as started
+
         setHeadsetService(this);
         mStarted = true;
+        Log.i(TAG, " HeadsetService Started ");
         return true;
     }
 
@@ -206,6 +213,16 @@ public class HeadsetService extends ProfileService {
 
     interface StateMachineTask {
         void execute(HeadsetStateMachine stateMachine);
+    }
+
+    // send message to all statemachines in connecting and connected state.
+    private void doForEachConnectedConnectingStateMachine(StateMachineTask task) {
+        synchronized (mStateMachines) {
+            for (BluetoothDevice device :
+                         getDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES)) {
+                task.execute(mStateMachines.get(device));
+            }
+        }
     }
 
     private void doForEachConnectedStateMachine(StateMachineTask task) {
@@ -326,6 +343,39 @@ public class HeadsetService extends ProfileService {
                             break;
                         }
                         removeStateMachine(device);
+                    }
+                    break;
+                }
+                //TODO: below 2 should be done for all stateMachines ( doForEachConnectedStateMachine )
+                case BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED: {
+                    BluetoothDevice device = Objects.requireNonNull(
+                            intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE),
+                            "A2DP-ACTION_PLAYING_STATE_CHANGED with no EXTRA_DEVICE");
+                    logD("Received BluetoothA2dp Play State changed");
+                    synchronized (mStateMachines) {
+                        final HeadsetStateMachine stateMachine = mStateMachines.get(device);
+                        if (stateMachine == null) {
+                            Log.wtfStack(TAG, "Cannot find state machine for " + device);
+                            return;
+                        }
+                        stateMachine.sendMessage(HeadsetStateMachine.UPDATE_A2DP_PLAY_STATE,
+                                intent);
+                    }
+                    break;
+                }
+                case BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED: {
+                    BluetoothDevice device = Objects.requireNonNull(
+                            intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE),
+                            "A2DP-ACTION_CONNECTION_STATE_CHANGED with no EXTRA_DEVICE");
+                    logD("Received BluetoothA2dp Play State changed");
+                    synchronized (mStateMachines) {
+                        final HeadsetStateMachine stateMachine = mStateMachines.get(device);
+                        if (stateMachine == null) {
+                            Log.wtfStack(TAG, "Cannot find state machine for " + device);
+                            return;
+                        }
+                        stateMachine.sendMessage(HeadsetStateMachine.UPDATE_A2DP_CONN_STATE,
+                                intent);
                     }
                     break;
                 }
@@ -686,6 +736,11 @@ public class HeadsetService extends ProfileService {
             stateMachine.sendMessage(HeadsetStateMachine.DISCONNECT, device);
         }
         return true;
+    }
+
+    public boolean isInCall() {
+        Log.d(TAG," isInCall ");
+        return mSystemInterface.isInCall();
     }
 
     public List<BluetoothDevice> getConnectedDevices() {
@@ -1086,7 +1141,7 @@ public class HeadsetService extends ProfileService {
     private void phoneStateChanged(int numActive, int numHeld, int callState, String number,
             int type) {
         enforceCallingOrSelfPermission(MODIFY_PHONE_STATE, null);
-        doForEachConnectedStateMachine(
+        doForEachConnectedConnectingStateMachine(
                 stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.CALL_STATE_CHANGED,
                         new HeadsetCallState(numActive, numHeld, callState, number, type)));
     }
@@ -1248,7 +1303,6 @@ public class HeadsetService extends ProfileService {
         }
         return true;
     }
-
     /**
      * Remove state machine in {@link #mStateMachines} for a {@link BluetoothDevice}
      *

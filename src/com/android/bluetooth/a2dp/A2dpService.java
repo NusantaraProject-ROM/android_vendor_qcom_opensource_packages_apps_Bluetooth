@@ -61,6 +61,8 @@ public class A2dpService extends ProfileService {
     private AdapterService mAdapterService;
     private HandlerThread mStateMachinesThread;
     private Avrcp mAvrcp;
+    private final Object mBtA2dpLock = new Object();
+    private final Object mBtAvrcpLock = new Object();
 
     @VisibleForTesting
     A2dpNativeInterface mA2dpNativeInterface;
@@ -175,7 +177,7 @@ public class A2dpService extends ProfileService {
         mA2dpCodecConfig = null;
 
         // Step 4: Destroy state machines and stop handler thread
-        synchronized (mStateMachines) {
+        synchronized (mBtA2dpLock) {
             for (A2dpStateMachine sm : mStateMachines.values()) {
                 sm.doQuit();
                 sm.cleanup();
@@ -186,9 +188,11 @@ public class A2dpService extends ProfileService {
         mStateMachinesThread = null;
 
         // Step 3: Cleanup AVRCP
-        mAvrcp.doQuit();
-        mAvrcp.cleanup();
-        mAvrcp = null;
+        synchronized (mBtAvrcpLock) {
+            mAvrcp.doQuit();
+            mAvrcp.cleanup();
+            mAvrcp = null;
+        }
 
         // Step 2: Reset maximum number of connected audio devices
         mMaxConnectedAudioDevices = 1;
@@ -242,7 +246,7 @@ public class A2dpService extends ProfileService {
             return false;
         }
 
-        synchronized (mStateMachines) {
+        synchronized (mBtA2dpLock) {
             if (!connectionAllowedCheckMaxDevices(device)) {
                 Log.e(TAG, "Cannot connect to " + device + " : too many connected devices");
                 return false;
@@ -263,7 +267,7 @@ public class A2dpService extends ProfileService {
             Log.d(TAG, "disconnect(): " + device);
         }
 
-        synchronized (mStateMachines) {
+        synchronized (mBtA2dpLock) {
             A2dpStateMachine sm = mStateMachines.get(device);
             if (sm == null) {
                 Log.e(TAG, "Ignored disconnect request for " + device + " : no state machine");
@@ -276,7 +280,7 @@ public class A2dpService extends ProfileService {
 
     public List<BluetoothDevice> getConnectedDevices() {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
-        synchronized (mStateMachines) {
+        synchronized (mBtA2dpLock) {
             List<BluetoothDevice> devices = new ArrayList<>();
             for (A2dpStateMachine sm : mStateMachines.values()) {
                 if (sm.isConnected()) {
@@ -297,7 +301,7 @@ public class A2dpService extends ProfileService {
     private boolean connectionAllowedCheckMaxDevices(BluetoothDevice device) {
         int connected = 0;
         // Count devices that are in the process of connecting or already connected
-        synchronized (mStateMachines) {
+        synchronized (mBtA2dpLock) {
             for (A2dpStateMachine sm : mStateMachines.values()) {
                 switch (sm.getConnectionState()) {
                     case BluetoothProfile.STATE_CONNECTING:
@@ -357,7 +361,7 @@ public class A2dpService extends ProfileService {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         List<BluetoothDevice> devices = new ArrayList<>();
         Set<BluetoothDevice> bondedDevices = mAdapter.getBondedDevices();
-        synchronized (mStateMachines) {
+        synchronized (mBtA2dpLock) {
             for (BluetoothDevice device : bondedDevices) {
                 if (!BluetoothUuid.isUuidPresent(mAdapterService.getRemoteUuids(device),
                                                  BluetoothUuid.AudioSink)) {
@@ -386,7 +390,7 @@ public class A2dpService extends ProfileService {
     @VisibleForTesting
     List<BluetoothDevice> getDevices() {
         List<BluetoothDevice> devices = new ArrayList<>();
-        synchronized (mStateMachines) {
+        synchronized (mBtA2dpLock) {
             for (A2dpStateMachine sm : mStateMachines.values()) {
                 devices.add(sm.getDevice());
             }
@@ -396,7 +400,7 @@ public class A2dpService extends ProfileService {
 
     public int getConnectionState(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
-        synchronized (mStateMachines) {
+        synchronized (mBtA2dpLock) {
             A2dpStateMachine sm = mStateMachines.get(device);
             if (sm == null) {
                 return BluetoothProfile.STATE_DISCONNECTED;
@@ -413,7 +417,7 @@ public class A2dpService extends ProfileService {
      */
     public boolean setActiveDevice(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
-        synchronized (mStateMachines) {
+        synchronized (mBtA2dpLock) {
             BluetoothDevice previousActiveDevice = mActiveDevice;
             if (DBG) {
                 Log.d(TAG, "setActiveDevice(" + device + "): previous is " + previousActiveDevice);
@@ -488,13 +492,13 @@ public class A2dpService extends ProfileService {
      */
     public BluetoothDevice getActiveDevice() {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
-        synchronized (mStateMachines) {
+        synchronized (mBtA2dpLock) {
             return mActiveDevice;
         }
     }
 
     private boolean isActiveDevice(BluetoothDevice device) {
-        synchronized (mStateMachines) {
+        synchronized (mBtA2dpLock) {
             return (device != null) && Objects.equals(device, mActiveDevice);
         }
     }
@@ -519,24 +523,32 @@ public class A2dpService extends ProfileService {
 
     /* Absolute volume implementation */
     public boolean isAvrcpAbsoluteVolumeSupported() {
-        return mAvrcp.isAbsoluteVolumeSupported();
-    }
-
-    public void adjustAvrcpAbsoluteVolume(int direction) {
-        mAvrcp.adjustVolume(direction);
+        synchronized(mBtAvrcpLock) {
+            return (mAvrcp != null) && mAvrcp.isAbsoluteVolumeSupported();
+        }
     }
 
     public void setAvrcpAbsoluteVolume(int volume) {
-        mAvrcp.setAbsoluteVolume(volume);
+        synchronized(mBtAvrcpLock) {
+            if (mAvrcp != null) {
+                mAvrcp.setAbsoluteVolume(volume);
+            }
+        }
     }
 
     public void setAvrcpAudioState(int state) {
-        mAvrcp.setA2dpAudioState(state);
+        synchronized(mBtAvrcpLock) {
+            if (mAvrcp != null) {
+                mAvrcp.setA2dpAudioState(state);
+            }
+        }
     }
 
     public void resetAvrcpBlacklist(BluetoothDevice device) {
-        if (mAvrcp != null) {
-            mAvrcp.resetBlackList(device.getAddress());
+        synchronized(mBtAvrcpLock) {
+            if (mAvrcp != null) {
+                mAvrcp.resetBlackList(device.getAddress());
+            }
         }
     }
 
@@ -545,7 +557,7 @@ public class A2dpService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "isA2dpPlaying(" + device + ")");
         }
-        synchronized (mStateMachines) {
+        synchronized (mBtA2dpLock) {
             A2dpStateMachine sm = mStateMachines.get(device);
             if (sm == null) {
                 return false;
@@ -567,7 +579,7 @@ public class A2dpService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "getCodecStatus(" + device + ")");
         }
-        synchronized (mStateMachines) {
+        synchronized (mBtA2dpLock) {
             if (device == null) {
                 device = mActiveDevice;
             }
@@ -692,7 +704,7 @@ public class A2dpService extends ProfileService {
     void messageFromNative(A2dpStackEvent stackEvent) {
         Objects.requireNonNull(stackEvent.device,
                                "Device should never be null, event: " + stackEvent);
-        synchronized (mStateMachines) {
+        synchronized (mBtA2dpLock) {
             BluetoothDevice device = stackEvent.device;
             A2dpStateMachine sm = mStateMachines.get(device);
             if (sm == null) {
@@ -746,7 +758,7 @@ public class A2dpService extends ProfileService {
             Log.e(TAG, "getOrCreateStateMachine failed: device cannot be null");
             return null;
         }
-        synchronized (mStateMachines) {
+        synchronized (mBtA2dpLock) {
             A2dpStateMachine sm = mStateMachines.get(device);
             if (sm != null) {
                 return sm;
@@ -823,7 +835,7 @@ public class A2dpService extends ProfileService {
         if (bondState != BluetoothDevice.BOND_NONE) {
             return;
         }
-        synchronized (mStateMachines) {
+        synchronized (mBtA2dpLock) {
             A2dpStateMachine sm = mStateMachines.get(device);
             if (sm == null) {
                 return;
@@ -836,7 +848,7 @@ public class A2dpService extends ProfileService {
     }
 
     private void removeStateMachine(BluetoothDevice device) {
-        synchronized (mStateMachines) {
+        synchronized (mBtA2dpLock) {
             A2dpStateMachine sm = mStateMachines.get(device);
             if (sm == null) {
                 Log.w(TAG, "removeStateMachine: device " + device
@@ -854,7 +866,7 @@ public class A2dpService extends ProfileService {
         int previousSupport = getSupportsOptionalCodecs(device);
         boolean supportsOptional = false;
 
-        synchronized (mStateMachines) {
+        synchronized (mBtA2dpLock) {
             A2dpStateMachine sm = mStateMachines.get(device);
             if (sm == null) {
                 return;
@@ -888,7 +900,7 @@ public class A2dpService extends ProfileService {
         if ((device == null) || (fromState == toState)) {
             return;
         }
-        synchronized (mStateMachines) {
+        synchronized (mBtA2dpLock) {
             if (toState == BluetoothProfile.STATE_CONNECTED) {
                 // Each time a device connects, we want to re-check if it supports optional
                 // codecs (perhaps it's had a firmware update, etc.) and save that state if
@@ -1054,15 +1066,6 @@ public class A2dpService extends ProfileService {
         }
 
         @Override
-        public void adjustAvrcpAbsoluteVolume(int direction) {
-            A2dpService service = getService();
-            if (service == null) {
-                return;
-            }
-            service.adjustAvrcpAbsoluteVolume(direction);
-        }
-
-        @Override
         public void setAvrcpAbsoluteVolume(int volume) {
             A2dpService service = getService();
             if (service == null) {
@@ -1146,11 +1149,15 @@ public class A2dpService extends ProfileService {
     public void dump(StringBuilder sb) {
         super.dump(sb);
         ProfileService.println(sb, "mActiveDevice: " + mActiveDevice);
-        for (A2dpStateMachine sm : mStateMachines.values()) {
-            sm.dump(sb);
+        synchronized(mBtA2dpLock) {
+            for (A2dpStateMachine sm : mStateMachines.values()) {
+                sm.dump(sb);
+            }
         }
-        if (mAvrcp != null) {
-            mAvrcp.dump(sb);
+        synchronized(mBtAvrcpLock) {
+            if (mAvrcp != null) {
+                mAvrcp.dump(sb);
+            }
         }
     }
 }

@@ -40,9 +40,10 @@ public class SapService extends ProfileService {
 
     private static final String SDP_SAP_SERVICE_NAME = "SIM Access";
     private static final int SDP_SAP_VERSION = 0x0102;
+    private static final String LOG_TAG = "BluetoothSap";
     private static final String TAG = "SapService";
-    public static final boolean DEBUG = false;
-    public static final boolean VERBOSE = false;
+    public static final boolean DEBUG = true;
+    public static final boolean VERBOSE = Log.isLoggable(LOG_TAG, Log.VERBOSE);
 
     /* Message ID's */
     private static final int START_LISTENER = 1;
@@ -154,7 +155,7 @@ public class SapService extends ProfileService {
                 // TODO: Consider reusing the mServerSocket - it is indented to be reused
                 //       for multiple connections.
                 mServerSocket = mAdapter.listenUsingRfcommOn(
-                        BluetoothAdapter.SOCKET_CHANNEL_AUTO_STATIC_NO_SDP, true, true);
+                        SdpManager.SAP_RFCOMM_CHANNEL, true, true);
                 removeSdpRecord();
                 mSdpHandle = SdpManager.getDefaultManager()
                         .createSapsRecord(SDP_SAP_SERVICE_NAME, mServerSocket.getChannel(),
@@ -365,7 +366,7 @@ public class SapService extends ProfileService {
                     }
                     int permission = mRemoteDevice.getSimAccessPermission();
 
-                    if (VERBOSE) {
+                    if (DEBUG) {
                         Log.v(TAG, "getSimAccessPermission() = " + permission);
                     }
 
@@ -392,7 +393,7 @@ public class SapService extends ProfileService {
                         setUserTimeoutAlarm();
                         sendBroadcast(intent, BLUETOOTH_ADMIN_PERM);
 
-                        if (VERBOSE) {
+                        if (DEBUG) {
                             Log.v(TAG, "waiting for authorization for connection from: "
                                     + sRemoteDeviceName);
                         }
