@@ -533,6 +533,7 @@ public class PanService extends ProfileService {
         if (prevState == BluetoothProfile.STATE_DISCONNECTED
                 && state == BluetoothProfile.STATE_DISCONNECTING) {
             Log.d(TAG, "Ignoring state change from " + prevState + " to " + state);
+            mPanDevices.remove(device);
             return;
         }
 
