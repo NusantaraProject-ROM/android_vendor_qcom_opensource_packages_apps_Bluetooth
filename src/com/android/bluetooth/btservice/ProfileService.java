@@ -54,7 +54,7 @@ public abstract class ProfileService extends Service {
     //Profile services will not be automatically restarted.
     //They must be explicitly restarted by AdapterService
     private static final int PROFILE_SERVICE_MODE = Service.START_NOT_STICKY;
-    private BluetoothAdapter mAdapter;
+    protected BluetoothAdapter mAdapter;
     private IProfileServiceBinder mBinder;
     private final String mName;
     private AdapterService mAdapterService;
