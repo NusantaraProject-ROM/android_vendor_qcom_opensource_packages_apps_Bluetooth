@@ -97,7 +97,7 @@ public class Config {
             new ProfileConfig(BluetoothPbapService.class, R.bool.profile_supported_pbap,
                     (1 << BluetoothProfile.PBAP)),
             new ProfileConfig(HearingAidService.class, R.bool.profile_supported_hearing_aid,
-            (1 << BluetoothProfile.HEARING_AID))
+                    (1 << BluetoothProfile.HEARING_AID))
     };
 
     private static Class[] sSupportedProfiles = new Class[0];

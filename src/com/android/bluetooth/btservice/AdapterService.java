@@ -1483,6 +1483,16 @@ public class AdapterService extends Service {
             return service.getMaxConnectedAudioDevices();
         }
 
+        //@Override
+        public boolean isA2dpOffloadEnabled() {
+            // don't check caller, may be called from system UI
+            AdapterService service = getService();
+            if (service == null) {
+                return false;
+            }
+            return service.isA2dpOffloadEnabled();
+        }
+
         @Override
         public boolean factoryReset() {
             AdapterService service = getService();
@@ -2278,6 +2288,16 @@ public class AdapterService extends Service {
     public int getMaxConnectedAudioDevices() {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         return mAdapterProperties.getMaxConnectedAudioDevices();
+    }
+
+    /**
+     * Check whether A2DP offload is enabled.
+     *
+     * @return true if A2DP offload is enabled
+     */
+    public boolean isA2dpOffloadEnabled() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isA2dpOffloadEnabled();
     }
 
     private BluetoothActivityEnergyInfo reportActivityInfo() {
