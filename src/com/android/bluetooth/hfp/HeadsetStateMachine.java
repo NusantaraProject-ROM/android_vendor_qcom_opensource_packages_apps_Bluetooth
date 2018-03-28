@@ -143,13 +143,14 @@ public class HeadsetStateMachine extends StateMachine {
     private static final int CS_CALL_ALERTING_DELAY_TIME_MSEC = 800;
     private static final int CS_CALL_ACTIVE_DELAY_TIME_MSEC = 10;
     private static final int INCOMING_CALL_IND_DELAY = 200;
+    private static final int MAX_RETRY_CONNECT_COUNT = 2;
     // Blacklist remote device addresses to send incoimg call indicators with delay of 200ms
     private static final String [] BlacklistDeviceAddrToDelayCallInd =
-                                                               {"00:15:83", /* Beiqi CK */
-                                                                "2a:eb:00", /* BIAC CK */
+                                                               {"00:15:83", /* Beiqi Carkit */
+                                                                "2a:eb:00", /* BIAC Carkit */
                                                                 "30:53:00", /* BIAC series */
-                                                                "00:17:53", /* ADAYO CK */
-                                                                "40:ef:4c", /* Road Rover CK */
+                                                                "00:17:53", /* ADAYO Carkit */
+                                                                "40:ef:4c", /* Road Rover Carkit */
                                                                };
     private static final String VOIP_CALL_NUMBER = "10000000";
 
@@ -183,6 +184,7 @@ public class HeadsetStateMachine extends StateMachine {
     private boolean mPendingScoForVR = false;
     private boolean mIsCallIndDelay = false;
     private boolean mIsBlacklistedDevice = false;
+    private int retryConnectCount = 0;
     //ConcurrentLinkeQueue is used so that it is threadsafe
     private ConcurrentLinkedQueue<HeadsetCallState> mPendingCallStates =
                              new ConcurrentLinkedQueue<HeadsetCallState>();
@@ -206,6 +208,9 @@ public class HeadsetStateMachine extends StateMachine {
     private static final Map<String, Integer> VENDOR_SPECIFIC_AT_COMMAND_COMPANY_ID;
     // Intent that get sent during voice recognition events.
     private static final Intent VOICE_COMMAND_INTENT;
+
+    /* Retry outgoing connection after this time if the first attempt fails */
+    private static final int RETRY_CONNECT_TIME_SEC = 2500;
 
     static {
         VENDOR_SPECIFIC_AT_COMMAND_COMPANY_ID = new HashMap<>();
@@ -549,6 +554,13 @@ public class HeadsetStateMachine extends StateMachine {
                                 "CONNECT failed, device=" + device + ", currentDevice=" + mDevice);
                         break;
                     }
+
+                    stateLogD(" retryConnectCount = " + retryConnectCount);
+                    if (retryConnectCount >= MAX_RETRY_CONNECT_COUNT) {
+                        // max attempts reached, reset it to 0
+                        retryConnectCount = 0;
+                        break;
+                    }
                     if (!mNativeInterface.connectHfp(device)) {
                         stateLogE("CONNECT failed for connectHfp(" + device + ")");
                         // No state transition is involved, fire broadcast immediately
@@ -556,6 +568,7 @@ public class HeadsetStateMachine extends StateMachine {
                                 BluetoothProfile.STATE_DISCONNECTED);
                         break;
                     }
+                    retryConnectCount++;
                     transitionTo(mConnecting);
                     break;
                 case DISCONNECT:
@@ -774,6 +787,14 @@ public class HeadsetStateMachine extends StateMachine {
                 case HeadsetHalConstants.CONNECTION_STATE_DISCONNECTED:
                     stateLogW("Disconnected");
                     processWBSEvent(HeadsetHalConstants.BTHF_WBS_NO);
+                    stateLogD(" retryConnectCount = " + retryConnectCount);
+                    if(retryConnectCount == 1) {
+                        Log.d(TAG," retry once more ");
+                        sendMessageDelayed(CONNECT, mDevice, RETRY_CONNECT_TIME_SEC);
+                    } else if (retryConnectCount >= MAX_RETRY_CONNECT_COUNT) {
+                        // we already tried twice.
+                        retryConnectCount = 0;
+                    }
                     transitionTo(mDisconnected);
                     break;
                 case HeadsetHalConstants.CONNECTION_STATE_CONNECTED:
@@ -781,6 +802,7 @@ public class HeadsetStateMachine extends StateMachine {
                     break;
                 case HeadsetHalConstants.CONNECTION_STATE_SLC_CONNECTED:
                     stateLogD("SLC connected");
+                    retryConnectCount = 0;
                     transitionTo(mConnected);
                     break;
                 case HeadsetHalConstants.CONNECTION_STATE_CONNECTING:
@@ -1076,6 +1098,10 @@ public class HeadsetStateMachine extends StateMachine {
                       stateLogD("A2DP_STATE_CHANGED event");
                       processIntentA2dpPlayStateChanged(message.arg1);
                       break;
+                case QUERY_PHONE_STATE_AT_SLC:
+                    stateLogD("Update call states after SLC is up");
+                    mSystemInterface.queryPhoneState();
+                    break;
                 case STACK_EVENT:
                     HeadsetStackEvent event = (HeadsetStackEvent) message.obj;
                     stateLogD("STACK_EVENT: " + event);
@@ -1163,6 +1189,7 @@ public class HeadsetStateMachine extends StateMachine {
                     break;
                 case HeadsetHalConstants.CONNECTION_STATE_SLC_CONNECTED:
                     stateLogE("processConnectionEvent: SLC connected again, shouldn't happen");
+                    retryConnectCount = 0;
                     break;
                 case HeadsetHalConstants.CONNECTION_STATE_DISCONNECTING:
                     stateLogI("processConnectionEvent: Disconnecting");
@@ -1280,10 +1307,6 @@ public class HeadsetStateMachine extends StateMachine {
                 case DISCONNECT_AUDIO:
                     stateLogD("ignore DISCONNECT_AUDIO, device=" + mDevice);
                     // ignore
-                    break;
-                case QUERY_PHONE_STATE_AT_SLC:
-                    stateLogD("Update call states after SLC is up");
-                    mSystemInterface.queryPhoneState();
                     break;
                 default:
                     return super.processMessage(message);
