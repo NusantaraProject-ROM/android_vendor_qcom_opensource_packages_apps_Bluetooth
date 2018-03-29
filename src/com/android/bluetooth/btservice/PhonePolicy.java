@@ -78,9 +78,11 @@ class PhonePolicy {
     private static final int MESSAGE_PROFILE_INIT_PRIORITIES = 2;
     private static final int MESSAGE_CONNECT_OTHER_PROFILES = 3;
     private static final int MESSAGE_ADAPTER_STATE_TURNED_ON = 4;
+    private static final int MESSAGE_AUTO_CONNECT_PROFILES = 50;
 
     // Timeouts
     private static final int CONNECT_OTHER_PROFILES_TIMEOUT = 6000; // 6s
+    private static final int AUTO_CONNECT_PROFILES_TIMEOUT= 500;
 
     private final AdapterService mAdapterService;
     private final ServiceFactory mFactory;
@@ -178,6 +180,11 @@ class PhonePolicy {
                     resetStates();
                     autoConnect();
                     break;
+                case MESSAGE_AUTO_CONNECT_PROFILES: {
+                    if (DBG) debugLog( "MESSAGE_AUTO_CONNECT_PROFILES");
+                    autoConnectProfilesDelayed();
+                    break;
+                }
             }
         }
     }
@@ -274,7 +281,18 @@ class PhonePolicy {
         mA2dpRetrySet.clear();
     }
 
-    private void autoConnect() {
+    // Delaying Auto Connect to make sure that all clients
+    // are up and running, specially BluetoothHeadset.
+    public void autoConnect() {
+        debugLog( "delay auto connect by 500 ms");
+        if ((mHandler.hasMessages(MESSAGE_AUTO_CONNECT_PROFILES) == false) &&
+            (mAdapterService.isQuietModeEnabled()== false)) {
+            Message m = mHandler.obtainMessage(MESSAGE_AUTO_CONNECT_PROFILES);
+            mHandler.sendMessageDelayed(m,AUTO_CONNECT_PROFILES_TIMEOUT);
+        }
+    }
+
+    private void autoConnectProfilesDelayed() {
         if (mAdapterService.getState() != BluetoothAdapter.STATE_ON) {
             errorLog("autoConnect() - BT is not ON. Exiting autoConnect");
             return;
@@ -341,8 +359,7 @@ class PhonePolicy {
     }
 
     private void connectOtherProfile(BluetoothDevice device) {
-        if ((!mHandler.hasMessages(MESSAGE_CONNECT_OTHER_PROFILES))
-                && (!mAdapterService.isQuietModeEnabled())) {
+        if (!mAdapterService.isQuietModeEnabled()) {
             Message m = mHandler.obtainMessage(MESSAGE_CONNECT_OTHER_PROFILES);
             m.obj = device;
             mHandler.sendMessageDelayed(m, CONNECT_OTHER_PROFILES_TIMEOUT);

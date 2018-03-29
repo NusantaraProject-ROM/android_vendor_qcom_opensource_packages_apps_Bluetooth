@@ -42,7 +42,7 @@ import java.util.List;
 
 public class AddressedMediaPlayer {
     private static final String TAG = "AddressedMediaPlayer";
-    private static final Boolean DEBUG = Avrcp.DEBUG;
+    private static final Boolean DEBUG = true;
 
     private static final long SINGLE_QID = 1;
     private static final String UNKNOWN_TITLE = "(unknown)";
@@ -258,6 +258,14 @@ public class AddressedMediaPlayer {
         Log.d(TAG, "sendTrackChangeWithId (" + type + "): controller " + mediaController);
         long qid = getActiveQueueItemId(mediaController);
         byte[] track = ByteBuffer.allocate(AvrcpConstants.UID_SIZE).putLong(qid).array();
+        if ((type == AvrcpConstants.NOTIFICATION_TYPE_INTERIM) &&
+            (mLastTrackIdSent == MediaSession.QueueItem.UNKNOWN_ID) &&
+            (qid != mLastTrackIdSent)) {
+             byte[] lastTrack =
+                    ByteBuffer.allocate(AvrcpConstants.UID_SIZE).putLong(mLastTrackIdSent).array();
+             mMediaInterface.trackChangedRsp(type, lastTrack);
+             type = AvrcpConstants.NOTIFICATION_TYPE_CHANGED;
+        }
         // The nowPlayingList changed: the new list has the full data for the current item
         mMediaInterface.trackChangedRsp(type, track);
         mLastTrackIdSent = qid;
@@ -551,8 +559,7 @@ public class AddressedMediaPlayer {
             return MediaSession.QueueItem.UNKNOWN_ID;
         }
         PlaybackState state = controller.getPlaybackState();
-        if (state == null || state.getState() == PlaybackState.STATE_BUFFERING
-                || state.getState() == PlaybackState.STATE_NONE) {
+        if (state == null || state.getState() == PlaybackState.STATE_NONE) {
             return MediaSession.QueueItem.UNKNOWN_ID;
         }
         long qid = state.getActiveQueueItemId();

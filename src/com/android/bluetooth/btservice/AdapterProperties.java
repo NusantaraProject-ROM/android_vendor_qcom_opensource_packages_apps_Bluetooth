@@ -46,6 +46,8 @@ import android.util.Pair;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.RemoteDevices.DeviceProperties;
 
+import java.io.FileDescriptor;
+import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -190,8 +192,7 @@ class AdapterProperties {
                 + propertyOverlayedMaxConnectedAudioDevices + ", finalValue="
                 + mMaxConnectedAudioDevices);
 
-        mA2dpOffloadEnabled = SystemProperties.getBoolean(
-                A2DP_OFFLOAD_ENABLE_PROPERTY, false);
+        mA2dpOffloadEnabled = SystemProperties.getBoolean(A2DP_OFFLOAD_ENABLE_PROPERTY, false);
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
@@ -319,10 +320,10 @@ class AdapterProperties {
     }
 
     /**
-     * @param mConnectionState the mConnectionState to set
+     * @param connectionState the mConnectionState to set
      */
-    void setConnectionState(int mConnectionState) {
-        this.mConnectionState = mConnectionState;
+    void setConnectionState(int connectionState) {
+        mConnectionState = connectionState;
     }
 
     /**
@@ -335,9 +336,9 @@ class AdapterProperties {
     /**
      * @param mState the mState to set
      */
-    void setState(int mState) {
-        debugLog("Setting state to " + BluetoothAdapter.nameForState(mState));
-        this.mState = mState;
+    void setState(int state) {
+        debugLog("Setting state to " + BluetoothAdapter.nameForState(state));
+        mState = state;
     }
 
     /**
@@ -829,7 +830,8 @@ class AdapterProperties {
     }
 
     void onBluetoothReady() {
-        debugLog("onBluetoothReady, state=" + getState() + ", ScanMode=" + mScanMode);
+        debugLog("onBluetoothReady, state=" + BluetoothAdapter.nameForState(getState())
+                + ", ScanMode=" + mScanMode);
 
         synchronized (mObject) {
             // Reset adapter and profile connection states
@@ -897,6 +899,70 @@ class AdapterProperties {
                 intent = new Intent(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
                 mService.sendBroadcast(intent, AdapterService.BLUETOOTH_PERM);
             }
+        }
+    }
+
+    protected void dump(FileDescriptor fd, PrintWriter writer, String[] args) {
+        writer.println(TAG);
+        writer.println("  " + "Name: " + getName());
+        writer.println("  " + "Address: " + Utils.getAddressStringFromByte(mAddress));
+        writer.println("  " + "BluetoothClass: " + getBluetoothClass());
+        writer.println("  " + "ScanMode: " + dumpScanMode(getScanMode()));
+        writer.println("  " + "ConnectionState: " + dumpConnectionState(getConnectionState()));
+        writer.println("  " + "State: " + BluetoothAdapter.nameForState(getState()));
+        writer.println("  " + "MaxConnectedAudioDevices: " + getMaxConnectedAudioDevices());
+        writer.println("  " + "A2dpOffloadEnabled: " + mA2dpOffloadEnabled);
+        writer.println("  " + "Discovering: " + mDiscovering);
+        writer.println("  " + "DiscoveryEndMs: " + mDiscoveryEndMs);
+
+        writer.println("  " + "Bonded devices:");
+        for (BluetoothDevice device : mBondedDevices) {
+            writer.println(
+                    "    " + device.getAddress() + " [" + dumpDeviceType(device.getType()) + "] "
+                            + device.getName());
+        }
+    }
+
+    private String dumpDeviceType(int deviceType) {
+        switch (deviceType) {
+            case BluetoothDevice.DEVICE_TYPE_UNKNOWN:
+                return " ???? ";
+            case BluetoothDevice.DEVICE_TYPE_CLASSIC:
+                return "BR/EDR";
+            case BluetoothDevice.DEVICE_TYPE_LE:
+                return "  LE  ";
+            case BluetoothDevice.DEVICE_TYPE_DUAL:
+                return " DUAL ";
+            default:
+                return "Invalid device type: " + deviceType;
+        }
+    }
+
+    private String dumpConnectionState(int state) {
+        switch (state) {
+            case BluetoothAdapter.STATE_DISCONNECTED:
+                return "STATE_DISCONNECTED";
+            case BluetoothAdapter.STATE_DISCONNECTING:
+                return "STATE_DISCONNECTING";
+            case BluetoothAdapter.STATE_CONNECTING:
+                return "STATE_CONNECTING";
+            case BluetoothAdapter.STATE_CONNECTED:
+                return "STATE_CONNECTED";
+            default:
+                return "Unknown Connection State " + state;
+        }
+    }
+
+    private String dumpScanMode(int scanMode) {
+        switch (scanMode) {
+            case BluetoothAdapter.SCAN_MODE_NONE:
+                return "SCAN_MODE_NONE";
+            case BluetoothAdapter.SCAN_MODE_CONNECTABLE:
+                return "SCAN_MODE_CONNECTABLE";
+            case BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE:
+                return "SCAN_MODE_CONNECTABLE_DISCOVERABLE";
+            default:
+                return "Unknown Scan Mode " + scanMode;
         }
     }
 

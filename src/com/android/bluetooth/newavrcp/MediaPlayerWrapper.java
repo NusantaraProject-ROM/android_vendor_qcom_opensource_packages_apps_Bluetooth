@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 The Android Open Source Project
+ * Copyright 2018 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,11 +29,13 @@ import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 
 import java.util.List;
-import java.util.Objects;
 
 /*
  * A class to synchronize Media Controller Callbacks and only pass through
  * an update once all the relevant information is current.
+ *
+ * TODO (apanicke): Once MediaPlayer2 is supported better, replace this class
+ * with that.
  */
 class MediaPlayerWrapper {
     private static final String TAG = "NewAvrcpMediaPlayerWrapper";
@@ -44,7 +46,6 @@ class MediaPlayerWrapper {
     private String mPackageName;
     private Looper mLooper;
 
-    private boolean mIsBrowsable = false;
     private MediaData mCurrentData;
 
     @GuardedBy("mCallbackLock")
@@ -57,45 +58,26 @@ class MediaPlayerWrapper {
         mCurrentData = new MediaData(null, null, null);
     }
 
-    interface Callback {
+    public interface Callback {
         void mediaUpdatedCallback(MediaData data);
     }
 
-    class MediaData {
-        public List<MediaSession.QueueItem> queue;
-        public PlaybackState state;
-        public MediaMetadata metadata;
-
-        MediaData(MediaMetadata m, PlaybackState s, List<MediaSession.QueueItem> q) {
-            metadata = m;
-            state = s;
-            queue = q;
+    boolean isReady() {
+        if (getPlaybackState() == null) {
+            d("isReady(): PlaybackState is null");
+            return false;
         }
 
-        @Override
-        public boolean equals(Object o) {
-            if (o == null) return false;
-            if (!(o instanceof MediaData)) return false;
-
-            final MediaData u = (MediaData) o;
-
-            if (!Objects.equals(metadata, u.metadata)) {
-                return false;
-            }
-
-            if (!Objects.equals(queue, u.queue)) {
-                return false;
-            }
-
-            if (!playstateEquals(state, u.state)) {
-                return false;
-            }
-
-            return true;
+        if (getMetadata() == null) {
+            d("isReady(): Metadata is null");
+            return false;
         }
+
+        return true;
     }
 
-    static MediaPlayerWrapper wrap(MediaController controller, Looper looper, boolean browsable) {
+    // TODO (apanicke): Implement a factory to make testing and creating interop wrappers easier
+    static MediaPlayerWrapper wrap(MediaController controller, Looper looper) {
         if (controller == null || looper == null) {
             e("MediaPlayerWrapper.wrap(): Null parameter - Controller: " + controller
                     + " | Looper: " + looper);
@@ -113,12 +95,10 @@ class MediaPlayerWrapper {
         newWrapper.mMediaController = controller;
         newWrapper.mPackageName = controller.getPackageName();
         newWrapper.mLooper = looper;
-        newWrapper.mIsBrowsable = browsable;
 
-        newWrapper.mCurrentData.queue = newWrapper.getQueue();
-        newWrapper.mCurrentData.metadata = newWrapper.getMetadata();
+        newWrapper.mCurrentData.queue = Util.toMetadataList(newWrapper.getQueue());
+        newWrapper.mCurrentData.metadata = Util.toMetadata(newWrapper.getMetadata());
         newWrapper.mCurrentData.state = newWrapper.getPlaybackState();
-
         return newWrapper;
     }
 
@@ -129,22 +109,20 @@ class MediaPlayerWrapper {
         mLooper = null;
     }
 
-    boolean isBrowsable() {
-        return mIsBrowsable;
-    }
-
     String getPackageName() {
         return mPackageName;
     }
 
-    List<MediaSession.QueueItem> getQueue() {
-        if (!isBrowsable()) return null;
-
+    protected List<MediaSession.QueueItem> getQueue() {
         return mMediaController.getQueue();
     }
 
-    MediaMetadata getMetadata() {
+    protected MediaMetadata getMetadata() {
         return mMediaController.getMetadata();
+    }
+
+    protected PlaybackState getPlaybackState() {
+        return mMediaController.getPlaybackState();
     }
 
     long getActiveQueueID() {
@@ -152,11 +130,24 @@ class MediaPlayerWrapper {
         return mMediaController.getPlaybackState().getActiveQueueItemId();
     }
 
-    PlaybackState getPlaybackState() {
-        return mMediaController.getPlaybackState();
+
+    MediaData getCurrentMediaData() {
+        return mCurrentData;
     }
 
-    // TODO: Implement shuffle and repeat support. Right now these use custom actions
+    void playItemFromQueue(long qid) {
+        // Return immediately if no queue exists.
+        if (getQueue() == null) {
+            Log.w(TAG, "playItemFromQueue: Trying to play item for player that has no queue: "
+                    + mPackageName);
+            return;
+        }
+
+        MediaController.TransportControls controller = mMediaController.getTransportControls();
+        controller.skipToQueueItem(qid);
+    }
+
+    // TODO (apanicke): Implement shuffle and repeat support. Right now these use custom actions
     // and it may only be possible to do this with Google Play Music
     boolean isShuffleSupported() {
         return false;
@@ -175,12 +166,10 @@ class MediaPlayerWrapper {
     }
 
     /**
-     * Return whether the queue, metadata, and queueID are all in sync. If
-     * browsing isn't supported we don't have to worry about the queue as
-     * the queue doesn't exist
+     * Return whether the queue, metadata, and queueID are all in sync.
      */
     boolean isMetadataSynced() {
-        if (isBrowsable()) {
+        if (getQueue() != null) {
             // Check if currentPlayingQueueId is in the current Queue
             MediaSession.QueueItem currItem = null;
 
@@ -237,6 +226,21 @@ class MediaPlayerWrapper {
         mControllerCallbacks = null;
     }
 
+    void updateMediaController(MediaController newController) {
+        if (newController == mMediaController) return;
+
+        synchronized (mCallbackLock) {
+            if (mRegisteredCallback == null || mControllerCallbacks == null) {
+                return;
+            }
+        }
+
+        mControllerCallbacks.cleanup();
+        mMediaController = newController;
+        mControllerCallbacks = new MediaControllerListener(mLooper);
+        d("Controller for " + mPackageName + " was updated.");
+    }
+
     class TimeoutHandler extends Handler {
         private static final int MSG_TIMEOUT = 0;
         private static final long CALLBACK_TIMEOUT_MS = 1000;
@@ -255,7 +259,7 @@ class MediaPlayerWrapper {
             Log.e(TAG, "Timeout while waiting for metadata to sync for " + mPackageName);
             Log.e(TAG, "  └ Current Metadata: " + getMetadata().getDescription());
             Log.e(TAG, "  └ Current Playstate: " + getPlaybackState());
-            for (int i = 0; i < getQueue().size(); i++) {
+            for (int i = 0; getQueue() != null && i < getQueue().size(); i++) {
                 Log.e(TAG, "  └ QueueItem(" + i + "): " + getQueue().get(i));
             }
 
@@ -293,17 +297,17 @@ class MediaPlayerWrapper {
                 mTimeoutHandler.removeMessages(TimeoutHandler.MSG_TIMEOUT);
 
                 if (!isMetadataSynced()) {
-                    if (DEBUG) {
-                        Log.d(TAG, "trySendMediaUpdate(): " + mPackageName
-                                + ": Starting media update timeout");
-                    }
+                    d("trySendMediaUpdate(): Starting media update timeout");
                     mTimeoutHandler.sendEmptyMessageDelayed(TimeoutHandler.MSG_TIMEOUT,
                             TimeoutHandler.CALLBACK_TIMEOUT_MS);
                     return;
                 }
             }
 
-            MediaData newData = new MediaData(getMetadata(), getPlaybackState(), getQueue());
+            MediaData newData = new MediaData(
+                    Util.toMetadata(getMetadata()),
+                    getPlaybackState(),
+                    Util.toMetadataList(getQueue()));
 
             if (newData.equals(mCurrentData)) {
                 // This may happen if the controller is fully synced by the time the
@@ -328,6 +332,11 @@ class MediaPlayerWrapper {
 
         @Override
         public void onMetadataChanged(MediaMetadata metadata) {
+            if (!isReady()) {
+                Log.v(TAG, mPackageName + " tried to update with incomplete metadata");
+                return;
+            }
+
             Log.v(TAG, "onMetadataChanged(): " + mPackageName + " : " + metadata.getDescription());
 
             if (!metadata.equals(getMetadata())) {
@@ -353,6 +362,11 @@ class MediaPlayerWrapper {
 
         @Override
         public void onPlaybackStateChanged(PlaybackState state) {
+            if (!isReady()) {
+                Log.v(TAG, mPackageName + " tried to update with no state");
+                return;
+            }
+
             Log.v(TAG, "onPlaybackStateChanged(): " + mPackageName + " : " + state.toString());
 
             if (!playstateEquals(state, getPlaybackState())) {
@@ -377,10 +391,12 @@ class MediaPlayerWrapper {
         @Override
         public void onQueueChanged(List<MediaSession.QueueItem> queue) {
             Log.v(TAG, "onQueueChanged(): " + mPackageName);
-            if (!isBrowsable()) {
-                e("Queue changed for non-browsable player " + mPackageName);
+
+            if (!isReady()) {
+                Log.v(TAG, mPackageName + " tried to updated with no queue");
                 return;
             }
+
             if (!queue.equals(getQueue())) {
                 e("The callback queue isn't the current queue");
             }
@@ -400,7 +416,9 @@ class MediaPlayerWrapper {
         }
 
         @Override
-        public void onSessionDestroyed() {}
+        public void onSessionDestroyed() {
+            Log.w(TAG, "The session was destroyed " + mPackageName);
+        }
 
         @VisibleForTesting
         Handler getTimeoutHandler() {
@@ -430,6 +448,7 @@ class MediaPlayerWrapper {
         return false;
     }
 
+    // TODO: Use this function when returning the now playing list
     /**
      * Extracts different pieces of metadata from a MediaSession.QueueItem
      * and builds a MediaMetadata Object out of it.
@@ -475,9 +494,17 @@ class MediaPlayerWrapper {
         }
     }
 
+    private void d(String message) {
+        if (DEBUG) Log.d(TAG, mPackageName + ": " + message);
+    }
+
     @VisibleForTesting
     Handler getTimeoutHandler() {
         if (mControllerCallbacks == null) return null;
         return mControllerCallbacks.getTimeoutHandler();
+    }
+
+    public void dump(StringBuilder sb) {
+        sb.append(mMediaController.toString() + "\n");
     }
 }

@@ -761,6 +761,13 @@ public class A2dpService extends ProfileService {
         }
     }
 
+
+    public void broadcastReconfigureA2dp() {
+        Log.w(TAG, "broadcastReconfigureA2dp(): set rcfg true to AudioManager");
+        mAudioManager.setParameters("reconfigA2dp=true");
+    }
+
+
     private A2dpStateMachine getOrCreateStateMachine(BluetoothDevice device) {
         if (device == null) {
             Log.e(TAG, "getOrCreateStateMachine failed: device cannot be null");
