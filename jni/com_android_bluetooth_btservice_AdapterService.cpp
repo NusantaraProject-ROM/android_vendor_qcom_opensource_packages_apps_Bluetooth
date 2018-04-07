@@ -1325,6 +1325,12 @@ jint JNI_OnLoad(JavaVM *jvm, void *reserved) {
     return JNI_ERR;
   }
 
+  status = android::register_com_android_bluetooth_ba(e);
+  if (status < 0) {
+      ALOGE("jni BA Transmitter registration failure: %d", status);
+      return JNI_ERR;
+  }
+
   status = android::register_com_android_bluetooth_a2dp_sink(e);
   if (status < 0) {
     ALOGE("jni a2dp sink registration failure: %d", status);

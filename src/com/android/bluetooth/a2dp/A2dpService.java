@@ -42,6 +42,7 @@ import com.android.bluetooth.avrcp.Avrcp_ext;
 import com.android.bluetooth.avrcp.AvrcpTargetService;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
+import com.android.bluetooth.ba.BATService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -545,6 +546,17 @@ public class A2dpService extends ProfileService {
                     && (getConnectionState(previousActiveDevice)
                     == BluetoothProfile.STATE_CONNECTED);
             Log.i(TAG, "removeActiveDevice: suppressNoisyIntent=" + suppressNoisyIntent);
+
+            boolean isBAActive = false;
+            BATService mBatService = BATService.getBATService();
+            isBAActive = (mBatService != null) && (mBatService.isBATActive());
+            Log.d(TAG," removeActiveDevice: BA active " + isBAActive);
+            // If BA streaming is ongoing, we don't want to pause music player
+            if(isBAActive) {
+                suppressNoisyIntent = true;
+                Log.d(TAG," BA Active, suppress noisy intent");
+            }
+
             mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
                     previousActiveDevice, BluetoothProfile.STATE_DISCONNECTED,
                     BluetoothProfile.A2DP, suppressNoisyIntent, -1);
@@ -573,6 +585,11 @@ public class A2dpService extends ProfileService {
             if (previousActiveDevice != null && AvrcpTargetService.get() != null) {
                 AvrcpTargetService.get().storeVolumeForDevice(previousActiveDevice);
             }
+
+            boolean isBAActive = false;
+            BATService mBatService = BATService.getBATService();
+            isBAActive = (mBatService != null) && (mBatService.isBATActive());
+            Log.d(TAG," setActiveDevice: BA active " + isBAActive);
 
             if (device == null) {
                 // Remove active device and continue playing audio only if necessary.
@@ -634,9 +651,11 @@ public class A2dpService extends ProfileService {
                             .getRememberedVolumeForDevice(mActiveDevice);
                 }
 
+                if (!isBAActive) {
                 mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
                         mActiveDevice, BluetoothProfile.STATE_CONNECTED, BluetoothProfile.A2DP,
                         true, rememberedVolume);
+                }
 
                 // Inform the Audio Service about the codec configuration
                 // change, so the Audio Service can reset accordingly the audio
@@ -963,6 +982,14 @@ public class A2dpService extends ProfileService {
 
     public void broadcastReconfigureA2dp() {
         Log.w(TAG, "broadcastReconfigureA2dp(): set rcfg true to AudioManager");
+        boolean isBAActive = false;
+        BATService mBatService = BATService.getBATService();
+        isBAActive = (mBatService != null) && (mBatService.isBATActive());
+        Log.d(TAG," broadcastReconfigureA2dp: BA active " + isBAActive);
+        // If BA is active, don't inform AudioManager about reconfig.
+        if(isBAActive) {
+            return;
+        }
         mAudioManager.setParameters("reconfigA2dp=true");
     }
 
@@ -1155,6 +1182,10 @@ public class A2dpService extends ProfileService {
                 return;
             }
             BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+            if (device.getAddress().equals(BATService.mBAAddress)) {
+                Log.d(TAG," ConnectionUpdate from BA, don't take action ");
+                return;
+            }
             int toState = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1);
             int fromState = intent.getIntExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, -1);
             connectionStateChanged(device, fromState, toState);

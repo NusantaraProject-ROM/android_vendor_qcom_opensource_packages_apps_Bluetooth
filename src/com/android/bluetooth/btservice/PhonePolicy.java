@@ -1,3 +1,4 @@
+
 /*
  * Copyright (C) 2017 The Android Open Source Project
  *
@@ -41,6 +42,7 @@ import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.hid.HidHostService;
 import com.android.bluetooth.pan.PanService;
+import com.android.bluetooth.ba.BATService;
 import com.android.internal.R;
 
 import java.util.HashSet;
@@ -177,6 +179,10 @@ class PhonePolicy {
                     Intent intent = (Intent) msg.obj;
                     BluetoothDevice device =
                             intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                    if (device.getAddress().equals(BATService.mBAAddress)) {
+                        Log.d(TAG," Update from BA, bail out");
+                        break;
+                    }
                     int prevState = intent.getIntExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, -1);
                     int nextState = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1);
                     processProfileStateChanged(device, msg.arg1, nextState, prevState);

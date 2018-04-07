@@ -104,6 +104,8 @@ int register_com_android_bluetooth_btservice_vendor_socket(JNIEnv* env);
 int register_com_android_bluetooth_hearing_aid(JNIEnv* env);
 
 int register_com_android_bluetooth_avrcp_ext(JNIEnv* env);
+
+int register_com_android_bluetooth_ba(JNIEnv* env);
 }
 
 #endif /* COM_ANDROID_BLUETOOTH_H */

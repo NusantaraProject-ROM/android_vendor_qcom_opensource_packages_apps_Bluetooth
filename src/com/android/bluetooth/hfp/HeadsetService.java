@@ -1100,7 +1100,7 @@ public class HeadsetService extends ProfileService {
         return true;
     }
 
-    boolean isAudioOn() {
+    public boolean isAudioOn() {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         int numConnectedAudioDevices = getNonIdleAudioDevices().size();
         Log.d(TAG," isAudioOn: The number of audio connected devices "

@@ -22,6 +22,7 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.provider.Settings;
 import android.util.Log;
+import android.os.SystemProperties;
 
 import com.android.bluetooth.R;
 import com.android.bluetooth.a2dp.A2dpService;
@@ -42,7 +43,7 @@ import com.android.bluetooth.pan.PanService;
 import com.android.bluetooth.pbap.BluetoothPbapService;
 import com.android.bluetooth.pbapclient.PbapClientService;
 import com.android.bluetooth.sap.SapService;
-import android.os.SystemProperties;
+import com.android.bluetooth.ba.BATService;
 
 import java.util.ArrayList;
 
@@ -101,7 +102,9 @@ public class Config {
             new ProfileConfig(BluetoothPbapService.class, R.bool.profile_supported_pbap,
                     (1 << BluetoothProfile.PBAP)),
             new ProfileConfig(HearingAidService.class, R.bool.profile_supported_hearing_aid,
-                    (1 << BluetoothProfile.HEARING_AID))
+                    (1 << BluetoothProfile.HEARING_AID)),
+            new ProfileConfig(BATService.class, R.bool.profile_supported_ba,
+                    (1 << BluetoothProfile.BA_TRANSMITTER))
     };
 
     private static Class[] sSupportedProfiles = new Class[0];
@@ -161,6 +164,7 @@ public class Config {
     }
 
     private static synchronized boolean addAudioProfiles(String serviceName) {
+        Log.d(TAG," addAudioProfiles profile" + serviceName);
         boolean isA2dpSink = SystemProperties.getBoolean("persist.service.bt.a2dp.sink", false);
         Log.i(TAG, "addAudioProfiles isA2dpSink :" + isA2dpSink);
         /* If property not enabled and request is for A2DPSinkService, don't add */
@@ -168,6 +172,17 @@ public class Config {
             return false;
         if ((serviceName.equals("A2dpService")) && (isA2dpSink))
             return false;
+
+        boolean isBAEnabled = SystemProperties.getBoolean("persist.service.bt.bca", false);
+        boolean isSplitA2dpSupported = SystemProperties.
+            getBoolean("persist.vendor.bt.enable.splita2dp", true);
+
+        if(serviceName.equals("BATService")) {
+            Log.d(TAG," isBAEnabled = " + isBAEnabled
+                          + " isSplitEnabled " + isSplitA2dpSupported);
+            return isBAEnabled && isSplitA2dpSupported;
+        }
+        // always return true for other profiles
         return true;
     }
 }
