@@ -568,6 +568,7 @@ public class BluetoothPbapVcardManager {
         try {
             contactCursor = mResolver.query(myUri, PHONES_CONTACTS_PROJECTION, null, null,
                     Phone.CONTACT_ID);
+            contactCursor = BluetoothPbapFixes.filterOutSimContacts(contactCursor);
             if (contactCursor != null) {
                 contactIdCursor =
                         ContactCursorFilter.filterByRange(contactCursor, startPoint, endPoint);
@@ -613,6 +614,7 @@ public class BluetoothPbapVcardManager {
         } catch (CursorWindowAllocationException e) {
             Log.e(TAG, "CursorWindowAllocationException while composing phonebook one vcard");
         } finally {
+            contactCursor = BluetoothPbapFixes.filterOutSimContacts(contactCursor);
             if (contactCursor != null) {
                 contactIdCursor = ContactCursorFilter.filterByOffset(contactCursor, offset);
                 contactCursor.close();
