@@ -42,6 +42,7 @@ import com.android.bluetooth.pan.PanService;
 import com.android.bluetooth.pbap.BluetoothPbapService;
 import com.android.bluetooth.pbapclient.PbapClientService;
 import com.android.bluetooth.sap.SapService;
+import android.os.SystemProperties;
 
 import java.util.ArrayList;
 
@@ -118,6 +119,10 @@ public class Config {
         for (ProfileConfig config : PROFILE_SERVICES_AND_FLAGS) {
             boolean supported = resources.getBoolean(config.mSupported);
             if (supported && !isProfileDisabled(ctx, config.mMask)) {
+                if (!addAudioProfiles(config.mClass.getSimpleName())) {
+                    Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
+                    continue;
+                }
                 Log.v(TAG, "Adding " + config.mClass.getSimpleName());
                 profiles.add(config.mClass);
             }
@@ -153,5 +158,16 @@ public class Config {
                 Settings.Global.getLong(resolver, Settings.Global.BLUETOOTH_DISABLED_PROFILES, 0);
 
         return (disabledProfilesBitMask & profileMask) != 0;
+    }
+
+    private static synchronized boolean addAudioProfiles(String serviceName) {
+        boolean isA2dpSink = SystemProperties.getBoolean("persist.service.bt.a2dp.sink", false);
+        Log.i(TAG, "addAudioProfiles isA2dpSink :" + isA2dpSink);
+        /* If property not enabled and request is for A2DPSinkService, don't add */
+        if ((serviceName.equals("A2dpSinkService")) && (!isA2dpSink))
+            return false;
+        if ((serviceName.equals("A2dpService")) && (isA2dpSink))
+            return false;
+        return true;
     }
 }

@@ -105,4 +105,6 @@
     <!-- Flag whether or not to keep polling AG with CLCC for call information every 2 seconds -->
     <bool name="hfp_clcc_poll_during_call">true</bool>
 
+     <!-- Reload supported Bluetooth Profiles while BLE is turning ON -->
+     <bool name="reload_supported_profiles_when_enabled">true</bool>
 </resources>
