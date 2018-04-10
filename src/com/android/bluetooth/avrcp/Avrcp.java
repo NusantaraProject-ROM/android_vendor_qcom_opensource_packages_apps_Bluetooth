@@ -1987,10 +1987,10 @@ public final class Avrcp {
                         List<android.media.session.MediaController> newControllers) {
                     if (newControllers.size() > 0) {
                         HeadsetService mService = HeadsetService.getHeadsetService();
-                        /*if (mService != null && mService.isInCall()) {
+                        if (mService != null && mService.isScoOrCallActive()) {
                             Log.d(TAG, "Ignoring session changed update because of MT call in progress");
                             return;
-                        }*/
+                        }
                     }
                     Set<String> updatedPackages = new HashSet<String>();
                     // Update the current players
@@ -2069,10 +2069,10 @@ public final class Avrcp {
             return;
         }
         HeadsetService mService = HeadsetService.getHeadsetService();
-        /*if (mService != null && mService.isInCall()) {
+        if (mService != null && mService.isScoOrCallActive()) {
             Log.v(TAG,"Ignore setActiveMediaSession for telecom, call in progress");
             return;
-        }*/
+        }
 
 
         if (mHandler.hasMessages(MESSAGE_SET_MEDIA_SESSION))
@@ -2087,13 +2087,11 @@ public final class Avrcp {
     }
 
     private void setActiveMediaSession(android.media.session.MediaController mController) {
-    /*
         HeadsetService mService = HeadsetService.getHeadsetService();
-        if ((mService != null && mService.isInCall())) {
+        if ((mService != null && mService.isScoOrCallActive())) {
             Log.w(TAG, "Ignore media session during call");
             return;
         }
-    */
         addMediaPlayerController(mController);
         setAddressedMediaSessionPackage(mController.getPackageName());
     }
@@ -2704,11 +2702,11 @@ public final class Avrcp {
 
     private void handlePlayItemResponse(byte[] bdaddr, byte[] uid, byte scope) {
         HeadsetService mService = HeadsetService.getHeadsetService();
-        /*if ((mService != null) && mService.isInCall()) {
+        if ((mService != null) && mService.isScoOrCallActive()) {
             Log.w(TAG, "Remote requesting play item while call is active");
             playItemRspNative(bdaddr, AvrcpConstants.RSP_MEDIA_IN_USE);
             return;
-        }*/
+        }
 
         if (scope == AvrcpConstants.BTRC_SCOPE_NOW_PLAYING) {
             mAddressedMediaPlayer.playItem(bdaddr, uid, mMediaController);
