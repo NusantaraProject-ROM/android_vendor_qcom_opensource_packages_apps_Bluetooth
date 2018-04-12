@@ -34,7 +34,9 @@ import android.os.Process;
 import android.os.RemoteException;
 import android.util.Log;
 
+import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.Utils;
+import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -453,6 +455,15 @@ public class HidDeviceService extends ProfileService {
 
             return service.getDevicesMatchingConnectionStates(states);
         }
+
+        @Override
+        public String getUserAppName() {
+            HidDeviceService service = getService();
+            if (service == null) {
+                return "";
+            }
+            return service.getUserAppName();
+        }
     }
 
     @Override
@@ -612,6 +623,15 @@ public class HidDeviceService extends ProfileService {
 
         return checkDevice(device) && checkCallingUid()
                 && mHidDeviceNativeInterface.reportError(error);
+    }
+
+    synchronized String getUserAppName() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (mUserUid < Process.FIRST_APPLICATION_UID) {
+            return "";
+        }
+        String appName = getPackageManager().getNameForUid(mUserUid);
+        return appName != null ? appName : "";
     }
 
     @Override
@@ -798,6 +818,10 @@ public class HidDeviceService extends ProfileService {
         if (prevState == newState) {
             Log.w(TAG, "Connection state is unchanged, ignoring");
             return;
+        }
+
+        if (newState == BluetoothProfile.STATE_CONNECTED) {
+            MetricsLogger.logProfileConnectionEvent(BluetoothMetricsProto.ProfileId.HID_DEVICE);
         }
 
         Intent intent = new Intent(BluetoothHidDevice.ACTION_CONNECTION_STATE_CHANGED);

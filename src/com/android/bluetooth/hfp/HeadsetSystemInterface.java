@@ -112,7 +112,6 @@ public class HeadsetSystemInterface {
 
         mAudioManager.setParameters("BT_SCO=off");
         mAudioManager.setBluetoothScoOn(false);
-        mHeadsetPhoneState.listenForPhoneState(false);
         mHeadsetPhoneState.cleanup();
     }
 
