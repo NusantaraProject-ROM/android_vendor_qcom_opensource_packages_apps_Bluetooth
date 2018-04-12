@@ -2600,6 +2600,7 @@ public class AdapterService extends Service {
             }
         }
         metricsBuilder.setNumBondedDevices(getBondedDevices().length);
+        MetricsLogger.dumpProto(metricsBuilder);
         for (ProfileService profile : mRegisteredProfiles) {
             profile.dumpProto(metricsBuilder);
         }

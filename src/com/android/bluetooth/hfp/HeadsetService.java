@@ -39,8 +39,10 @@ import android.os.UserHandle;
 import android.provider.Settings;
 import android.util.Log;
 
+import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.internal.annotations.VisibleForTesting;
 
@@ -1207,6 +1209,7 @@ public class HeadsetService extends ProfileService {
                 if (mActiveDevice == null) {
                     setActiveDevice(device);
                 }
+                MetricsLogger.logProfileConnectionEvent(BluetoothMetricsProto.ProfileId.HEADSET);
             }
             if (fromState == BluetoothProfile.STATE_CONNECTED
                     && toState != BluetoothProfile.STATE_CONNECTED) {
