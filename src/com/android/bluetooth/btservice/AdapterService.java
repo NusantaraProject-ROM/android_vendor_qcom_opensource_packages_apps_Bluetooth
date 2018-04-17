@@ -534,9 +534,12 @@ public class AdapterService extends Service {
 
     void bringUpBle() {
         debugLog("bleOnProcessStart()");
-
+        /* To reload profile support in BLE turning ON state. So even if profile support
+         *  is disabled in Bluetooth Adapter turned off state(10), this flag will ensure
+         *  rechecking profile support after BT is turned ON
+         */
         if (getResources().getBoolean(
-                R.bool.config_bluetooth_reload_supported_profiles_when_enabled)) {
+                com.android.bluetooth.R.bool.reload_supported_profiles_when_enabled)) {
             Config.init(getApplicationContext());
         }
 
