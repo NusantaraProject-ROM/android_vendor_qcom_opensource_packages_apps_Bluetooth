@@ -621,10 +621,16 @@ public class A2dpSinkStateMachine extends StateMachine {
             switch (state) {
                 case AUDIO_STATE_STARTED:
                     mStreaming.obtainMessage(A2dpSinkStreamHandler.SRC_STR_START).sendToTarget();
+                    broadcastAudioState(device, BluetoothA2dpSink.STATE_PLAYING,
+                            BluetoothA2dpSink.STATE_NOT_PLAYING);
+                    mPlayingDevice = device;
                     break;
                 case AUDIO_STATE_REMOTE_SUSPEND:
                 case AUDIO_STATE_STOPPED:
                     mStreaming.obtainMessage(A2dpSinkStreamHandler.SRC_STR_STOP).sendToTarget();
+                    broadcastAudioState(device, BluetoothA2dpSink.STATE_NOT_PLAYING,
+                            BluetoothA2dpSink.STATE_PLAYING);
+                    mPlayingDevice = null;
                     break;
                 default:
                     loge("Audio State Device: " + device + " bad state: " + state);

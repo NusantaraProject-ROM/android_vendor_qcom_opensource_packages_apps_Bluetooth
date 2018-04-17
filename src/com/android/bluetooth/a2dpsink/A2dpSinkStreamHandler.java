@@ -115,6 +115,7 @@ public class A2dpSinkStreamHandler extends Handler {
                 mStreamAvailable = true;
                 if (mAudioFocus == AudioManager.AUDIOFOCUS_NONE) {
                     sendAvrcpPause();
+                    requestAudioFocus();
                 } else {
                     startAvrcpUpdates();
                 }
