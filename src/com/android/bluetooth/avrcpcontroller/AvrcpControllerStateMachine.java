@@ -87,7 +87,9 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int MESSAGE_INTERNAL_BROWSE_DEPTH_INCREMENT = 401;
     static final int MESSAGE_INTERNAL_MOVE_N_LEVELS_UP = 402;
     static final int MESSAGE_INTERNAL_CMD_TIMEOUT = 403;
+    static final int MESSAGE_INTERNAL_ABS_VOL_TIMEOUT = 404;
 
+    static final int ABS_VOL_TIMEOUT_MILLIS = 1000; //1s
     static final int CMD_TIMEOUT_MILLIS = 5000; // 5s
     // Fetch only 5 items at a time.
     static final int GET_FOLDER_ITEMS_PAGINATION_SIZE = 5;
@@ -130,7 +132,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     private AvrcpPlayer mAddressedPlayer;
 
     // Only accessed from State Machine processMessage
-    private boolean mAbsoluteVolumeChangeInProgress = false;
+    private int mVolumeChangedNotificationsToIgnore = 0;
     private int mPreviousPercentageVol = -1;
 
     // Depth from root of current browsing. This can be used to move to root directly.
@@ -319,7 +321,7 @@ class AvrcpControllerStateMachine extends StateMachine {
 
                     case MESSAGE_PROCESS_SET_ADDRESSED_PLAYER:
                         AvrcpControllerService.getPlayerListNative(
-                                mRemoteDevice.getBluetoothAddress(), (byte) 0, (byte) 255);
+                                mRemoteDevice.getBluetoothAddress(), 0, 255);
                         transitionTo(mGetPlayerListing);
                         sendMessageDelayed(MESSAGE_INTERNAL_CMD_TIMEOUT, CMD_TIMEOUT_MILLIS);
                         break;
@@ -377,7 +379,10 @@ class AvrcpControllerStateMachine extends StateMachine {
                         break;
 
                     case MESSAGE_PROCESS_SET_ABS_VOL_CMD:
-                        mAbsoluteVolumeChangeInProgress = true;
+                        mVolumeChangedNotificationsToIgnore++;
+                        removeMessages(MESSAGE_INTERNAL_ABS_VOL_TIMEOUT);
+                        sendMessageDelayed(MESSAGE_INTERNAL_ABS_VOL_TIMEOUT,
+                                ABS_VOL_TIMEOUT_MILLIS);
                         setAbsVolume(msg.arg1, msg.arg2);
                         break;
 
@@ -396,8 +401,11 @@ class AvrcpControllerStateMachine extends StateMachine {
                     break;
 
                     case MESSAGE_PROCESS_VOLUME_CHANGED_NOTIFICATION: {
-                        if (mAbsoluteVolumeChangeInProgress) {
-                            mAbsoluteVolumeChangeInProgress = false;
+                        if (mVolumeChangedNotificationsToIgnore > 0) {
+                            mVolumeChangedNotificationsToIgnore--;
+                            if (mVolumeChangedNotificationsToIgnore == 0) {
+                                removeMessages(MESSAGE_INTERNAL_ABS_VOL_TIMEOUT);
+                            }
                         } else {
                             if (mRemoteDevice.getAbsVolNotificationRequested()) {
                                 int percentageVol = getVolumePercentage();
@@ -413,6 +421,14 @@ class AvrcpControllerStateMachine extends StateMachine {
                         }
                     }
                     break;
+
+                    case MESSAGE_INTERNAL_ABS_VOL_TIMEOUT:
+                        // Volume changed notifications should come back promptly from the
+                        // AudioManager, if for some reason some notifications were squashed don't
+                        // prevent future notifications.
+                        if (DBG) Log.d(TAG, "Timed out on volume changed notification");
+                        mVolumeChangedNotificationsToIgnore = 0;
+                        break;
 
                     case MESSAGE_PROCESS_TRACK_CHANGED:
                         // Music start playing automatically and update Metadata
@@ -602,7 +618,7 @@ class AvrcpControllerStateMachine extends StateMachine {
                         transitionTo(mConnected);
                     } else {
                         // Fetch the next set of items.
-                        callNativeFunctionForScope((byte) mCurrInd, (byte) Math.min(mEndInd,
+                        callNativeFunctionForScope(mCurrInd, Math.min(mEndInd,
                                 mCurrInd + GET_FOLDER_ITEMS_PAGINATION_SIZE - 1));
                         // Reset the timeout message since we are doing a new fetch now.
                         removeMessages(MESSAGE_INTERNAL_CMD_TIMEOUT);
@@ -622,6 +638,16 @@ class AvrcpControllerStateMachine extends StateMachine {
                     // already sent all the items to the client hence simply
                     // transition to Connected state here.
                     transitionTo(mConnected);
+                    break;
+
+                case MESSAGE_CHANGE_FOLDER_PATH:
+                case MESSAGE_FETCH_ATTR_AND_PLAY_ITEM:
+                case MESSAGE_GET_PLAYER_LIST:
+                case MESSAGE_GET_NOW_PLAYING_LIST:
+                case MESSAGE_SET_BROWSED_PLAYER:
+                    // A new request has come in, no need to fetch more.
+                    mEndInd = 0;
+                    deferMessage(msg);
                     break;
 
                 case MESSAGE_SEND_PASS_THROUGH_CMD:
@@ -677,11 +703,11 @@ class AvrcpControllerStateMachine extends StateMachine {
             switch (mScope) {
                 case AvrcpControllerService.BROWSE_SCOPE_NOW_PLAYING:
                     AvrcpControllerService.getNowPlayingListNative(
-                            mRemoteDevice.getBluetoothAddress(), (byte) start, (byte) end);
+                            mRemoteDevice.getBluetoothAddress(), start, end);
                     break;
                 case AvrcpControllerService.BROWSE_SCOPE_VFS:
                     AvrcpControllerService.getFolderListNative(mRemoteDevice.getBluetoothAddress(),
-                            (byte) start, (byte) end);
+                            start, end);
                     break;
                 default:
                     Log.e(STATE_TAG, "Scope " + mScope + " cannot be handled here.");
