@@ -1,4 +1,39 @@
 /*
+ * Copyright (C) 2017, The Linux Foundation. All rights reserved.
+ * Not a Contribution.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *
+ * * Neither the name of The Linux Foundation nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*
  * Copyright (C) 2012 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -1477,6 +1512,28 @@ public class AdapterService extends Service {
             return service.sdpSearch(device, uuid);
         }
 
+        public boolean isTwsPlusDevice(BluetoothDevice device) {
+            if (!Utils.checkCaller()) {
+                Log.w(TAG,"(): isTws+device(): not allowed for non-active user");
+                return false;
+            }
+
+            AdapterService service = getService();
+            if (service == null) return false;
+            return service.isTwsPlusDevice(device);
+        }
+
+        public String getTwsPlusPeerAddress(BluetoothDevice device) {
+            if (!Utils.checkCaller()) {
+                Log.w(TAG,"getTws+peerAddress(): not allowed for non-active user");
+                return null;
+            }
+
+            AdapterService service = getService();
+            if (service == null) return null;
+            return service.getTwsPlusPeerAddress(device);
+        }
+
         @Override
         public int getBatteryLevel(BluetoothDevice device) {
             if (!Utils.checkCaller()) {
@@ -1799,6 +1856,66 @@ public class AdapterService extends Service {
         return result && storeBluetoothClassConfig(bluetoothClass.getClassOfDevice());
     }
 
+    boolean setTwsPlusDevType(byte[] address, short twsPlusDevType) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        BluetoothDevice device = mRemoteDevices.getDevice(address);
+        DeviceProperties deviceProp;
+        if (device == null) {
+            deviceProp = mRemoteDevices.addDeviceProperties(address);
+        } else {
+            deviceProp = mRemoteDevices.getDeviceProperties(device);
+        }
+        if(deviceProp != null) {
+            deviceProp.setTwsPlusDevType(twsPlusDevType);
+            return true;
+        }
+        return false;
+    }
+
+    boolean setTwsPlusPeerEbAddress(byte[] address, byte[] peerEbAddress) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        BluetoothDevice device = mRemoteDevices.getDevice(address);
+        BluetoothDevice peerDevice = null;
+        DeviceProperties deviceProp;
+        DeviceProperties peerDeviceProp;
+
+        if(peerEbAddress != null)
+            peerDevice = mRemoteDevices.getDevice(peerEbAddress);
+
+        if (device == null) {
+            deviceProp = mRemoteDevices.addDeviceProperties(address);
+        } else {
+            deviceProp = mRemoteDevices.getDeviceProperties(device);
+        }
+        if (peerDevice == null && peerEbAddress != null) {
+            peerDeviceProp = mRemoteDevices.addDeviceProperties(peerEbAddress);
+            peerDevice = mRemoteDevices.getDevice(peerEbAddress);
+        }
+        if(deviceProp != null) {
+            deviceProp.setTwsPlusPeerEbAddress(peerDevice, peerEbAddress);
+            return true;
+        }
+        return false;
+    }
+
+    boolean setTwsPlusAutoConnect(byte[] address, boolean autoConnect) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        BluetoothDevice device = mRemoteDevices.getDevice(address);
+        BluetoothDevice peerDevice = null;
+        DeviceProperties deviceProp;
+
+        if (device == null) {
+            deviceProp = mRemoteDevices.addDeviceProperties(address);
+        } else {
+            deviceProp = mRemoteDevices.getDeviceProperties(device);
+        }
+        if(deviceProp != null) {
+            deviceProp.setTwsPlusAutoConnect(peerDevice, autoConnect);
+            return true;
+        }
+        return false;
+    }
+
     int getScanMode() {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
 
@@ -1889,6 +2006,25 @@ public class AdapterService extends Service {
         } else {
             return false;
         }
+    }
+
+    public boolean isTwsPlusDevice(BluetoothDevice device) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
+        if (deviceProp == null) {
+            return false;
+        }
+        return (deviceProp.getTwsPlusPeerAddress() != null);
+    }
+
+    public String getTwsPlusPeerAddress(BluetoothDevice device)  {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
+        if (deviceProp == null) {
+            return null;
+        }
+        byte[] address = deviceProp.getTwsPlusPeerAddress();
+        return Utils.getAddressStringFromByte(address);
     }
 
     boolean createBond(BluetoothDevice device, int transport, OobData oobData) {
