@@ -341,6 +341,13 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                             mUpdateThread = null;
                         }
                     }
+                    if (D) Log.d(TAG," clear batches");
+                    if (mBatches != null) {
+                        mBatches.clear();
+                    }
+                    if (mShares != null) {
+                        mShares.clear();
+                    }
                     mNotifier.cancelNotifications();
                     break;
                 case START_LISTENER:
@@ -470,12 +477,6 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
             Log.v(TAG, "onDestroy");
         }
         stopListeners();
-        if (mBatches != null) {
-            mBatches.clear();
-        }
-        if (mShares != null) {
-            mShares.clear();
-        }
         if (mHandler != null) {
             mHandler.removeCallbacksAndMessages(null);
         }
@@ -487,9 +488,13 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                 getContentResolver().unregisterContentObserver(mObserver);
                 mObserver = null;
             }
+        } catch (IllegalArgumentException e) {
+            Log.w(TAG, "unregisterContentObserver " + e.toString());
+        }
+        try {
             unregisterReceiver(mBluetoothReceiver);
         } catch (IllegalArgumentException e) {
-            Log.w(TAG, "unregisterReceivers " + e.toString());
+            Log.w(TAG, "unregisterReceiver " + e.toString());
         }
     }
 
@@ -508,8 +513,9 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (D) Log.d(TAG, "action : " + action);
+            if (action == null) return;
             if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
-                switch (mAdapter.getState()) {
+                switch (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)) {
                     case BluetoothAdapter.STATE_ON:
                         if (V) {
                             Log.v(TAG, "Bluetooth state changed: STATE_ON");

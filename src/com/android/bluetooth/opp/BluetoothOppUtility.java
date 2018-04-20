@@ -210,8 +210,14 @@ public class BluetoothOppUtility {
             return;
         }
 
-        Uri path = BluetoothOppFileProvider.getUriForFile(context,
-                "com.android.bluetooth.opp.fileprovider", f);
+        Uri path = null;
+        try {
+            path = BluetoothOppFileProvider.getUriForFile(context,
+                    "com.android.bluetooth.opp.fileprovider", f);
+        } catch (IllegalArgumentException e) {
+            Log.e(TAG, "Not able to find root path:" + f.getAbsolutePath());
+        }
+
         if (path == null) {
             Log.w(TAG, "Cannot get content URI for the shared file");
             return;
