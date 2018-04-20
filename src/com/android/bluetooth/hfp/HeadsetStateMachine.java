@@ -2618,7 +2618,7 @@ public class HeadsetStateMachine extends StateMachine {
         if (phoneState.getCallState() == HeadsetHalConstants.CALL_STATE_INCOMING) {
             mSystemInterface.answerCall(device);
         } else if (phoneState.getNumActiveCall() > 0) {
-            if (getAudioState() != BluetoothHeadset.STATE_AUDIO_DISCONNECTED) {
+            if (getAudioState() != BluetoothHeadset.STATE_AUDIO_CONNECTED) {
                 mHeadsetService.setActiveDevice(mDevice);
                 mNativeInterface.connectAudio(mDevice);
             } else {
@@ -2816,13 +2816,19 @@ public class HeadsetStateMachine extends StateMachine {
             return false;
         }
         if (!mHeadsetService.getAudioRouteAllowed()) {
-            Log.w(TAG, "isScoAcceptabl: rejected SCO since audio route is not allowed");
+            Log.w(TAG, "isScoAcceptable: rejected SCO since audio route is not allowed");
             return false;
         }
-        if (mSystemInterface.isInCall() || mVoiceRecognitionStarted) {
+        // if in-band ringtone is not enabled, return false
+        if (mHeadsetService.isRinging() && !mHeadsetService.isInbandRingingEnabled()) {
+            Log.w(TAG, "isScoAcceptable: rejected SCO since MT call in ringing," +
+                    "in-band ringing not enabled");
+            return false;
+        }
+        if (mHeadsetService.isInCall() || mVoiceRecognitionStarted) {
             return true;
         }
-        if (mSystemInterface.isRinging() && mHeadsetService.isInbandRingingEnabled()) {
+        if (mHeadsetService.isRinging() && mHeadsetService.isInbandRingingEnabled()) {
             return true;
         }
         Log.w(TAG, "isScoAcceptable: rejected SCO, inCall=" + mSystemInterface.isInCall()
