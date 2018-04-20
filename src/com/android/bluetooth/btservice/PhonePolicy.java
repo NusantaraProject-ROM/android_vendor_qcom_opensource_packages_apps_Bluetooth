@@ -481,10 +481,7 @@ class PhonePolicy {
                                == BluetoothProfile.STATE_DISCONNECTED)
                     && (a2dpConnected || (a2dpService.getPriority(device) == BluetoothProfile.PRIORITY_OFF))) {
                 debugLog("Retrying connection to HS with device " + device);
-                int maxConnections = 1;
-                int maxHfpConnectionSysProp = mAdapterService.getMaxConnectedAudioDevices();                  
-                if (maxHfpConnectionSysProp == 2)
-                        maxConnections = maxHfpConnectionSysProp;
+                int maxConnections = mAdapterService.getMaxConnectedAudioDevices();
 
                 if (!hsConnDevList.isEmpty() && maxConnections == 1) {
                     Log.v(TAG,"HFP is already connected, ignore");
@@ -512,10 +509,7 @@ class PhonePolicy {
                                == BluetoothProfile.STATE_DISCONNECTED)
                     && (hsConnected || (hsService.getPriority(device) == BluetoothProfile.PRIORITY_OFF))) {
                 debugLog("Retrying connection to A2DP with device " + device);
-                int maxConnections = 1;
-                int maxA2dpConnectionSysProp = mAdapterService.getMaxConnectedAudioDevices();
-                if (maxA2dpConnectionSysProp == 2)
-                        maxConnections = maxA2dpConnectionSysProp;
+                int maxConnections = mAdapterService.getMaxConnectedAudioDevices();
 
                 if (!a2dpConnDevList.isEmpty() && maxConnections == 1) {
                     Log.v(TAG,"a2dp is already connected, ignore");

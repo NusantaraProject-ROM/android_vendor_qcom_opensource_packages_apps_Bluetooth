@@ -189,6 +189,12 @@ class AdapterProperties {
         // Make sure the final value of max connected audio devices is within allowed range
         mMaxConnectedAudioDevices = Math.min(Math.max(propertyOverlayedMaxConnectedAudioDevices,
                 MAX_CONNECTED_AUDIO_DEVICES_LOWER_BOND), MAX_CONNECTED_AUDIO_DEVICES_UPPER_BOUND);
+        // if QTI stack, overwrite max audio connections to 2
+        if(mService.isVendorIntfEnabled() && mMaxConnectedAudioDevices > 2) {
+            Log.i(TAG, "overwriting mMaxConnectedAudioDevices to 2 for vendor stack");
+            mMaxConnectedAudioDevices = 2;
+        }
+
         Log.i(TAG, "init(), maxConnectedAudioDevices, default="
                 + configDefaultMaxConnectedAudioDevices + ", propertyOverlayed="
                 + propertyOverlayedMaxConnectedAudioDevices + ", finalValue="

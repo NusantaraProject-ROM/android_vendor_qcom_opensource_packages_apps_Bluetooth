@@ -120,10 +120,6 @@ public class HeadsetService extends ProfileService {
         mSystemInterface.init();
         // Step 4: Initialize native interface
         mMaxHeadsetConnections = mAdapterService.getMaxConnectedAudioDevices();
-        if(mAdapterService.isVendorIntfEnabled()) {
-            mMaxHeadsetConnections = (mMaxHeadsetConnections > 2)? 2: mMaxHeadsetConnections;
-            Log.d(TAG," Max_HFP_Connections  " + mMaxHeadsetConnections);
-        }
         mNativeInterface = HeadsetObjectsFactory.getInstance().getNativeInterface();
         // Add 1 to allow a pending device to be connecting or disconnecting
         mNativeInterface.init(mMaxHeadsetConnections + 1, isInbandRingingEnabled());
