@@ -32,6 +32,7 @@ import android.util.Log;
 
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.Utils;
+import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.btservice.ProfileService;
@@ -51,6 +52,7 @@ public class AvrcpTargetService extends ProfileService {
     private static final int AVRCP_MAX_VOL = 127;
     private static int sDeviceMaxVolume = 0;
 
+    private AdapterService mAdapterService;
     private MediaPlayerList mMediaPlayerList;
     private AudioManager mAudioManager;
     private AvrcpBroadcastReceiver mReceiver;
@@ -133,11 +135,18 @@ public class AvrcpTargetService extends ProfileService {
 
         Log.i(TAG, "Starting the AVRCP Target Service");
         mCurrentData = new MediaData(null, null, null);
+        mAdapterService = Objects.requireNonNull(AdapterService.getAdapterService(),
+                "AdapterService cannot be null when A2dpService starts");
 
         mReceiver = new AvrcpBroadcastReceiver();
         IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
         registerReceiver(mReceiver, filter);
+
+        if(mAdapterService.isVendorIntfEnabled()) {
+            Log.i(TAG, "Vendor Stack is enabled, using legacy implementation");
+            SystemProperties.set(AVRCP_ENABLE_PROPERTY, "false");
+        }
 
         if (!SystemProperties.getBoolean(AVRCP_ENABLE_PROPERTY, true)) {
             Log.w(TAG, "Skipping initialization of the new AVRCP Target Service");
