@@ -34,6 +34,7 @@ import android.provider.Settings;
 import android.support.annotation.GuardedBy;
 import android.support.annotation.VisibleForTesting;
 import android.util.Log;
+import android.os.SystemProperties;
 
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.Utils;
@@ -494,7 +495,11 @@ public class A2dpService extends ProfileService {
                 // Inform the Audio Service about the codec configuration
                 // change, so the Audio Service can reset accordingly the audio
                 // feeding parameters in the Audio HAL to the Bluetooth stack.
-                mAudioManager.handleBluetoothA2dpDeviceConfigChange(mActiveDevice);
+                String offloadSupported =
+                     SystemProperties.get("persist.vendor.bt.enable.splita2dp");
+                if (!(offloadSupported.isEmpty() || "true".equals(offloadSupported))) {
+                    mAudioManager.handleBluetoothA2dpDeviceConfigChange(mActiveDevice);
+                }
             }
         }
         return true;
