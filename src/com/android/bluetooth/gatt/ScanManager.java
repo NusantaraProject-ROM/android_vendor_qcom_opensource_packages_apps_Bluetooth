@@ -335,12 +335,30 @@ public class ScanManager {
 
         void handleStopScan(ScanClient client) {
             Utils.enforceAdminPermission(mService);
+            boolean appDied;
+            int scannerId;
             if (client == null) {
                 return;
             }
 
             if (mSuspendedScanClients.contains(client)) {
                 mSuspendedScanClients.remove(client);
+            }
+
+            // The caller may pass a dummy client with only clientIf
+            // and appDied status. Perform the operation on the
+            // actual client in that case.
+            appDied = client.appDied;
+            scannerId = client.scannerId;
+            client = mScanNative.getRegularScanClient(scannerId);
+            if (client == null) {
+                if (DBG) Log.d(TAG, "regular client is null");
+                client = mScanNative.getBatchScanClient(scannerId);
+
+                if(client == null) {
+                    if (DBG) Log.d(TAG,"batch client is null");
+                    return;
+                }
             }
 
             if (mRegularScanClients.contains(client)) {
@@ -356,7 +374,7 @@ public class ScanManager {
             } else {
                 mScanNative.stopBatchScan(client);
             }
-            if (client.appDied) {
+            if (appDied) {
                 if (DBG) {
                     Log.d(TAG, "app died, unregister scanner - " + client.scannerId);
                 }
