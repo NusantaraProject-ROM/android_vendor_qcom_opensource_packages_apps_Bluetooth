@@ -48,6 +48,8 @@ class BrowsedMediaPlayer {
     private static final int CONNECTED = 1;
     private static final int SUSPENDED = 2;
 
+    private static final int BROWSED_ITEM_ID_INDEX = 2;
+
     private static final String[] ROOT_FOLDER = {"root"};
 
     /*  package and service name of target Media Player which is set for browsing */
@@ -73,8 +75,11 @@ class BrowsedMediaPlayer {
     /* Number of items in current folder */
     private int mCurrFolderNumItems = 0;
 
-    /* store mapping between uid(Avrcp) and mediaId(Media Player). */
-    private HashMap<Integer, String> mHmap = new HashMap<Integer, String>();
+    /* store mapping between uid(Avrcp) and mediaId(Media Player) for Media Item */
+    private HashMap<Integer, String> mMediaHmap = new HashMap<Integer, String>();
+
+    /* store mapping between uid(Avrcp) and mediaId(Media Player) for Folder Item */
+    private HashMap<Integer, String> mFolderHmap = new HashMap<Integer, String>();
 
     /* command objects from avrcp handler */
     private AvrcpCmd.FolderItemsCmd mFolderItemsReqObj;
@@ -155,6 +160,7 @@ class BrowsedMediaPlayer {
                         mMediaInterface.changePathRsp(mBDAddr, AvrcpConstants.RSP_NO_ERROR,
                                 mCurrFolderNumItems);
                     }
+                    refreshFolderItems(mFolderItems);
                     mMediaBrowser.unsubscribe(parentId);
                 }
 
@@ -401,7 +407,8 @@ class BrowsedMediaPlayer {
             if (mMediaBrowser != null) mMediaBrowser.disconnect();
         }
 
-        mHmap = null;
+        mMediaHmap = null;
+        mFolderHmap = null;
         mMediaController = null;
         mMediaBrowser = null;
         mPathStack = null;
@@ -439,7 +446,7 @@ class BrowsedMediaPlayer {
 
         /* check direction and change the path */
         if (direction == AvrcpConstants.DIR_DOWN) { /* move down */
-            if ((newPath = byteToString(folderUid)) == null) {
+            if ((newPath = byteToStringFolder(folderUid)) == null) {
                 Log.e(TAG, "Could not get media item from folder Uid, sending err response");
                 mMediaInterface.changePathRsp(mBDAddr, AvrcpConstants.RSP_INV_ITEM, 0);
             } else if (!isBrowsableFolderDn(newPath)) {
@@ -481,7 +488,7 @@ class BrowsedMediaPlayer {
         }
 
         /* check if uid is valid by doing a lookup in hashmap */
-        mediaID = byteToString(itemAttr.mUid);
+        mediaID = byteToStringMedia(itemAttr.mUid);
         if (mediaID == null) {
             Log.e(TAG, "uid is invalid");
             mMediaInterface.getItemAttrRsp(mBDAddr, AvrcpConstants.RSP_INV_ITEM, null);
@@ -559,7 +566,7 @@ class BrowsedMediaPlayer {
 
         if (isPlayerConnected()) {
             /* check if uid is valid */
-            if ((folderUid = byteToString(uid)) == null) {
+            if ((folderUid = byteToStringMedia(uid)) == null) {
                 Log.e(TAG, "uid is invalid!");
                 mMediaInterface.playItemRsp(mBDAddr, AvrcpConstants.RSP_INV_ITEM);
                 return;
@@ -668,7 +675,12 @@ class BrowsedMediaPlayer {
                 folderDataNative.mPlayable[itemIndex] = AvrcpConstants.ITEM_NOT_PLAYABLE;
             }
             /* set uid for current item */
-            byte[] uid = stringToByte(item.getDescription().getMediaId());
+            byte[] uid;
+            if (folderDataNative.mItemTypes[itemIndex] == AvrcpConstants.BTRC_ITEM_MEDIA)
+                uid = stringToByteMedia(item.getDescription().getMediaId());
+            else
+                uid = stringToByteFolder(item.getDescription().getMediaId());
+
             for (int idx = 0; idx < AvrcpConstants.UID_SIZE; idx++) {
                 folderDataNative.mItemUid[itemIndex * AvrcpConstants.UID_SIZE + idx] = uid[idx];
             }
@@ -817,29 +829,89 @@ class BrowsedMediaPlayer {
         return true;
     }
 
-    /* convert uid to mediaId */
-    private String byteToString(byte[] byteArray) {
+    private String parseQueueId(String mediaId) {
+        if (isNumeric(mediaId)) {
+            Log.d(TAG, "Get queue id: " + mediaId);
+            return mediaId.trim();
+        } else {
+            String[] mediaIdItems = mediaId.split(",");
+            if (mediaIdItems != null && mediaIdItems.length > BROWSED_ITEM_ID_INDEX) {
+                Log.d(TAG, "Get queue id: " + mediaIdItems[BROWSED_ITEM_ID_INDEX]);
+                return mediaIdItems[BROWSED_ITEM_ID_INDEX].trim();
+            }
+        }
+
+        Log.d(TAG, "Unkown queue id");
+        return null;
+    }
+
+    /* convert uid to mediaId for Media item*/
+    private String byteToStringMedia(byte[] byteArray) {
         int uid = new BigInteger(byteArray).intValue();
-        String mediaId = mHmap.get(uid);
+        String mediaId = mMediaHmap.get(uid);
         return mediaId;
     }
 
-    /* convert mediaId to uid */
-    private byte[] stringToByte(String mediaId) {
+    /* convert uid to mediaId for Folder item*/
+    private String byteToStringFolder(byte[] byteArray) {
+        int uid = new BigInteger(byteArray).intValue();
+        String mediaId = mFolderHmap.get(uid);
+        return mediaId;
+    }
+
+    /* convert mediaId to uid for Media item*/
+    private byte[] stringToByteMedia(String mediaId) {
         /* check if this mediaId already exists in hashmap */
-        if (!mHmap.containsValue(mediaId)) { /* add to hashmap */
-            // Offset by one as uid 0 is reserved
-            int uid = mHmap.size() + 1;
-            mHmap.put(uid, mediaId);
+        if (!mMediaHmap.containsValue(mediaId)) { /* add to hashmap */
+            int uid;
+            String queueId = parseQueueId(mediaId);
+            if (queueId == null) {
+                uid = mMediaHmap.size() + 1;
+            } else {
+                uid = Integer.valueOf(queueId).intValue();
+            }
+
+            mMediaHmap.put(uid, mediaId);
             return intToByteArray(uid);
         } else { /* search key for give mediaId */
-            for (int uid : mHmap.keySet()) {
-                if (mHmap.get(uid).equals(mediaId)) {
+            for (int uid : mMediaHmap.keySet()) {
+                if (mMediaHmap.get(uid).equals(mediaId)) {
                     return intToByteArray(uid);
                 }
             }
         }
         return null;
+    }
+
+    /* convert mediaId to uid for Folder item*/
+    private byte[] stringToByteFolder(String mediaId) {
+        /* check if this mediaId already exists in hashmap */
+        if (!mFolderHmap.containsValue(mediaId)) { /* add to hashmap */
+            // Offset by one as uid 0 is reserved
+            int uid = mFolderHmap.size() + 1;
+            mFolderHmap.put(uid, mediaId);
+            return intToByteArray(uid);
+        } else { /* search key for give mediaId */
+            for (int uid : mFolderHmap.keySet()) {
+                if (mFolderHmap.get(uid).equals(mediaId)) {
+                    return intToByteArray(uid);
+                }
+            }
+        }
+        return null;
+    }
+
+    private void refreshFolderItems(List<MediaBrowser.MediaItem> folderItems) {
+        for (int itemIndex = 0; itemIndex < folderItems.size(); itemIndex++) {
+            MediaBrowser.MediaItem item = folderItems.get(itemIndex);
+            int flags = item.getFlags();
+            if ((flags & MediaBrowser.MediaItem.FLAG_BROWSABLE) != 0) {
+                Log.d(TAG, "Folder item, no need refresh hashmap from mediaId to uid");
+            } else {
+                Log.d(TAG, "Media item, refresh haspmap from mediaId to uid");
+                stringToByteMedia(item.getDescription().getMediaId());
+            }
+        }
     }
 
     /* converts queue item received from getQueue call, to MediaItem used by FilterAttr method */
@@ -874,5 +946,20 @@ class BrowsedMediaPlayer {
         encodedValue[index++] = (byte) value;
 
         return encodedValue;
+    }
+
+    public boolean isNumeric(String mediaId) {
+        String trimStr = mediaId.trim();
+        int length = trimStr.length();
+
+        for(int i = 0; i < length; i++) {
+            char c = trimStr.charAt(i);
+            if (!((c >= '0' && c <= '9'))) {
+                Log.v(TAG, "Non-Numeric media Id");
+                return false;
+            }
+        }
+        Log.v(TAG, "Numeric media Id");
+        return true;
     }
 }
