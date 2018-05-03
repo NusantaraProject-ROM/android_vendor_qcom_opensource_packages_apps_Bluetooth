@@ -1402,5 +1402,11 @@ jint JNI_OnLoad(JavaVM *jvm, void *reserved) {
     return JNI_ERR;
   }
 
+  status = android::register_com_android_bluetooth_avrcp_ext(e);
+  if (status < 0) {
+    ALOGE("jni avrcp_ext registration failure: %d", status);
+    return JNI_ERR;
+  }
+
   return JNI_VERSION_1_6;
 }

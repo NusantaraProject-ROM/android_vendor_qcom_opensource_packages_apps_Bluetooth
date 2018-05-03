@@ -305,7 +305,7 @@ public class AvrcpTargetService extends ProfileService {
     void setActiveDevice(String address) {
         Log.i(TAG, "setActiveDevice: address=" + address);
         BluetoothDevice d =
-                BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address.toUpperCase());
+                BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address);
         if (d == null) {
             Log.wtfStack(TAG, "setActiveDevice: could not find device with address " + address);
         }
@@ -329,7 +329,6 @@ public class AvrcpTargetService extends ProfileService {
         }
 
         mVolumeManager.dump(sb);
-        sb.append("\n");
     }
 
     private static class AvrcpTargetBinder extends IBluetoothAvrcpTarget.Stub
