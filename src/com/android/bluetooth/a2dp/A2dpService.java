@@ -36,12 +36,11 @@ import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 import android.os.SystemProperties;
 
-import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.avrcp.Avrcp;
+import com.android.bluetooth.avrcp.Avrcp_ext;
 import com.android.bluetooth.avrcp.AvrcpTargetService;
 import com.android.bluetooth.btservice.AdapterService;
-import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.btservice.ProfileService;
 
 import java.util.ArrayList;
@@ -65,6 +64,7 @@ public class A2dpService extends ProfileService {
     private AdapterService mAdapterService;
     private HandlerThread mStateMachinesThread;
     private Avrcp mAvrcp;
+    private Avrcp_ext mAvrcp_ext;
     private final Object mBtA2dpLock = new Object();
     private final Object mBtAvrcpLock = new Object();
 
@@ -122,7 +122,10 @@ public class A2dpService extends ProfileService {
         Log.i(TAG, "Max connected audio devices set to " + mMaxConnectedAudioDevices);
 
         // Step 3: Setup AVRCP
-        mAvrcp = Avrcp.make(this);
+        if(mAdapterService.isVendorIntfEnabled())
+            mAvrcp_ext = Avrcp_ext.make(this, this, mMaxConnectedAudioDevices);
+        else
+            mAvrcp = Avrcp.make(this);
 
         // Step 4: Start handler thread for state machines
         mStateMachines.clear();
@@ -201,9 +204,15 @@ public class A2dpService extends ProfileService {
 
         // Step 3: Cleanup AVRCP
         synchronized (mBtAvrcpLock) {
-            mAvrcp.doQuit();
-            mAvrcp.cleanup();
-            mAvrcp = null;
+            if(mAvrcp_ext != null) {
+                mAvrcp_ext.doQuit();
+                mAvrcp_ext.cleanup();
+                mAvrcp_ext = null;
+            } else if(mAvrcp != null) {
+                mAvrcp.doQuit();
+                mAvrcp.cleanup();
+                mAvrcp = null;
+            }
         }
 
         // Step 2: Reset maximum number of connected audio devices
@@ -550,6 +559,7 @@ public class A2dpService extends ProfileService {
     /* Absolute volume implementation */
     public boolean isAvrcpAbsoluteVolumeSupported() {
         synchronized(mBtAvrcpLock) {
+            if (mAvrcp_ext != null) return mAvrcp_ext.isAbsoluteVolumeSupported();
             return (mAvrcp != null) && mAvrcp.isAbsoluteVolumeSupported();
         }
     }
@@ -563,14 +573,22 @@ public class A2dpService extends ProfileService {
         }
 
         synchronized(mBtAvrcpLock) {
+            if (mAvrcp_ext != null) {
+                mAvrcp_ext.setAbsoluteVolume(volume);
+                return;
+            }
             if (mAvrcp != null) {
                 mAvrcp.setAbsoluteVolume(volume);
             }
         }
     }
 
-    public void setAvrcpAudioState(int state) {
+    public void setAvrcpAudioState(int state, BluetoothDevice device) {
         synchronized(mBtAvrcpLock) {
+            if (mAvrcp_ext != null) {
+                mAvrcp_ext.setA2dpAudioState(state, device);
+                return;
+            }
             if (mAvrcp != null) {
                 mAvrcp.setA2dpAudioState(state);
             }
@@ -579,13 +597,17 @@ public class A2dpService extends ProfileService {
 
     public void resetAvrcpBlacklist(BluetoothDevice device) {
         synchronized(mBtAvrcpLock) {
+            if (mAvrcp_ext != null) {
+                mAvrcp_ext.resetBlackList(device.getAddress());
+                return;
+            }
             if (mAvrcp != null) {
                 mAvrcp.resetBlackList(device.getAddress());
             }
         }
     }
 
-    boolean isA2dpPlaying(BluetoothDevice device) {
+    public boolean isA2dpPlaying(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         if (DBG) {
             Log.d(TAG, "isA2dpPlaying(" + device + ")");
@@ -956,7 +978,6 @@ public class A2dpService extends ProfileService {
                 // codecs (perhaps it's had a firmware update, etc.) and save that state if
                 // it differs from what we had saved before.
                 updateOptionalCodecsSupport(device);
-                MetricsLogger.logProfileConnectionEvent(BluetoothMetricsProto.ProfileId.A2DP);
             }
             // Set the active device if only one connected device is supported and it was connected
             if (toState == BluetoothProfile.STATE_CONNECTED && (mMaxConnectedAudioDevices == 1)) {
@@ -1206,6 +1227,10 @@ public class A2dpService extends ProfileService {
             }
         }
         synchronized(mBtAvrcpLock) {
+            if (mAvrcp_ext != null) {
+                mAvrcp_ext.dump(sb);
+                return;
+            }
             if (mAvrcp != null) {
                 mAvrcp.dump(sb);
             }

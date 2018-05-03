@@ -151,7 +151,7 @@ final class A2dpStateMachine extends StateMachine {
                 if (mIsPlaying) {
                     Log.i(TAG, "Disconnected: stopped playing: " + mDevice);
                     mIsPlaying = false;
-                    mA2dpService.setAvrcpAudioState(BluetoothA2dp.STATE_NOT_PLAYING);
+                    mA2dpService.setAvrcpAudioState(BluetoothA2dp.STATE_NOT_PLAYING, mDevice);
                     broadcastAudioState(BluetoothA2dp.STATE_NOT_PLAYING,
                                         BluetoothA2dp.STATE_PLAYING);
                 }
@@ -552,7 +552,7 @@ final class A2dpStateMachine extends StateMachine {
                         if (!mIsPlaying) {
                             Log.i(TAG, "Connected: started playing: " + mDevice);
                             mIsPlaying = true;
-                            mA2dpService.setAvrcpAudioState(BluetoothA2dp.STATE_PLAYING);
+                            mA2dpService.setAvrcpAudioState(BluetoothA2dp.STATE_PLAYING, mDevice);
                             broadcastAudioState(BluetoothA2dp.STATE_PLAYING,
                                                 BluetoothA2dp.STATE_NOT_PLAYING);
                         }
@@ -564,7 +564,7 @@ final class A2dpStateMachine extends StateMachine {
                         if (mIsPlaying) {
                             Log.i(TAG, "Connected: stopped playing: " + mDevice);
                             mIsPlaying = false;
-                            mA2dpService.setAvrcpAudioState(BluetoothA2dp.STATE_NOT_PLAYING);
+                            mA2dpService.setAvrcpAudioState(BluetoothA2dp.STATE_NOT_PLAYING, mDevice);
                             broadcastAudioState(BluetoothA2dp.STATE_NOT_PLAYING,
                                                 BluetoothA2dp.STATE_PLAYING);
                         }

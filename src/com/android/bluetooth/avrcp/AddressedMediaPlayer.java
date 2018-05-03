@@ -51,6 +51,7 @@ public class AddressedMediaPlayer {
             "com.google.android.music.mediasession.music_metadata";
 
     private AvrcpMediaRspInterface mMediaInterface;
+    private Avrcp_ext mAvrcp = null;
     @NonNull private List<MediaSession.QueueItem> mNowPlayingList;
 
     private final List<MediaSession.QueueItem> mEmptyNowPlayingList;
@@ -62,6 +63,11 @@ public class AddressedMediaPlayer {
         mNowPlayingList = mEmptyNowPlayingList;
         mMediaInterface = mediaInterface;
         mLastTrackIdSent = MediaSession.QueueItem.UNKNOWN_ID;
+    }
+
+    public AddressedMediaPlayer(AvrcpMediaRspInterface mediaInterface, Avrcp_ext mAvrcp_ext) {
+        this(mediaInterface);
+        mAvrcp = mAvrcp_ext;
     }
 
     void cleanup() {
@@ -268,6 +274,27 @@ public class AddressedMediaPlayer {
         }
         // The nowPlayingList changed: the new list has the full data for the current item
         mMediaInterface.trackChangedRsp(type, track);
+        mLastTrackIdSent = qid;
+    }
+
+    void sendTrackChangeWithId(int type, @Nullable MediaController mediaController, byte[] bdaddr) {
+        Log.d(TAG, "sendTrackChangeWithId (" + type + "): controller " + mediaController);
+        if(mAvrcp == null) {
+            sendTrackChangeWithId(type, mediaController);
+            return;
+        }
+        long qid = getActiveQueueItemId(mediaController);
+        byte[] track = ByteBuffer.allocate(AvrcpConstants.UID_SIZE).putLong(qid).array();
+        if ((type == AvrcpConstants.NOTIFICATION_TYPE_INTERIM) &&
+            (mLastTrackIdSent == MediaSession.QueueItem.UNKNOWN_ID) &&
+            (qid != mLastTrackIdSent)) {
+             byte[] lastTrack =
+                    ByteBuffer.allocate(AvrcpConstants.UID_SIZE).putLong(mLastTrackIdSent).array();
+             mMediaInterface.trackChangedRsp(type, lastTrack);
+             type = AvrcpConstants.NOTIFICATION_TYPE_CHANGED;
+        }
+        // The nowPlayingList changed: the new list has the full data for the current item
+        mAvrcp.trackChangedAddressedRsp(type, track, bdaddr);
         mLastTrackIdSent = qid;
     }
 

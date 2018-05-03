@@ -164,6 +164,16 @@ final class AvrcpConstants {
 
     static final int KEY_STATE_PRESS = 1;
     static final int KEY_STATE_RELEASE = 0;
+
+    static final int GET_ATTRIBUTE_IDS = 0;
+    static final int GET_VALUE_IDS = 1;
+    static final int GET_ATTRIBUTE_TEXT = 2;
+    static final int GET_VALUE_TEXT     = 3;
+    static final int GET_ATTRIBUTE_VALUES = 4;
+    static final int NOTIFY_ATTRIBUTE_VALUES = 5;
+    static final int SET_ATTRIBUTE_VALUES  = 6;
+    static final int GET_INVALID = 0xff;
+
     public static final String TAG = "Avrcp";
     public static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
 }
