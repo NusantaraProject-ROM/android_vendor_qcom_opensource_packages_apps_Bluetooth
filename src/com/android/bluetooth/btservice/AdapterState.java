@@ -73,7 +73,9 @@ final class AdapterState extends StateMachine {
     static final int BEGIN_DISABLE = 13;
     static final int BEGIN_BREDR_CLEANUP = 14;
 
-    static final int BLE_START_TIMEOUT_DELAY = 2000;
+    // TODO: To be optimized : Increased BLE_START_TIMEOUT_DELAY to 6 sec
+    // as OMR1 Total timeout value was 14 seconds
+    static final int BLE_START_TIMEOUT_DELAY = 6000;
     static final int BLE_STOP_TIMEOUT_DELAY = 1000;
     static final int BREDR_START_TIMEOUT_DELAY = 4000;
     static final int BREDR_STOP_TIMEOUT_DELAY = 4000;
