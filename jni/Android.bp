@@ -25,7 +25,6 @@ cc_library_shared {
     include_dirs: [
         "libnativehelper/include/nativehelper",
         "system/bt/types",
-        "vendor/qcom/opensource/bluetooth_ext/vhal/include",
     ],
     shared_libs: [
         "libandroid_runtime",
