@@ -36,6 +36,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothSocket;
+import android.bluetooth.BluetoothUuid;
 import android.bluetooth.IBluetoothPbap;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -47,6 +48,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
+import android.os.ParcelUuid;
 import android.os.PowerManager;
 import android.os.UserManager;
 import android.support.annotation.VisibleForTesting;
@@ -255,6 +257,43 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
                 }
                 sm.sendMessage(PbapStateMachine.AUTH_CANCELLED);
             }
+        } else if (BluetoothDevice.ACTION_BOND_STATE_CHANGED.equals(action)) {
+            int bondState = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE,
+                    BluetoothDevice.ERROR);
+            BluetoothDevice remoteDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+            if (bondState == BluetoothDevice.BOND_BONDED && BluetoothPbapFixes.isSupportedPbap12) {
+                if (VERBOSE) Log.v(TAG, "Remote Device Type: " + remoteDevice.getType());
+                if (remoteDevice.getType() == BluetoothDevice.DEVICE_TYPE_CLASSIC ||
+                        remoteDevice.getType() == BluetoothDevice.DEVICE_TYPE_DUAL)
+                    remoteDevice.sdpSearch(BluetoothUuid.PBAP_PCE);
+            }
+        } else if (BluetoothDevice.ACTION_SDP_RECORD.equals(action)) {
+            ParcelUuid uuid = intent.getParcelableExtra(BluetoothDevice.EXTRA_UUID);
+            if (BluetoothUuid.PBAP_PCE.equals(uuid)) {
+                Log.d(TAG, "Received SDP Response for PCE UUID: " + uuid.toString());
+                BluetoothDevice remoteDevice = intent.getParcelableExtra(
+                        BluetoothDevice.EXTRA_DEVICE);
+                boolean hasPbap12Support =
+                        BluetoothPbapFixes.remoteSupportsPbap1_2(remoteDevice);
+                String isRebonded = BluetoothPbapFixes.PbapSdpResponse.get(
+                        remoteDevice.getAddress().substring(0,8));
+                Integer remoteVersion = BluetoothPbapFixes.remoteVersion.get(
+                        remoteDevice.getAddress().substring(0,8));
+                if (hasPbap12Support && (isRebonded.equals("N"))) {
+                    Log.d(TAG, "Remote Supports PBAP 1.2. Notify user");
+                    BluetoothPbapFixes.createNotification(this, true);
+                } else if (!hasPbap12Support
+                        && (remoteVersion != null &&
+                            remoteVersion.intValue() < BluetoothPbapFixes.PBAP_ADV_VERSION)
+                        && (isRebonded != null && isRebonded.equals("N"))) {
+                    Log.d(TAG, "Remote PBAP profile support downgraded");
+                    BluetoothPbapFixes.createNotification(this, false);
+                } else {
+                    Log.d(TAG, "Notification Not Required.");
+                    if (BluetoothPbapFixes.mNotificationManager != null)
+                        BluetoothPbapFixes.mNotificationManager.cancelAll();
+                }
+            }
         } else {
             Log.w(TAG, "Unhandled intent action: " + action);
         }
@@ -307,15 +346,8 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
             Log.w(TAG, "createSdpRecord, SDP record already created");
         }
         BluetoothPbapFixes.getFeatureSupport(mContext);
-        if (!BluetoothPbapFixes.isSupportedPbap12 || BluetoothPbapFixes.isSimSupported) {
-            BluetoothPbapFixes.createSdpRecord(mServerSockets, this);
-        } else {
-            mSdpHandle = SdpManager.getDefaultManager()
-                .createPbapPseRecord("OBEX Phonebook Access Server",
-                        mServerSockets.getRfcommChannel(), mServerSockets.getL2capPsm(),
-                        SDP_PBAP_SERVER_VERSION, SDP_PBAP_SUPPORTED_REPOSITORIES,
-                        SDP_PBAP_SUPPORTED_FEATURES);
-        }
+        BluetoothPbapFixes.createSdpRecord(mServerSockets, this);
+
         if (DEBUG) {
             Log.d(TAG, "created Sdp record, mSdpHandle=" + mSdpHandle);
         }
@@ -502,6 +534,8 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         filter.addAction(BluetoothDevice.ACTION_CONNECTION_ACCESS_REPLY);
         filter.addAction(AUTH_RESPONSE_ACTION);
         filter.addAction(AUTH_CANCELLED_ACTION);
+        filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
+        filter.addAction(BluetoothDevice.ACTION_SDP_RECORD);
         BluetoothPbapConfig.init(this);
         registerReceiver(mPbapReceiver, filter);
         try {
