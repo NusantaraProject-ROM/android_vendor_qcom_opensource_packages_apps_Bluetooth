@@ -169,17 +169,18 @@ public class HeadsetSystemInterface {
      * Hangup the current call, could either be Telecom call or virtual call
      *
      * @param device the Bluetooth device used for hanging up this call
+     * @param isVirtualCallInProgress whether this is a virtual call
      */
     @VisibleForTesting
-    public void hangupCall(BluetoothDevice device) {
+    public void hangupCall(BluetoothDevice device, boolean isVirtualCallInProgress) {
         if (device == null) {
             Log.w(TAG, "hangupCall device is null");
             return;
         }
         // Close the virtual call if active. Virtual call should be
         // terminated for CHUP callback event
-        if (mHeadsetService.isVirtualCallStarted()) {
-            mHeadsetService.stopScoUsingVirtualVoiceCall();
+        if (isVirtualCallInProgress) {
+            mHeadsetService.stopScoUsingVirtualVoiceCall(device);
         } else {
             if (mPhoneProxy != null) {
                 try {

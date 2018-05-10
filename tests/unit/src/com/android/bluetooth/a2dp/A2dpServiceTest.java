@@ -53,6 +53,7 @@ import org.mockito.MockitoAnnotations;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 @MediumTest
@@ -169,9 +170,46 @@ public class A2dpServiceTest {
         }
     }
 
+    /**
+     * Wait and verify that an intent has been received.
+     *
+     * @param timeoutMs the time (in milliseconds) to wait for the intent
+     * @param queue the queue for the intent
+     * @return the received intent
+     */
+    private Intent waitForIntent(int timeoutMs, BlockingQueue<Intent> queue) {
+        try {
+            Intent intent = queue.poll(timeoutMs, TimeUnit.MILLISECONDS);
+            Assert.assertNotNull(intent);
+            return intent;
+        } catch (InterruptedException e) {
+            Assert.fail("Cannot obtain an Intent from the queue: " + e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Wait and verify that no intent has been received.
+     *
+     * @param timeoutMs the time (in milliseconds) to wait and verify no intent
+     * has been received
+     * @param queue the queue for the intent
+     * @return the received intent. Should be null under normal circumstances
+     */
+    private Intent waitForNoIntent(int timeoutMs, BlockingQueue<Intent> queue) {
+        try {
+            Intent intent = queue.poll(timeoutMs, TimeUnit.MILLISECONDS);
+            Assert.assertNull(intent);
+            return intent;
+        } catch (InterruptedException e) {
+            Assert.fail("Cannot obtain an Intent from the queue: " + e.getMessage());
+        }
+        return null;
+    }
+
     private void verifyConnectionStateIntent(int timeoutMs, BluetoothDevice device,
                                              int newState, int prevState) {
-        Intent intent = TestUtils.waitForIntent(timeoutMs, mConnectionStateChangedQueue);
+        Intent intent = waitForIntent(timeoutMs, mConnectionStateChangedQueue);
         Assert.assertNotNull(intent);
         Assert.assertEquals(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED,
                             intent.getAction());
@@ -182,13 +220,13 @@ public class A2dpServiceTest {
     }
 
     private void verifyNoConnectionStateIntent(int timeoutMs) {
-        Intent intent = TestUtils.waitForNoIntent(timeoutMs, mConnectionStateChangedQueue);
+        Intent intent = waitForNoIntent(timeoutMs, mConnectionStateChangedQueue);
         Assert.assertNull(intent);
     }
 
     private void verifyAudioStateIntent(int timeoutMs, BluetoothDevice device,
                                              int newState, int prevState) {
-        Intent intent = TestUtils.waitForIntent(timeoutMs, mAudioStateChangedQueue);
+        Intent intent = waitForIntent(timeoutMs, mAudioStateChangedQueue);
         Assert.assertNotNull(intent);
         Assert.assertEquals(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED, intent.getAction());
         Assert.assertEquals(device, intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE));
@@ -198,13 +236,13 @@ public class A2dpServiceTest {
     }
 
     private void verifyNoAudioStateIntent(int timeoutMs) {
-        Intent intent = TestUtils.waitForNoIntent(timeoutMs, mAudioStateChangedQueue);
+        Intent intent = waitForNoIntent(timeoutMs, mAudioStateChangedQueue);
         Assert.assertNull(intent);
     }
 
     private void verifyCodecConfigIntent(int timeoutMs, BluetoothDevice device,
                                          BluetoothCodecStatus codecStatus) {
-        Intent intent = TestUtils.waitForIntent(timeoutMs, mCodecConfigChangedQueue);
+        Intent intent = waitForIntent(timeoutMs, mCodecConfigChangedQueue);
         Assert.assertNotNull(intent);
         Assert.assertEquals(BluetoothA2dp.ACTION_CODEC_CONFIG_CHANGED, intent.getAction());
         Assert.assertEquals(device, intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE));
@@ -213,7 +251,7 @@ public class A2dpServiceTest {
     }
 
     private void verifyNoCodecConfigIntent(int timeoutMs) {
-        Intent intent = TestUtils.waitForNoIntent(timeoutMs, mCodecConfigChangedQueue);
+        Intent intent = waitForNoIntent(timeoutMs, mCodecConfigChangedQueue);
         Assert.assertNull(intent);
     }
 
