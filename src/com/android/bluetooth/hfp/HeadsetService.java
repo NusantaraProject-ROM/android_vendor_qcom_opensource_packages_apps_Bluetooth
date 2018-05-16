@@ -59,6 +59,16 @@ import android.telecom.TelecomManager;
 
 /**
  * Provides Bluetooth Headset and Handsfree profile, as a service in the Bluetooth application.
+ *
+ * Four modes for SCO audio:
+ * 1. Raw audio through {@link #connectAudio()}
+ * 2. Telecom call through {@link #phoneStateChanged(int, int, int, String, int, boolean)}
+ * 3. Virtual call through {@link #startScoUsingVirtualVoiceCall()}
+ * 4. Voice recognition through {@link #startVoiceRecognition(BluetoothDevice)}
+ *
+ * When they happen at the same time, the order of preference is:
+ *   Raw audio > Telecom call > Virtual call > Voice Recognition
+ * A higher preference mode will preempt lower preference mode
  */
 public class HeadsetService extends ProfileService {
     private static final String TAG = "HeadsetService";
@@ -1203,7 +1213,7 @@ public class HeadsetService extends ProfileService {
                 return false;
             }
             mVirtualCallStarted = true;
-            // 3. Send virtual phone state changed to initialize SCO
+            // Send virtual phone state changed to initialize SCO
             phoneStateChanged(0, 0, HeadsetHalConstants.CALL_STATE_DIALING, "", 0, true);
             phoneStateChanged(0, 0, HeadsetHalConstants.CALL_STATE_ALERTING, "", 0, true);
             phoneStateChanged(1, 0, HeadsetHalConstants.CALL_STATE_IDLE, "", 0, true);
@@ -1259,6 +1269,10 @@ public class HeadsetService extends ProfileService {
      */
     boolean dialOutgoingCall(BluetoothDevice fromDevice, String dialNumber) {
         synchronized (mStateMachines) {
+            if (!isOnStateMachineThread()) {
+                Log.e(TAG, "dialOutgoingCall must be called from state machine thread");
+                return false;
+            }
             if (mDialingOutTimeoutEvent != null) {
                 Log.e(TAG, "dialOutgoingCall, already dialing by " + mDialingOutTimeoutEvent);
                 return false;
@@ -1320,9 +1334,15 @@ public class HeadsetService extends ProfileService {
             }
         }
         mStateMachinesThread.getThreadHandler().post(() -> {
+            boolean shouldCallAudioBeActiveBefore = shouldCallAudioBeActive();
             mSystemInterface.getHeadsetPhoneState().setNumActiveCall(numActive);
             mSystemInterface.getHeadsetPhoneState().setNumHeldCall(numHeld);
             mSystemInterface.getHeadsetPhoneState().setCallState(callState);
+            // Suspend A2DP when call about is about to become active
+            if (callState != HeadsetHalConstants.CALL_STATE_DISCONNECTED
+                    && shouldCallAudioBeActive() && !shouldCallAudioBeActiveBefore) {
+                mSystemInterface.getAudioManager().setParameters("A2dpSuspended=true");
+            }
         });
         doForEachConnectedConnectingStateMachine(
                 stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.CALL_STATE_CHANGED,
@@ -1397,8 +1417,8 @@ public class HeadsetService extends ProfileService {
                 }
                 MetricsLogger.logProfileConnectionEvent(BluetoothMetricsProto.ProfileId.HEADSET);
             }
-            if (fromState == BluetoothProfile.STATE_CONNECTED
-                    && toState != BluetoothProfile.STATE_CONNECTED) {
+            if (fromState != BluetoothProfile.STATE_DISCONNECTED
+                    && toState == BluetoothProfile.STATE_DISCONNECTED) {
                 if (audioConnectableDevices.size() <= 1) {
                     mInbandRingingRuntimeDisable = false;
                     doForEachConnectedStateMachine(
@@ -1422,9 +1442,23 @@ public class HeadsetService extends ProfileService {
               stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.A2DP_STATE_CHANGED,
                                     state));
     }
+
+    private boolean shouldCallAudioBeActive() {
+        return mSystemInterface.isInCall() || (mSystemInterface.isRinging()
+                && isInbandRingingEnabled());
+    }
+
+    /**
+     * Only persist audio during active device switch when call audio is supposed to be active and
+     * virtual call has not been started. Virtual call is ignored because AudioService and
+     * applications should reconnect SCO during active device switch and forcing SCO connection
+     * here will make AudioService think SCO is started externally instead of by one of its SCO
+     * clients.
+     *
+     * @return true if call audio should be active and no virtual call is going on
+     */
     private boolean shouldPersistAudio() {
-        return (!mVirtualCallStarted && mSystemInterface.isInCall()) || (
-                mSystemInterface.isRinging() && isInbandRingingEnabled());
+        return !mVirtualCallStarted && shouldCallAudioBeActive();
     }
 
     /**
@@ -1439,19 +1473,20 @@ public class HeadsetService extends ProfileService {
     public void onAudioStateChangedFromStateMachine(BluetoothDevice device, int fromState,
             int toState) {
         synchronized (mStateMachines) {
-            if (fromState != BluetoothHeadset.STATE_AUDIO_CONNECTED
-                    && toState == BluetoothHeadset.STATE_AUDIO_CONNECTED) {
-                // Do nothing
-            }
-            if (fromState != BluetoothHeadset.STATE_AUDIO_DISCONNECTED
-                    && toState == BluetoothHeadset.STATE_AUDIO_DISCONNECTED) {
-                if (mActiveDevice != null && !mActiveDevice.equals(device)
-                        && shouldPersistAudio()) {
-                    if (!connectAudio(mActiveDevice)) {
-                        Log.w(TAG, "onAudioStateChangedFromStateMachine, failed to connect to new "
-                                + "active device " + mActiveDevice + ", after " + device
-                                + " is disconnected from SCO");
+            if (toState == BluetoothHeadset.STATE_AUDIO_DISCONNECTED) {
+                if (fromState != BluetoothHeadset.STATE_AUDIO_DISCONNECTED) {
+                    if (mActiveDevice != null && !mActiveDevice.equals(device)
+                            && shouldPersistAudio()) {
+                        if (!connectAudio(mActiveDevice)) {
+                            Log.w(TAG, "onAudioStateChangedFromStateMachine, failed to connect"
+                                    + " audio to new " + "active device " + mActiveDevice
+                                    + ", after " + device + " is disconnected from SCO");
+                        }
                     }
+                }
+                // Unsuspend A2DP when SCO connection is gone and call state is idle
+                if (mSystemInterface.isCallIdle()) {
+                    mSystemInterface.getAudioManager().setParameters("A2dpSuspended=false");
                 }
             }
         }
@@ -1537,10 +1572,10 @@ public class HeadsetService extends ProfileService {
                             "in-band ringing not enabled");
                 return false;
             }
-            if (mSystemInterface.isInCall() || mVoiceRecognitionStarted || mVirtualCallStarted) {
+            if (mVoiceRecognitionStarted || mVirtualCallStarted) {
                 return true;
             }
-            if (mSystemInterface.isRinging() && isInbandRingingEnabled()) {
+            if (shouldCallAudioBeActive()) {
                 return true;
             }
             Log.w(TAG, "isScoAcceptable: rejected SCO, inCall=" + mSystemInterface.isInCall()
@@ -1567,6 +1602,12 @@ public class HeadsetService extends ProfileService {
             HeadsetObjectsFactory.getInstance().destroyStateMachine(stateMachine);
             mStateMachines.remove(device);
         }
+    }
+
+    private boolean isOnStateMachineThread() {
+        final Looper myLooper = Looper.myLooper();
+        return myLooper != null && (mStateMachinesThread != null) && (myLooper.getThread().getId()
+                == mStateMachinesThread.getId());
     }
 
     @Override
