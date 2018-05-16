@@ -21,6 +21,8 @@ import static android.Manifest.permission.MODIFY_PHONE_STATE;
 import android.annotation.Nullable;
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothDevice;
+
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothUuid;
@@ -90,6 +92,7 @@ public class HeadsetService extends ProfileService {
     private boolean mStarted;
     private boolean mCreated;
     private static HeadsetService sHeadsetService;
+    private boolean mDisconnectAll;
 
     @Override
     public IProfileServiceBinder initBinder() {
@@ -122,6 +125,13 @@ public class HeadsetService extends ProfileService {
         mSystemInterface.init();
         // Step 4: Initialize native interface
         mMaxHeadsetConnections = mAdapterService.getMaxConnectedAudioDevices();
+        if(mAdapterService.isVendorIntfEnabled()) {
+            //Always set it to 2
+            //to enable TWS+
+            mMaxHeadsetConnections = 2;
+            Log.d(TAG," Max_HFP_Connections  " + mMaxHeadsetConnections);
+        }
+
         mNativeInterface = HeadsetObjectsFactory.getInstance().getNativeInterface();
         // Add 1 to allow a pending device to be connecting or disconnecting
         mNativeInterface.init(mMaxHeadsetConnections + 1, isInbandRingingEnabled());
@@ -170,7 +180,12 @@ public class HeadsetService extends ProfileService {
             mInbandRingingRuntimeDisable = false;
             mForceScoAudio = false;
             mAudioRouteAllowed = true;
-            mMaxHeadsetConnections = 1;
+            if(mAdapterService.isVendorIntfEnabled()) {
+                //to enable TWS+
+                mMaxHeadsetConnections = 2;
+            } else {
+                mMaxHeadsetConnections = 1;
+            }
             mVoiceRecognitionStarted = false;
             mVirtualCallStarted = false;
             if (mDialingOutTimeoutEvent != null) {
@@ -456,6 +471,15 @@ public class HeadsetService extends ProfileService {
             return service.getDevicesMatchingConnectionStates(states);
         }
 
+        public List<BluetoothDevice> getAllDevicesMatchingConnectionStates(int[] states) {
+            HeadsetService service = getService();
+            if (service == null) {
+                return new ArrayList<BluetoothDevice>(0);
+            }
+            return service.getAllDevicesMatchingConnectionStates(states);
+        }
+
+
         @Override
         public int getConnectionState(BluetoothDevice device) {
             HeadsetService service = getService();
@@ -668,6 +692,74 @@ public class HeadsetService extends ProfileService {
         sHeadsetService = instance;
     }
 
+    public BluetoothDevice getTwsPlusConnectedPeer(BluetoothDevice device) {
+        AdapterService adapterService = AdapterService.getAdapterService();
+        if (!adapterService.isTwsPlusDevice(device)) {
+            logD("getTwsPlusConnectedPeer: Not a TWS+ device");
+            return null;
+        }
+        List<BluetoothDevice> connDevices = getConnectedDevices();
+
+        int size = connDevices.size();
+        for(int i = 0; i < size; i++) {
+            BluetoothDevice ConnectedDevice = connDevices.get(i);
+            if (adapterService.getTwsPlusPeerAddress(device).equals(ConnectedDevice.getAddress())) {
+                return ConnectedDevice;
+            }
+        }
+        return null;
+    }
+
+    private boolean isConnectionAllowed(BluetoothDevice device,
+                                           List<BluetoothDevice> connDevices
+                                           ) {
+        AdapterService adapterService = AdapterService.getAdapterService();
+        boolean allowSecondHfConnection = false;
+
+        if (connDevices.size() == 0) {
+            allowSecondHfConnection = true;
+        } else {
+            BluetoothDevice connectedDev = connDevices.get(0);
+            if (adapterService.isTwsPlusDevice(connectedDev)) {
+                //If connected device is TWSPlus device
+                //Allow connection only if the outgoing is peer of TWS connected earbud
+                if (adapterService.isTwsPlusDevice(device)&&
+                   adapterService.getTwsPlusPeerAddress(device).equals(connectedDev.getAddress())) {
+                   allowSecondHfConnection = true;
+                } else {
+                   allowSecondHfConnection = false;
+                }
+            } else {
+                //if Connected device is not TWS
+                if (adapterService.isTwsPlusDevice(device)) {
+                    //outgoing connection is TWSP
+                    allowSecondHfConnection = false;
+                    if (connDevices.size() == 1) {
+                        //only if connected devices is 1
+                        //disconnect it and override it with tws+
+                        mDisconnectAll = true;
+                    }
+                } else {
+                    //Incoming connection is legacy device
+                   if (connDevices.size() < mMaxHeadsetConnections) {
+                      allowSecondHfConnection = true;
+                   } else {
+                      allowSecondHfConnection = false;
+                   }
+               }
+            }
+            Log.v(TAG, "isTwsPlusDevice for " + device +
+                     "is"+ adapterService.isTwsPlusDevice(device));
+            Log.v(TAG, "TWS Peer Addr: " +
+                      adapterService.getTwsPlusPeerAddress(device));
+            Log.v(TAG, "Connected device" + connectedDev.getAddress());
+        }
+
+        Log.v(TAG, "allowSecondHfConnection: " + allowSecondHfConnection);
+        Log.v(TAG, "DisconnectAll: " + mDisconnectAll);
+        return allowSecondHfConnection;
+    }
+
     public boolean connect(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
         if (getPriority(device) == BluetoothProfile.PRIORITY_OFF) {
@@ -697,11 +789,18 @@ public class HeadsetService extends ProfileService {
                 return false;
             }
             List<BluetoothDevice> connectingConnectedDevices =
-                    getDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES);
+                    getAllDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES);
             boolean disconnectExisting = false;
-            if (connectingConnectedDevices.size() >= mMaxHeadsetConnections) {
+            mDisconnectAll = false;
+            if (connectingConnectedDevices.size() == 0) {
+                 Log.e(TAG, "No Connected devices!");
+            }
+            if (!isConnectionAllowed(device, connectingConnectedDevices)) {
                 // When there is maximum one device, we automatically disconnect the current one
                 if (mMaxHeadsetConnections == 1) {
+                    disconnectExisting = true;
+                } else if (mDisconnectAll) {
+                    //In Dual HF case
                     disconnectExisting = true;
                 } else {
                     Log.w(TAG, "Max connection has reached, rejecting connection to " + device);
@@ -759,6 +858,39 @@ public class HeadsetService extends ProfileService {
             for (HeadsetStateMachine stateMachine : mStateMachines.values()) {
                 if (stateMachine.getConnectionState() == BluetoothProfile.STATE_CONNECTED) {
                     devices.add(stateMachine.getDevice());
+                }
+            }
+        }
+        return devices;
+    }
+
+    /**
+     * Helper method to get all devices with matching connection state
+     *
+     */
+    private List<BluetoothDevice> getAllDevicesMatchingConnectionStates(int[] states) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        ArrayList<BluetoothDevice> devices = new ArrayList<>();
+        if (states == null) {
+            Log.e(TAG, "->States is null");
+            return devices;
+        }
+        final BluetoothDevice[] bondedDevices = mAdapterService.getBondedDevices();
+        if (bondedDevices == null) {
+            Log.e(TAG, "->Bonded device is null");
+            return devices;
+        }
+        synchronized (mStateMachines) {
+            for (BluetoothDevice device : bondedDevices) {
+
+                int connectionState = getConnectionState(device);
+                Log.e(TAG, "Connec state for: " + device + "is" + connectionState);
+                for (int state : states) {
+                    if (connectionState == state) {
+                        devices.add(device);
+                        Log.e(TAG, "Adding device: " + device);
+                        break;
+                    }
                 }
             }
         }
@@ -1023,6 +1155,14 @@ public class HeadsetService extends ProfileService {
                         + " as active, device is not connected");
                 return false;
             }
+            if (mActiveDevice != null && mAdapterService.isTwsPlusDevice(device) &&
+                mAdapterService.isTwsPlusDevice(mActiveDevice) &&
+                !Objects.equals(device, mActiveDevice) &&
+                getConnectionState(mActiveDevice) == BluetoothProfile.STATE_CONNECTED) {
+                Log.d(TAG,"Ignore setActiveDevice request");
+                return true;
+            }
+
             if (!mNativeInterface.setActiveDevice(device)) {
                 Log.e(TAG, "setActiveDevice: Cannot set " + device + " as active in native layer");
                 return false;
@@ -1106,7 +1246,20 @@ public class HeadsetService extends ProfileService {
             if (isAudioOn()) {
                 Log.w(TAG, "connectAudio: audio is not idle, current audio devices are "
                         + Arrays.toString(getNonIdleAudioDevices().toArray()));
-                return false;
+
+                BluetoothDevice activeScoDevice = getNonIdleAudioDevices().get(0);
+                AdapterService adapterService = AdapterService.getAdapterService();
+                //If activeScoDevice present and It is TWSP device
+                //and PeerDevice is still connected
+                //return true to telePhony
+                if (activeScoDevice != null
+                    && adapterService.isTwsPlusDevice(activeScoDevice)
+                    && getTwsPlusConnectedPeer(activeScoDevice) != null) {
+                    Log.d(TAG, "is Tws case, keeping Audioon is Success");
+                    return true;
+                } else {
+                    return false;
+                }
             }
             if (!isScoAcceptable(device)) {
                 Log.w(TAG, "connectAudio, rejected SCO request to " + device);
@@ -1406,7 +1559,18 @@ public class HeadsetService extends ProfileService {
                                     1));
                 }
                 if (device.equals(mActiveDevice)) {
-                    setActiveDevice(null);
+                    AdapterService adapterService = AdapterService.getAdapterService();
+                    if (adapterService.isTwsPlusDevice(device)) {
+                        //if the disconnected device is a tws+ device
+                        // and if peer device is connected, set the peer
+                        // as an active device
+                        BluetoothDevice peerDevice = getTwsPlusConnectedPeer(device);
+                        if (peerDevice != null) {
+                            setActiveDevice(peerDevice);
+                        }
+                    } else {
+                        setActiveDevice(null);
+                    }
                 }
             }
         }
@@ -1503,8 +1667,8 @@ public class HeadsetService extends ProfileService {
             }
         }
         List<BluetoothDevice> connectingConnectedDevices =
-                getDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES);
-        if (connectingConnectedDevices.size() >= mMaxHeadsetConnections) {
+                getAllDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES);
+        if (!isConnectionAllowed(device, connectingConnectedDevices)) {
             Log.w(TAG, "Maximum number of connections " + mMaxHeadsetConnections
                     + " was reached, rejecting connection from " + device);
             return false;
