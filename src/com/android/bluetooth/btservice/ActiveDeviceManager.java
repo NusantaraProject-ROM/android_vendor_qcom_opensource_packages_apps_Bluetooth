@@ -267,7 +267,13 @@ class ActiveDeviceManager {
                         }
                         mHfpConnectedDevices.remove(device);
                         if (Objects.equals(mHfpActiveDevice, device)) {
-                            setHfpActiveDevice(null);
+                            if (!mHfpConnectedDevices.isEmpty() &&
+                               mAdapterService.isTwsPlusDevice(mHfpConnectedDevices.get(0))) {
+                               setHfpActiveDevice(mHfpConnectedDevices.get(0));
+                               Log.d(TAG, "calling set Active dev: " + mHfpConnectedDevices.get(0));
+                            } else {
+                               setHfpActiveDevice(null);
+                            }
                         }
                     }
                 }
