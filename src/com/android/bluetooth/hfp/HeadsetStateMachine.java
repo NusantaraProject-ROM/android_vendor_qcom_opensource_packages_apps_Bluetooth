@@ -1267,14 +1267,12 @@ public class HeadsetStateMachine extends StateMachine {
                 break;
                 case CONNECT_AUDIO:
                     stateLogD("CONNECT_AUDIO, device=" + mDevice);
-/*
                     int a2dpState = mHeadsetService.getHfpA2DPSyncInterface().isA2dpPlaying();
-                    if (!isScoAcceptable()|| (a2dpState == HeadsetA2dpSync.A2DP_PLAYING)) {
+                    if (!mHeadsetService.isScoAcceptable(mDevice)|| (a2dpState == HeadsetA2dpSync.A2DP_PLAYING)) {
                         stateLogW("No Active/Held call, no call setup,and no in-band ringing,"
                                   + " or A2Dp is playing, not allowing SCO, device=" + mDevice);
                         break;
                     }
-*/
                     if (!mNativeInterface.connectAudio(mDevice)) {
                         stateLogE("Failed to connect SCO audio for " + mDevice);
                         // No state change involved, fire broadcast immediately

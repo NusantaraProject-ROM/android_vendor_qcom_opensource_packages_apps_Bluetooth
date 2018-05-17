@@ -1692,8 +1692,11 @@ public class HeadsetService extends ProfileService {
                 Log.w(TAG, "isScoAcceptable: rejected SCO since audio route is not allowed");
                 return false;
             }
-            // if in-band ringtone is not enabled, return false
-            if (isRinging() && !isInbandRingingEnabled()) {
+            /* if in-band ringtone is not enabled and if there is
+                no active/held/dialling/alerting call, return false */
+            if (isRinging() && !isInbandRingingEnabled() &&
+                !(mSystemInterface.getHeadsetPhoneState().getNumActiveCall() > 0 ||
+                  mSystemInterface.getHeadsetPhoneState().getNumHeldCall() > 0 )) {
                 Log.w(TAG, "isScoAcceptable: rejected SCO since MT call in ringing," +
                             "in-band ringing not enabled");
                 return false;
