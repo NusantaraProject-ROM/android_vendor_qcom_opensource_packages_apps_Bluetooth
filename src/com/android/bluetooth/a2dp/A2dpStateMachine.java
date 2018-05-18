@@ -65,6 +65,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Scanner;
 import android.os.SystemProperties;
+import com.android.bluetooth.btservice.AdapterService;
 
 final class A2dpStateMachine extends StateMachine {
     private static final boolean DBG = true;
@@ -614,6 +615,12 @@ final class A2dpStateMachine extends StateMachine {
         if (offloadSupported.isEmpty() || "true".equals(offloadSupported)) {
             Log.w(TAG,"Split enabled: codec_type " + codec_type);
             if (codec_type  == BluetoothCodecConfig.SOURCE_CODEC_TYPE_MAX) {
+                AdapterService adapterService = AdapterService.getAdapterService();
+                if (adapterService.isVendorIntfEnabled() &&
+                    adapterService.isTwsPlusDevice(mDevice)) {
+                    Log.d(TAG,"TWSP device streaming,not calling reconfig");
+                    return;
+                }
                 mA2dpService.broadcastReconfigureA2dp();
                 Log.w(TAG,"Split A2dp enabled rcfg send to Audio for codec max");
                 return;

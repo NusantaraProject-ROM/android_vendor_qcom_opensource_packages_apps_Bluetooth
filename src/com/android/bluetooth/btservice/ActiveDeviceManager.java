@@ -204,7 +204,11 @@ class ActiveDeviceManager {
                         }
                         mA2dpConnectedDevices.remove(device);
                         if (Objects.equals(mA2dpActiveDevice, device)) {
-                            setA2dpActiveDevice(null);
+                            if (!mA2dpConnectedDevices.isEmpty() &&
+                                mAdapterService.isTwsPlusDevice(mA2dpConnectedDevices.get(0)))
+                                setA2dpActiveDevice(mA2dpConnectedDevices.get(0));
+                            else
+                                setA2dpActiveDevice(null);
                         }
                     }
                 }
