@@ -626,7 +626,7 @@ public class A2dpService extends ProfileService {
                 // change, so the Audio Service can reset accordingly the audio
                 // feeding parameters in the Audio HAL to the Bluetooth stack.
                 String offloadSupported =
-                     SystemProperties.get("persist.vendor.bt.enable.splita2dp");
+                     SystemProperties.get("persist.vendor.btstack.enable.splita2dp");
                 if (!(offloadSupported.isEmpty() || "true".equals(offloadSupported))) {
                     mAudioManager.handleBluetoothA2dpDeviceConfigChange(mActiveDevice);
                 }

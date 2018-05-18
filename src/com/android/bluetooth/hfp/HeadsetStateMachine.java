@@ -960,7 +960,7 @@ public class HeadsetStateMachine extends StateMachine {
                     break;
                 }
                 case CALL_STATE_CHANGED: {
-                    boolean isPts = SystemProperties.getBoolean("bt.pts.certification", false);
+                    boolean isPts = SystemProperties.getBoolean("vendor.bt.pts.certification", false);
                     HeadsetCallState callState = (HeadsetCallState) message.obj;
                     // for PTS, send the indicators as is
                     if (isPts) {
@@ -1541,8 +1541,8 @@ public class HeadsetStateMachine extends StateMachine {
         }
 
         private void processIntentScoVolume(Intent intent, BluetoothDevice device) {
-            int volumeValue = intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, 0);      
-            boolean ptsEnabled = SystemProperties.getBoolean("bt.pts.certification", false);
+            int volumeValue = intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, 0);
+            boolean ptsEnabled = SystemProperties.getBoolean("vendor.bt.pts.certification", false);
             stateLogD(" mSpeakerVolume = " + mSpeakerVolume + " volValue = " + volumeValue
                       +" PTS_ENABLED = " + ptsEnabled);
             if (mSpeakerVolume != volumeValue) {
@@ -1953,7 +1953,7 @@ public class HeadsetStateMachine extends StateMachine {
         /* If active call is ended, no held call is present, disconnect SCO
          * and fake the MT Call indicators. */
         boolean isPts =
-                SystemProperties.getBoolean("bt.pts.certification", false);
+                SystemProperties.getBoolean("vendor.bt.pts.certification", false);
         if (!isPts) {
             log("mIsBlacklistedDevice:" + mIsBlacklistedDevice);
             if (mIsBlacklistedDevice &&

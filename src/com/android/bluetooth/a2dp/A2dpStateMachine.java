@@ -617,7 +617,7 @@ final class A2dpStateMachine extends StateMachine {
         BluetoothCodecConfig prevCodecConfig = null;
         int codec_type = newCodecStatus.getCodecConfig().getCodecType();
         String offloadSupported =
-                SystemProperties.get("persist.vendor.bt.enable.splita2dp");
+                SystemProperties.get("persist.vendor.btstack.enable.splita2dp");
         if (DBG) Log.d(TAG, "START of A2dpService");
         // Split A2dp will be enabled by default
         if (offloadSupported.isEmpty() || "true".equals(offloadSupported)) {
