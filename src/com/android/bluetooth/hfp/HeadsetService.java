@@ -916,10 +916,7 @@ public class HeadsetService extends ProfileService {
         }
         synchronized (mStateMachines) {
             for (BluetoothDevice device : bondedDevices) {
-                final ParcelUuid[] featureUuids = mAdapterService.getRemoteUuids(device);
-                if (!BluetoothUuid.containsAnyUuid(featureUuids, HEADSET_UUIDS)) {
-                    continue;
-                }
+
                 int connectionState = getConnectionState(device);
                 for (int state : states) {
                     if (connectionState == state) {
