@@ -37,6 +37,7 @@ import android.os.Message;
 import android.os.ParcelUuid;
 import android.os.PowerManager;
 import android.os.RemoteException;
+import android.os.SystemProperties;
 import android.provider.Settings;
 import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
@@ -722,6 +723,10 @@ public class BluetoothMapService extends ProfileService {
 
         ArrayList<BluetoothMapAccountItem> newAccountList = mAppObserver.getEnabledAccountItems();
         ArrayList<BluetoothMapAccountItem> newAccounts = new ArrayList<>();
+
+        Log.d(TAG, "new Account List size = " + newAccountList.size());
+        SystemProperties.set("vendor.bluetooth.emailaccountcount",
+                String.valueOf(newAccountList.size()));
 
         for (BluetoothMapAccountItem account : newAccountList) {
             if (!mEnabledAccounts.remove(account)) {
