@@ -573,7 +573,7 @@ public class A2dpService extends ProfileService {
                 !Objects.equals(device, mActiveDevice) &&
                 getConnectionState(mActiveDevice) == BluetoothProfile.STATE_CONNECTED) {
                 Log.d(TAG,"Ignore setActiveDevice request");
-                return true;
+                return false;
             }
             if (!mA2dpNativeInterface.setActiveDevice(device)) {
                 Log.e(TAG, "setActiveDevice(" + device + "): Cannot set as active in native layer");
