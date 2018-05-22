@@ -200,10 +200,15 @@ public class HeadsetPhoneState {
         }
         Log.i(TAG, "stopListenForPhoneState(), stopping listener, enabled_events="
                 + getTelephonyEventsToListen());
-        mTelephonyManager.listen(mPhoneStateListener, PhoneStateListener.LISTEN_NONE);
-        mTelephonyManager.setRadioIndicationUpdateMode(
-                TelephonyManager.INDICATION_FILTER_SIGNAL_STRENGTH,
-                TelephonyManager.INDICATION_UPDATE_MODE_NORMAL);
+        if (mTelephonyManager == null) {
+            Log.e(TAG, "mTelephonyManager is null, "
+                + "cannot send request to stop listening or update radio to normal state");
+        } else {
+            mTelephonyManager.listen(mPhoneStateListener, PhoneStateListener.LISTEN_NONE);
+            mTelephonyManager.setRadioIndicationUpdateMode(
+                    TelephonyManager.INDICATION_FILTER_SIGNAL_STRENGTH,
+                    TelephonyManager.INDICATION_UPDATE_MODE_NORMAL);
+        }
         mPhoneStateListener = null;
     }
 
