@@ -1167,7 +1167,7 @@ public class HeadsetService extends ProfileService {
                 !Objects.equals(device, mActiveDevice) &&
                 getConnectionState(mActiveDevice) == BluetoothProfile.STATE_CONNECTED) {
                 Log.d(TAG,"Ignore setActiveDevice request");
-                return true;
+                return false;
             }
 
             if (!mNativeInterface.setActiveDevice(device)) {
