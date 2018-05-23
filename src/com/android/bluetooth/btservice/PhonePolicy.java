@@ -83,7 +83,6 @@ class PhonePolicy {
     private static final int MESSAGE_AUTO_CONNECT_PROFILES = 50;
 
     // Timeouts
-    private static final int CONNECT_OTHER_PROFILES_TIMEOUT = 6000; // 6s
     private static final int AUTO_CONNECT_PROFILES_TIMEOUT= 500;
 
     @VisibleForTesting

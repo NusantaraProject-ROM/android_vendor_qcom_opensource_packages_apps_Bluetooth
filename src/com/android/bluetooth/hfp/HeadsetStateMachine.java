@@ -16,7 +16,6 @@
 
 package com.android.bluetooth.hfp;
 
-import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothAssignedNumbers;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
@@ -26,12 +25,12 @@ import android.media.AudioManager;
 import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.support.annotation.VisibleForTesting;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.PhoneStateListener;
 import android.util.Log;
-import android.os.SystemProperties;
 
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
@@ -43,11 +42,11 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Scanner;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.Iterator;
 
 /**
  * A Bluetooth Handset StateMachine
@@ -2030,9 +2029,6 @@ public class HeadsetStateMachine extends StateMachine {
                   a2dpState);
         if (mHeadsetService.isVirtualCallStarted()) {
             // TODO: cross check if need to do something here
-        //} else if(mVoiceRecognitionStarted) {
-        //    Log.d(TAG, "VR is in started state, creating SCO");
-        //    mNativeInterface.connectAudio(mDevice);
         } else if (mSystemInterface.isInCall()){
             //send incoming phone status to remote device
             Log.d(TAG, "A2dp is suspended, updating phone states");
