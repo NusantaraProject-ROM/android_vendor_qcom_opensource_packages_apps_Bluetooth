@@ -680,6 +680,11 @@ public class HeadsetStateMachine extends StateMachine {
                     stateLogD("A2DP_STATE_CHANGED event");
                     processIntentA2dpPlayStateChanged(message.arg1);
                     break;
+                case CALL_STATE_CHANGED: {
+                     HeadsetCallState callState = (HeadsetCallState) message.obj;
+                     processCallState(callState, false);
+                     break;
+                }
                 case STACK_EVENT:
                     HeadsetStackEvent event = (HeadsetStackEvent) message.obj;
                     stateLogD("STACK_EVENT: " + event);
@@ -2101,7 +2106,7 @@ public class HeadsetStateMachine extends StateMachine {
     }
 
     private void processAtCind(BluetoothDevice device) {
-        int call, callSetup, call_state;
+        int call, callSetup, call_state, service, signal;
          // get the top of the Q 
         HeadsetCallState tempCallState = mDelayedCSCallStates.peek();
         final HeadsetPhoneState phoneState = mSystemInterface.getHeadsetPhoneState();
@@ -2123,8 +2128,27 @@ public class HeadsetStateMachine extends StateMachine {
         else
               call_state = mStateMachineCallState.mCallState;
         log("sending call state in CIND resp as " + call_state);
-        mNativeInterface.cindResponse(device, phoneState.getCindService(), call, callSetup,
-                call_state, phoneState.getCindSignal(), phoneState.getCindRoam(),
+
+        /* Some Handsfree devices or carkits expect the +CIND to be properly
+           responded with the correct service availablity and signal strength,
+           while the regular call is active or held or in progress.*/
+         if(((!mHeadsetService.isVirtualCallStarted()) &&
+            (mStateMachineCallState.mNumActive > 0) || (mStateMachineCallState.mNumHeld > 0) ||
+             mStateMachineCallState.mCallState == HeadsetHalConstants.CALL_STATE_ALERTING ||
+             mStateMachineCallState.mCallState == HeadsetHalConstants.CALL_STATE_DIALING ||
+             mStateMachineCallState.mCallState == HeadsetHalConstants.CALL_STATE_INCOMING) &&
+            (phoneState.getCindService() == HeadsetHalConstants.NETWORK_STATE_NOT_AVAILABLE)) {
+             log("processAtCind: If regular call is in process/active/held while RD connection " +
+                   "during BT-ON, update service availablity and signal strength");
+             service = HeadsetHalConstants.NETWORK_STATE_AVAILABLE;
+             signal = 3;
+         } else {
+             service = phoneState.getCindService();
+             signal = phoneState.getCindSignal();
+        }
+
+        mNativeInterface.cindResponse(device, service, call, callSetup,
+                call_state, signal, phoneState.getCindRoam(),
                 phoneState.getCindBatteryCharge());
         log("Exit processAtCind()");
     }
