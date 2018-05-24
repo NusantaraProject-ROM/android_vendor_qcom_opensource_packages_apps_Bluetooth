@@ -80,20 +80,12 @@ class PhonePolicy {
     private static final int MESSAGE_PROFILE_INIT_PRIORITIES = 2;
     private static final int MESSAGE_CONNECT_OTHER_PROFILES = 3;
     private static final int MESSAGE_ADAPTER_STATE_TURNED_ON = 4;
-<<<<<<< HEAD
     private static final int MESSAGE_AUTO_CONNECT_PROFILES = 50;
 
     // Timeouts
     private static final int AUTO_CONNECT_PROFILES_TIMEOUT= 500;
-
-    @VisibleForTesting
-    static int sConnectOtherProfilesTimeoutMillis = 6000; // 6s
-=======
-    private static final int MESSAGE_PROFILE_ACTIVE_DEVICE_CHANGED = 5;
-
-    // Timeouts
     @VisibleForTesting static int sConnectOtherProfilesTimeoutMillis = 6000; // 6s
->>>>>>> origin/p-fs-release
+    private static final int MESSAGE_PROFILE_ACTIVE_DEVICE_CHANGED = 5;
 
     private final AdapterService mAdapterService;
     private final ServiceFactory mFactory;
@@ -122,15 +114,14 @@ class PhonePolicy {
                             BluetoothProfile.A2DP, -1, // No-op argument
                             intent).sendToTarget();
                     break;
-<<<<<<< HEAD
                 case BluetoothA2dpSink.ACTION_CONNECTION_STATE_CHANGED:
                     mHandler.obtainMessage(MESSAGE_PROFILE_CONNECTION_STATE_CHANGED,
                             BluetoothProfile.A2DP_SINK,-1, // No-op argument
-=======
+                            intent).sendToTarget();
+                    break;
                 case BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED:
                     mHandler.obtainMessage(MESSAGE_PROFILE_ACTIVE_DEVICE_CHANGED,
                             BluetoothProfile.A2DP, -1, // No-op argument
->>>>>>> origin/p-fs-release
                             intent).sendToTarget();
                     break;
                 case BluetoothAdapter.ACTION_STATE_CHANGED:
@@ -374,15 +365,9 @@ class PhonePolicy {
         }
 
         if (!mAdapterService.isQuietModeEnabled()) {
-<<<<<<< HEAD
-            debugLog("autoConnect() - Initiate auto connection on BT on...");
-            // Phone profiles.
-            autoConnectHeadset();
-            autoConnectA2dp();
+            debugLog("autoConnect: Initiate auto connection on BT on...");
             //Remote Device Profiles
             autoConnectA2dpSink();
-=======
-            debugLog("autoConnect: Initiate auto connection on BT on...");
             final BluetoothDevice[] bondedDevices = mAdapterService.getBondedDevices();
             if (bondedDevices == null) {
                 errorLog("autoConnect: bondedDevices are null");
@@ -392,7 +377,6 @@ class PhonePolicy {
                 autoConnectHeadset(device);
                 autoConnectA2dp(device);
             }
->>>>>>> origin/p-fs-release
         } else {
             debugLog("autoConnect() - BT is in quiet mode. Not initiating auto connections");
         }
@@ -615,7 +599,6 @@ class PhonePolicy {
         }
     }
 
-<<<<<<< HEAD
     private void setProfileAutoConnectionPriority(BluetoothDevice device, int profileId,
             boolean autoConnect) {
         debugLog("setProfileAutoConnectionPriority: device=" + device + ", profile=" + profileId
@@ -659,7 +642,8 @@ class PhonePolicy {
             default:
                 Log.w(TAG, "Tried to set AutoConnect priority on invalid profile " + profileId);
                 break;
-=======
+        }
+    }
     /**
      * Set a device's headset profile priority to PRIORITY_AUTO_CONNECT if device support that
      * profile
@@ -675,7 +659,6 @@ class PhonePolicy {
         if (hsService.getPriority(device) >= BluetoothProfile.PRIORITY_ON) {
             debugLog("setAutoConnectForHeadset: device " + device + " PRIORITY_AUTO_CONNECT");
             hsService.setPriority(device, BluetoothProfile.PRIORITY_AUTO_CONNECT);
->>>>>>> origin/p-fs-release
         }
     }
 
