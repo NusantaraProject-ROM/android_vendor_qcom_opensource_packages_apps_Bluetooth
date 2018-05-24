@@ -144,11 +144,13 @@ public class AtPhonebook {
                 " LIMIT 1");
         log("Queried the last dialled number for CS, IMS, WIFI calls");
         if (cursor == null) {
+            Log.w(TAG, "getLastDialledNumber, cursor is null");
             return null;
         }
 
         if (cursor.getCount() < 1) {
             cursor.close();
+            Log.w(TAG, "getLastDialledNumber, cursor.getCount is 0");
             return null;
         }
         cursor.moveToNext();
