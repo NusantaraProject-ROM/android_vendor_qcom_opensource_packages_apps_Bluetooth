@@ -725,6 +725,30 @@ class PhonePolicy {
         }
     }
 
+    private void removeAutoConnectFromDisconnectedHeadsets(HeadsetService hsService) {
+        List<BluetoothDevice> connectedDeviceList = hsService.getConnectedDevices();
+        for (BluetoothDevice device : mAdapterService.getBondedDevices()) {
+            if (hsService.getPriority(device) >= BluetoothProfile.PRIORITY_AUTO_CONNECT
+                    && !connectedDeviceList.contains(device)) {
+                debugLog("removeAutoConnectFromDisconnectedHeadsets, device " + device
+                        + " PRIORITY_ON");
+                hsService.setPriority(device, BluetoothProfile.PRIORITY_ON);
+            }
+        }
+    }
+
+    private void removeAutoConnectFromDisconnectedA2dpSinks(A2dpService a2dpService) {
+        List<BluetoothDevice> connectedDeviceList = a2dpService.getConnectedDevices();
+        for (BluetoothDevice device : mAdapterService.getBondedDevices()) {
+            if (a2dpService.getPriority(device) >= BluetoothProfile.PRIORITY_AUTO_CONNECT
+                    && !connectedDeviceList.contains(device)) {
+                debugLog("removeAutoConnectFromDisconnectedA2dpSinks, device " + device
+                        + " PRIORITY_ON");
+                a2dpService.setPriority(device, BluetoothProfile.PRIORITY_ON);
+            }
+        }
+    }
+
     private static void debugLog(String msg) {
         if (DBG) {
             Log.i(TAG, msg);
