@@ -1699,6 +1699,13 @@ public class HeadsetService extends ProfileService {
         doForEachConnectedConnectingStateMachine(
                 stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.CALL_STATE_CHANGED,
                         new HeadsetCallState(numActive, numHeld, callState, number, type)));
+        mStateMachinesThread.getThreadHandler().post(() -> {
+            if (callState == HeadsetHalConstants.CALL_STATE_IDLE
+                    && !shouldCallAudioBeActive() && !isAudioOn()) {
+                // Resume A2DP when call ended and SCO is not connected
+                mSystemInterface.getAudioManager().setParameters("A2dpSuspended=false");
+            }
+        });
 
     }
 
