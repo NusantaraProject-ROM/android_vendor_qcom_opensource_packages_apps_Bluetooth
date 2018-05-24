@@ -111,8 +111,14 @@ public class A2dpSinkStreamHandler extends Handler {
         }
         switch (message.what) {
             case SRC_STR_START:
-                // Audio stream has started, stop it if we don't have focus.
                 mStreamAvailable = true;
+                // Always request audio focus if on TV.
+                if (isTvDevice()) {
+                    if (mAudioFocus == AudioManager.AUDIOFOCUS_NONE) {
+                        requestAudioFocus();
+                    }
+                }
+                // Audio stream has started, stop it if we don't have focus.
                 if (mAudioFocus == AudioManager.AUDIOFOCUS_NONE) {
                     sendAvrcpPause();
                     requestAudioFocus();
@@ -143,7 +149,7 @@ public class A2dpSinkStreamHandler extends Handler {
             case SRC_PLAY:
                 // Remote play command.
                 // If is an iot device gain focus and start avrcp updates.
-                if (isIotDevice()) {
+                if (isIotDevice() || isTvDevice()) {
                     if (mAudioFocus == AudioManager.AUDIOFOCUS_NONE) {
                         requestAudioFocus();
                     }
@@ -368,4 +374,9 @@ public class A2dpSinkStreamHandler extends Handler {
     private boolean isIotDevice() {
         return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_EMBEDDED);
     }
+
+    private boolean isTvDevice() {
+        return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
+    }
+
 }
