@@ -1065,7 +1065,6 @@ public class HeadsetService extends ProfileService {
             } else {
                 stateMachine.sendMessage(HeadsetStateMachine.VOICE_RECOGNITION_START, device);
             }
-            stateMachine.sendMessage(HeadsetStateMachine.CONNECT_AUDIO, device);
         }
         return true;
     }
@@ -1391,6 +1390,13 @@ public class HeadsetService extends ProfileService {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         synchronized (mStateMachines) {
             return mVirtualCallStarted;
+        }
+    }
+
+    boolean isVRStarted() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        synchronized (mStateMachines) {
+            return mVoiceRecognitionStarted;
         }
     }
 
@@ -1865,10 +1871,6 @@ public class HeadsetService extends ProfileService {
                         Log.w(TAG, "onAudioStateChangedFromStateMachine: failed to stop virtual "
                                 + "voice call");
                     }
-                }
-                // Unsuspend A2DP when SCO connection is gone and call state is idle
-                if (mSystemInterface.isCallIdle()) {
-                    mSystemInterface.getAudioManager().setParameters("A2dpSuspended=false");
                 }
             }
         }

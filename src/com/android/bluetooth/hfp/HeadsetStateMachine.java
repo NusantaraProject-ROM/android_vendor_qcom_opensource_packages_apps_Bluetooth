@@ -930,6 +930,15 @@ public class HeadsetStateMachine extends StateMachine {
                         stateLogW("Failed to start voice recognition");
                         break;
                     }
+
+                    if (mHeadsetService.getHfpA2DPSyncInterface().suspendA2DP(
+                          HeadsetA2dpSync.A2DP_SUSPENDED_BY_VR, mDevice) == true) {
+                       Log.d(TAG, "mesg VOICE_RECOGNITION_START: A2DP is playing,"+
+                             " return and establish SCO after A2DP supended");
+                        break;
+                    }
+                    // create SCO since there is no A2DP playback
+                    mNativeInterface.connectAudio(mDevice);
                     break;
                 }
                 case VOICE_RECOGNITION_STOP: {
@@ -1035,6 +1044,15 @@ public class HeadsetStateMachine extends StateMachine {
                     mNativeInterface.atResponseCode(mDevice,
                             message.arg1 == 1 ? HeadsetHalConstants.AT_RESPONSE_OK
                                     : HeadsetHalConstants.AT_RESPONSE_ERROR, 0);
+
+                    if (mHeadsetService.getHfpA2DPSyncInterface().suspendA2DP(
+                          HeadsetA2dpSync.A2DP_SUSPENDED_BY_VR, mDevice) == true) {
+                       Log.d(TAG, "mesg VOICE_RECOGNITION_START: A2DP is playing,"+
+                             " return and establish SCO after A2DP supended");
+                        break;
+                    }
+                    // create SCO since there is no A2DP playback
+                    mNativeInterface.connectAudio(mDevice);
                     break;
                 }
                 case DIALING_OUT_RESULT: {
@@ -1254,14 +1272,12 @@ public class HeadsetStateMachine extends StateMachine {
                 break;
                 case CONNECT_AUDIO:
                     stateLogD("CONNECT_AUDIO, device=" + mDevice);
-/*
                     int a2dpState = mHeadsetService.getHfpA2DPSyncInterface().isA2dpPlaying();
-                    if (!isScoAcceptable()|| (a2dpState == HeadsetA2dpSync.A2DP_PLAYING)) {
+                    if (!mHeadsetService.isScoAcceptable(mDevice)|| (a2dpState == HeadsetA2dpSync.A2DP_PLAYING)) {
                         stateLogW("No Active/Held call, no call setup,and no in-band ringing,"
                                   + " or A2Dp is playing, not allowing SCO, device=" + mDevice);
                         break;
                     }
-*/
                     if (!mNativeInterface.connectAudio(mDevice)) {
                         stateLogE("Failed to connect SCO audio for " + mDevice);
                         // No state change involved, fire broadcast immediately
@@ -2029,6 +2045,9 @@ public class HeadsetStateMachine extends StateMachine {
                   a2dpState);
         if (mHeadsetService.isVirtualCallStarted()) {
             // TODO: cross check if need to do something here
+        } else if (mHeadsetService.isVRStarted()) {
+           Log.d(TAG, "VR is in started state, creating SCO");
+           mNativeInterface.connectAudio(mDevice);
         } else if (mSystemInterface.isInCall()){
             //send incoming phone status to remote device
             Log.d(TAG, "A2dp is suspended, updating phone states");
