@@ -61,7 +61,7 @@ static bool copy_jstring(uint8_t* str, int maxBytes, jstring jstr, JNIEnv* env);
 
 static void cleanup_items(btrc_folder_items_t* p_items, int numItems);
 
-static void btavrcp_remote_features_callback(RawAddress* bd_addr,
+static void btavrcp_remote_features_callback(const RawAddress& bd_addr,
                                              btrc_remote_features_t features) {
   CallbackEnv sCallbackEnv(__func__);
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
@@ -80,13 +80,13 @@ static void btavrcp_remote_features_callback(RawAddress* bd_addr,
   }
 
   sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
-                                   (jbyte*)bd_addr);
+                                   (jbyte*)bd_addr.address);
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_getRcFeatures, addr.get(),
                                (jint)features);
 }
 
 /** Callback for play status request */
-static void btavrcp_get_play_status_callback(RawAddress* bd_addr) {
+static void btavrcp_get_play_status_callback(const RawAddress& bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
@@ -104,13 +104,13 @@ static void btavrcp_get_play_status_callback(RawAddress* bd_addr) {
   }
 
   sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
-                                   (jbyte*)bd_addr);
+                                   (jbyte*)bd_addr.address);
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_getPlayStatus, addr.get());
 }
 
 static void btavrcp_get_element_attr_callback(uint8_t num_attr,
                                               btrc_media_attr_t* p_attrs,
-                                              RawAddress* bd_addr) {
+                                              const RawAddress& bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
@@ -137,14 +137,14 @@ static void btavrcp_get_element_attr_callback(uint8_t num_attr,
   sCallbackEnv->SetIntArrayRegion(attrs.get(), 0, num_attr, (jint*)p_attrs);
 
   sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
-                                   (jbyte*)bd_addr);
+                                   (jbyte*)bd_addr.address);
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_getElementAttr, addr.get(),
                                (jbyte)num_attr, attrs.get());
 }
 
 static void btavrcp_register_notification_callback(btrc_event_id_t event_id,
                                                    uint32_t param,
-                                                   RawAddress* bd_addr) {
+                                                   const RawAddress& bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
@@ -162,13 +162,13 @@ static void btavrcp_register_notification_callback(btrc_event_id_t event_id,
   }
 
   sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
-                                   (jbyte*)bd_addr);
+                                   (jbyte*)bd_addr.address);
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_registerNotification,
                                addr.get(), (jint)event_id, (jint)param);
 }
 
 static void btavrcp_volume_change_callback(uint8_t volume, uint8_t ctype,
-                                           RawAddress* bd_addr) {
+                                           const RawAddress& bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
@@ -186,14 +186,14 @@ static void btavrcp_volume_change_callback(uint8_t volume, uint8_t ctype,
   }
 
   sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
-                                   (jbyte*)bd_addr);
+                                   (jbyte*)bd_addr.address);
 
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_volumeChangeCallback,
                                addr.get(), (jint)volume, (jint)ctype);
 }
 
 static void btavrcp_passthrough_command_callback(int id, int pressed,
-                                                 RawAddress* bd_addr) {
+                                                 const RawAddress& bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
@@ -210,14 +210,14 @@ static void btavrcp_passthrough_command_callback(int id, int pressed,
     return;
   }
   sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
-                                   (jbyte*)bd_addr);
+                                   (jbyte*)bd_addr.address);
 
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_handlePassthroughCmd,
                                addr.get(), (jint)id, (jint)pressed);
 }
 
 static void btavrcp_set_addressed_player_callback(uint16_t player_id,
-                                                  RawAddress* bd_addr) {
+                                                  const RawAddress& bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
@@ -235,13 +235,13 @@ static void btavrcp_set_addressed_player_callback(uint16_t player_id,
   }
 
   sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
-                                   (jbyte*)bd_addr);
+                                   (jbyte*)bd_addr.address);
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_setAddressedPlayerCallback,
                                addr.get(), (jint)player_id);
 }
 
 static void btavrcp_set_browsed_player_callback(uint16_t player_id,
-                                                RawAddress* bd_addr) {
+                                                const RawAddress& bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
@@ -257,7 +257,7 @@ static void btavrcp_set_browsed_player_callback(uint16_t player_id,
     return;
   }
   sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
-                                   (jbyte*)bd_addr);
+                                   (jbyte*)bd_addr.address);
 
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_setBrowsedPlayerCallback,
                                addr.get(), (jint)player_id);
@@ -265,7 +265,7 @@ static void btavrcp_set_browsed_player_callback(uint16_t player_id,
 
 static void btavrcp_get_folder_items_callback(
     uint8_t scope, uint32_t start_item, uint32_t end_item, uint8_t num_attr,
-    uint32_t* p_attr_ids, RawAddress* bd_addr) {
+    uint32_t* p_attr_ids, const RawAddress& bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
@@ -285,7 +285,7 @@ static void btavrcp_get_folder_items_callback(
   uint32_t* puiAttr = (uint32_t*)p_attr_ids;
   ScopedLocalRef<jintArray> attr_ids(sCallbackEnv.get(), NULL);
   sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
-                                   (jbyte*)bd_addr);
+                                   (jbyte*)bd_addr.address);
 
   /* check number of attributes requested by remote device */
   if ((num_attr != BTRC_NUM_ATTR_ALL) && (num_attr != BTRC_NUM_ATTR_NONE)) {
@@ -306,7 +306,7 @@ static void btavrcp_get_folder_items_callback(
 }
 
 static void btavrcp_change_path_callback(uint8_t direction, uint8_t* folder_uid,
-                                         RawAddress* bd_addr) {
+                                         const RawAddress& bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
@@ -331,7 +331,7 @@ static void btavrcp_change_path_callback(uint8_t direction, uint8_t* folder_uid,
   }
 
   sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
-                                   (jbyte*)bd_addr);
+                                   (jbyte*)bd_addr.address);
   sCallbackEnv->SetByteArrayRegion(
       attrs.get(), 0, sizeof(uint8_t) * BTRC_UID_SIZE, (jbyte*)folder_uid);
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_changePathCallback,
@@ -342,7 +342,7 @@ static void btavrcp_get_item_attr_callback(uint8_t scope, uint8_t* uid,
                                            uint16_t uid_counter,
                                            uint8_t num_attr,
                                            btrc_media_attr_t* p_attrs,
-                                           RawAddress* bd_addr) {
+                                           const RawAddress& bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
@@ -374,7 +374,7 @@ static void btavrcp_get_item_attr_callback(uint8_t scope, uint8_t* uid,
   }
 
   sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
-                                   (jbyte*)bd_addr);
+                                   (jbyte*)bd_addr.address);
   sCallbackEnv->SetIntArrayRegion(attrs.get(), 0, num_attr, (jint*)p_attrs);
   sCallbackEnv->SetByteArrayRegion(
       attr_uid.get(), 0, sizeof(uint8_t) * BTRC_UID_SIZE, (jbyte*)uid);
@@ -385,7 +385,8 @@ static void btavrcp_get_item_attr_callback(uint8_t scope, uint8_t* uid,
 }
 
 static void btavrcp_play_item_callback(uint8_t scope, uint16_t uid_counter,
-                                       uint8_t* uid, RawAddress* bd_addr) {
+                                       uint8_t* uid,
+                                       const RawAddress& bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
@@ -409,7 +410,7 @@ static void btavrcp_play_item_callback(uint8_t scope, uint16_t uid_counter,
   }
 
   sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
-                                   (jbyte*)bd_addr);
+                                   (jbyte*)bd_addr.address);
   sCallbackEnv->SetByteArrayRegion(
       attrs.get(), 0, sizeof(uint8_t) * BTRC_UID_SIZE, (jbyte*)uid);
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_playItemCallback,
@@ -418,7 +419,7 @@ static void btavrcp_play_item_callback(uint8_t scope, uint16_t uid_counter,
 }
 
 static void btavrcp_get_total_num_items_callback(uint8_t scope,
-                                                 RawAddress* bd_addr) {
+                                                 const RawAddress& bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
@@ -435,13 +436,13 @@ static void btavrcp_get_total_num_items_callback(uint8_t scope,
   }
 
   sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
-                                   (jbyte*)bd_addr);
+                                   (jbyte*)bd_addr.address);
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_getTotalNumOfItemsCallback,
                                addr.get(), (jbyte)scope);
 }
 
 static void btavrcp_search_callback(uint16_t charset_id, uint16_t str_len,
-                                    uint8_t* p_str, RawAddress* bd_addr) {
+                                    uint8_t* p_str, const RawAddress& bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
@@ -465,7 +466,7 @@ static void btavrcp_search_callback(uint16_t charset_id, uint16_t str_len,
   }
 
   sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
-                                   (jbyte*)bd_addr);
+                                   (jbyte*)bd_addr.address);
   sCallbackEnv->SetByteArrayRegion(attrs.get(), 0, str_len * sizeof(uint8_t),
                                    (jbyte*)p_str);
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_searchCallback, addr.get(),
@@ -474,7 +475,7 @@ static void btavrcp_search_callback(uint16_t charset_id, uint16_t str_len,
 
 static void btavrcp_add_to_play_list_callback(uint8_t scope, uint8_t* uid,
                                               uint16_t uid_counter,
-                                              RawAddress* bd_addr) {
+                                              const RawAddress& bd_addr) {
   CallbackEnv sCallbackEnv(__func__);
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
   if (!sCallbackEnv.valid()) return;
@@ -498,7 +499,7 @@ static void btavrcp_add_to_play_list_callback(uint8_t scope, uint8_t* uid,
   }
 
   sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
-                                   (jbyte*)bd_addr);
+                                   (jbyte*)bd_addr.address);
   sCallbackEnv->SetByteArrayRegion(
       attrs.get(), 0, sizeof(uint8_t) * BTRC_UID_SIZE, (jbyte*)uid);
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_addToPlayListCallback,
@@ -649,9 +650,11 @@ static jboolean getPlayStatusRspNative(JNIEnv* env, jobject object,
     jniThrowIOException(env, EINVAL);
     return JNI_FALSE;
   }
+  RawAddress rawAddress;
+  rawAddress.FromOctets((uint8_t*)addr);
 
   bt_status_t status = sBluetoothAvrcpInterface->get_play_status_rsp(
-      (RawAddress*)addr, (btrc_play_status_t)playStatus, songLen, songPos);
+      rawAddress, (btrc_play_status_t)playStatus, songLen, songPos);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed get_play_status_rsp, status: %d", status);
   }
@@ -713,9 +716,10 @@ static jboolean getElementAttrRspNative(JNIEnv* env, jobject object,
     return JNI_FALSE;
   }
 
-  RawAddress* btAddr = (RawAddress*)addr;
-  bt_status_t status =
-      sBluetoothAvrcpInterface->get_element_attr_rsp(btAddr, numAttr, pAttrs);
+  RawAddress rawAddress;
+  rawAddress.FromOctets((uint8_t*)addr);
+  bt_status_t status = sBluetoothAvrcpInterface->get_element_attr_rsp(
+      rawAddress, numAttr, pAttrs);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed get_element_attr_rsp, status: %d", status);
   }
@@ -776,10 +780,11 @@ static jboolean getItemAttrRspNative(JNIEnv* env, jobject object,
       }
     }
   }
+  RawAddress rawAddress;
+  rawAddress.FromOctets((uint8_t*)addr);
 
-  RawAddress* btAddr = (RawAddress*)addr;
   bt_status_t status = sBluetoothAvrcpInterface->get_item_attr_rsp(
-      btAddr, (btrc_status_t)rspStatus, numAttr, pAttrs);
+      rawAddress, (btrc_status_t)rspStatus, numAttr, pAttrs);
   if (status != BT_STATUS_SUCCESS)
     ALOGE("Failed get_item_attr_rsp, status: %d", status);
 
@@ -1045,7 +1050,7 @@ static jboolean mediaPlayerListRspNative(
 
   RawAddress* btAddr = (RawAddress*)addr;
   bt_status_t status = sBluetoothAvrcpInterface->get_folder_items_list_rsp(
-      btAddr, (btrc_status_t)rspStatus, uidCounter, numItems, p_items);
+      *btAddr, (btrc_status_t)rspStatus, uidCounter, numItems, p_items);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed get_folder_items_list_rsp, status: %d", status);
   }
@@ -1180,7 +1185,7 @@ static jboolean getFolderItemsRspNative(
 
   RawAddress* btAddr = (RawAddress*)addr;
   bt_status_t status = sBluetoothAvrcpInterface->get_folder_items_list_rsp(
-      btAddr, (btrc_status_t)rspStatus, uidCounter, numItems, p_items);
+      *btAddr, (btrc_status_t)rspStatus, uidCounter, numItems, p_items);
   if (status != BT_STATUS_SUCCESS)
     ALOGE("Failed get_folder_items_list_rsp, status: %d", status);
 
@@ -1218,7 +1223,7 @@ static jboolean setAddressedPlayerRspNative(JNIEnv* env, jobject object,
 
   RawAddress* btAddr = (RawAddress*)addr;
   bt_status_t status = sBluetoothAvrcpInterface->set_addressed_player_rsp(
-      btAddr, (btrc_status_t)rspStatus);
+      *btAddr, (btrc_status_t)rspStatus);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed set_addressed_player_rsp, status: %d", status);
   }
@@ -1277,7 +1282,7 @@ static jboolean setBrowsedPlayerRspNative(JNIEnv* env, jobject object,
   uint16_t charset_id = BTRC_CHARSET_ID_UTF8;
   RawAddress* btAddr = (RawAddress*)addr;
   bt_status_t status = sBluetoothAvrcpInterface->set_browsed_player_rsp(
-      btAddr, (btrc_status_t)rspStatus, numItems, charset_id, folder_depth,
+      *btAddr, (btrc_status_t)rspStatus, numItems, charset_id, folder_depth,
       p_folders);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("%s: Failed set_browsed_player_rsp, status: %d", __func__, status);
@@ -1308,7 +1313,7 @@ static jboolean changePathRspNative(JNIEnv* env, jobject object,
   uint32_t nItems = (uint32_t)numItems;
   RawAddress* btAddr = (RawAddress*)addr;
   bt_status_t status = sBluetoothAvrcpInterface->change_path_rsp(
-      btAddr, (btrc_status_t)rspStatus, (uint32_t)nItems);
+      *btAddr, (btrc_status_t)rspStatus, (uint32_t)nItems);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed change_path_rsp, status: %d", status);
   }
@@ -1334,7 +1339,8 @@ static jboolean searchRspNative(JNIEnv* env, jobject object, jbyteArray address,
   uint32_t nItems = (uint32_t)numItems;
   RawAddress* btAddr = (RawAddress*)addr;
   bt_status_t status = sBluetoothAvrcpInterface->search_rsp(
-      btAddr, (btrc_status_t)rspStatus, (uint32_t)uidCounter, (uint32_t)nItems);
+      *btAddr, (btrc_status_t)rspStatus, (uint32_t)uidCounter,
+      (uint32_t)nItems);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed search_rsp, status: %d", status);
   }
@@ -1358,8 +1364,8 @@ static jboolean playItemRspNative(JNIEnv* env, jobject object,
   }
 
   RawAddress* btAddr = (RawAddress*)addr;
-  bt_status_t status =
-      sBluetoothAvrcpInterface->play_item_rsp(btAddr, (btrc_status_t)rspStatus);
+  bt_status_t status = sBluetoothAvrcpInterface->play_item_rsp(
+      *btAddr, (btrc_status_t)rspStatus);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed play_item_rsp, status: %d", status);
   }
@@ -1385,7 +1391,8 @@ static jboolean getTotalNumOfItemsRspNative(JNIEnv* env, jobject object,
   uint32_t nItems = (uint32_t)numItems;
   RawAddress* btAddr = (RawAddress*)addr;
   bt_status_t status = sBluetoothAvrcpInterface->get_total_num_of_items_rsp(
-      btAddr, (btrc_status_t)rspStatus, (uint32_t)uidCounter, (uint32_t)nItems);
+      *btAddr, (btrc_status_t)rspStatus, (uint32_t)uidCounter,
+      (uint32_t)nItems);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed get_total_num_of_items_rsp, status: %d", status);
   }
@@ -1409,7 +1416,7 @@ static jboolean addToNowPlayingRspNative(JNIEnv* env, jobject object,
 
   RawAddress* btAddr = (RawAddress*)addr;
   bt_status_t status = sBluetoothAvrcpInterface->add_to_now_playing_rsp(
-      btAddr, (btrc_status_t)rspStatus);
+      *btAddr, (btrc_status_t)rspStatus);
   if (status != BT_STATUS_SUCCESS) {
     ALOGE("Failed add_to_now_playing_rsp, status: %d", status);
   }
