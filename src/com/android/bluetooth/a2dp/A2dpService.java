@@ -566,6 +566,11 @@ public class A2dpService extends ProfileService {
 
             BluetoothCodecStatus codecStatus = null;
             A2dpStateMachine sm = mStateMachines.get(device);
+            boolean deviceChanged = !Objects.equals(device, mActiveDevice);
+            if (!deviceChanged) {
+                Log.e(TAG, "setActiveDevice(" + device + "): already set to active ");
+                return true;
+            }
             if (sm == null) {
                 Log.e(TAG, "setActiveDevice(" + device + "): Cannot set as active: "
                           + "no state machine");
@@ -588,7 +593,6 @@ public class A2dpService extends ProfileService {
                 return false;
             }
             codecStatus = sm.getCodecStatus();
-            boolean deviceChanged = !Objects.equals(device, mActiveDevice);
             mActiveDevice = device;
             // This needs to happen before we inform the audio manager that the device
             // disconnected. Please see comment in broadcastActiveDevice() for why.
