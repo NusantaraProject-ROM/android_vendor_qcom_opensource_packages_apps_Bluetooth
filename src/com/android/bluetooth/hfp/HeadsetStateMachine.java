@@ -268,18 +268,18 @@ public class HeadsetStateMachine extends StateMachine {
     public void cleanup() {
         Log.i(TAG," destroy, current state " + getCurrentState());
         if (getCurrentState() == mAudioOn) {
-            mAudioOn.broadcastAudioState(mDevice, BluetoothHeadset.STATE_AUDIO_DISCONNECTED,
-                                BluetoothHeadset.STATE_AUDIO_CONNECTED);
-            mAudioOn.broadcastConnectionState(mDevice, BluetoothProfile.STATE_DISCONNECTED,
-                                BluetoothProfile.STATE_CONNECTED);
+            mAudioOn.broadcastAudioState(mDevice, BluetoothHeadset.STATE_AUDIO_CONNECTED,
+                                BluetoothHeadset.STATE_AUDIO_DISCONNECTED);
+            mAudioOn.broadcastConnectionState(mDevice, BluetoothProfile.STATE_CONNECTED,
+                                BluetoothProfile.STATE_DISCONNECTED);
         }
         if(getCurrentState() == mConnected){
-            mConnected.broadcastConnectionState(mDevice, BluetoothProfile.STATE_DISCONNECTED,
-                                     BluetoothProfile.STATE_CONNECTED);
+            mConnected.broadcastConnectionState(mDevice, BluetoothProfile.STATE_CONNECTED,
+                                     BluetoothProfile.STATE_DISCONNECTED);
         }
         if(getCurrentState() == mConnecting){
-            mConnecting.broadcastConnectionState(mDevice, BluetoothProfile.STATE_DISCONNECTED,
-                                     BluetoothProfile.STATE_CONNECTING);
+            mConnecting.broadcastConnectionState(mDevice, BluetoothProfile.STATE_CONNECTING,
+                                     BluetoothProfile.STATE_DISCONNECTED);
         }
         if (mPhonebook != null) {
             mPhonebook.cleanup();
