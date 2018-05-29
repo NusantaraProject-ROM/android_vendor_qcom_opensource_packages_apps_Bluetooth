@@ -364,15 +364,14 @@ public class A2dpService extends ProfileService {
         if (tws_connected && mAdapterService.isTwsPlusDevice(device)) {
             //if (num_connected == mMaxConnectedAudioDevices) {
             if (num_connected > 1) {
-                Log.d(TAG,"isConnectionAllowed: Max TWS connected, disconnect first");
+                Log.d(TAG,"isConnectionAllowed: Max TWS connected");
                 return false;
             } else if(mAdapterService.getTwsPlusPeerAddress(mConnDev).equals(device.getAddress())) {
                 Log.d(TAG,"isConnectionAllowed: Peer earbud pair allow connection");
                 return true;
             }
         } else if (tws_connected && !mAdapterService.isTwsPlusDevice(device)) {
-            Log.d(TAG,"isConnectionAllowed: Disconnect tws device to connect to legacy headset");
-            disconnectExisting = true;
+            Log.d(TAG,"isConnectionAllowed: TWS+ connected, connection not allowed");
             return false;
         }
         return false;
