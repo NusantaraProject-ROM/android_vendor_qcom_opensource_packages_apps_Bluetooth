@@ -1065,7 +1065,6 @@ public class HeadsetService extends ProfileService {
             } else {
                 stateMachine.sendMessage(HeadsetStateMachine.VOICE_RECOGNITION_START, device);
             }
-            stateMachine.sendMessage(HeadsetStateMachine.CONNECT_AUDIO, device);
         }
         return true;
     }
@@ -1391,6 +1390,13 @@ public class HeadsetService extends ProfileService {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         synchronized (mStateMachines) {
             return mVirtualCallStarted;
+        }
+    }
+
+    boolean isVRStarted() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        synchronized (mStateMachines) {
+            return mVoiceRecognitionStarted;
         }
     }
 
@@ -1873,10 +1879,6 @@ public class HeadsetService extends ProfileService {
                                 + "voice call");
                     }
                 }
-                // Unsuspend A2DP when SCO connection is gone and call state is idle
-                if (mSystemInterface.isCallIdle()) {
-                    mSystemInterface.getAudioManager().setParameters("A2dpSuspended=false");
-                }
             }
         }
     }
@@ -1955,8 +1957,11 @@ public class HeadsetService extends ProfileService {
                 Log.w(TAG, "isScoAcceptable: rejected SCO since audio route is not allowed");
                 return false;
             }
-            // if in-band ringtone is not enabled, return false
-            if (isRinging() && !isInbandRingingEnabled()) {
+            /* if in-band ringtone is not enabled and if there is
+                no active/held/dialling/alerting call, return false */
+            if (isRinging() && !isInbandRingingEnabled() &&
+                !(mSystemInterface.getHeadsetPhoneState().getNumActiveCall() > 0 ||
+                  mSystemInterface.getHeadsetPhoneState().getNumHeldCall() > 0 )) {
                 Log.w(TAG, "isScoAcceptable: rejected SCO since MT call in ringing," +
                             "in-band ringing not enabled");
                 return false;

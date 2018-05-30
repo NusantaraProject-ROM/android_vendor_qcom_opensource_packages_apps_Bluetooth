@@ -680,6 +680,11 @@ public class HeadsetStateMachine extends StateMachine {
                     stateLogD("A2DP_STATE_CHANGED event");
                     processIntentA2dpPlayStateChanged(message.arg1);
                     break;
+                case CALL_STATE_CHANGED: {
+                     HeadsetCallState callState = (HeadsetCallState) message.obj;
+                     processCallState(callState, false);
+                     break;
+                }
                 case STACK_EVENT:
                     HeadsetStackEvent event = (HeadsetStackEvent) message.obj;
                     stateLogD("STACK_EVENT: " + event);
@@ -930,6 +935,15 @@ public class HeadsetStateMachine extends StateMachine {
                         stateLogW("Failed to start voice recognition");
                         break;
                     }
+
+                    if (mHeadsetService.getHfpA2DPSyncInterface().suspendA2DP(
+                          HeadsetA2dpSync.A2DP_SUSPENDED_BY_VR, mDevice) == true) {
+                       Log.d(TAG, "mesg VOICE_RECOGNITION_START: A2DP is playing,"+
+                             " return and establish SCO after A2DP supended");
+                        break;
+                    }
+                    // create SCO since there is no A2DP playback
+                    mNativeInterface.connectAudio(mDevice);
                     break;
                 }
                 case VOICE_RECOGNITION_STOP: {
@@ -1035,6 +1049,15 @@ public class HeadsetStateMachine extends StateMachine {
                     mNativeInterface.atResponseCode(mDevice,
                             message.arg1 == 1 ? HeadsetHalConstants.AT_RESPONSE_OK
                                     : HeadsetHalConstants.AT_RESPONSE_ERROR, 0);
+
+                    if (mHeadsetService.getHfpA2DPSyncInterface().suspendA2DP(
+                          HeadsetA2dpSync.A2DP_SUSPENDED_BY_VR, mDevice) == true) {
+                       Log.d(TAG, "mesg VOICE_RECOGNITION_START: A2DP is playing,"+
+                             " return and establish SCO after A2DP supended");
+                        break;
+                    }
+                    // create SCO since there is no A2DP playback
+                    mNativeInterface.connectAudio(mDevice);
                     break;
                 }
                 case DIALING_OUT_RESULT: {
@@ -1254,14 +1277,12 @@ public class HeadsetStateMachine extends StateMachine {
                 break;
                 case CONNECT_AUDIO:
                     stateLogD("CONNECT_AUDIO, device=" + mDevice);
-/*
                     int a2dpState = mHeadsetService.getHfpA2DPSyncInterface().isA2dpPlaying();
-                    if (!isScoAcceptable()|| (a2dpState == HeadsetA2dpSync.A2DP_PLAYING)) {
+                    if (!mHeadsetService.isScoAcceptable(mDevice)|| (a2dpState == HeadsetA2dpSync.A2DP_PLAYING)) {
                         stateLogW("No Active/Held call, no call setup,and no in-band ringing,"
                                   + " or A2Dp is playing, not allowing SCO, device=" + mDevice);
                         break;
                     }
-*/
                     if (!mNativeInterface.connectAudio(mDevice)) {
                         stateLogE("Failed to connect SCO audio for " + mDevice);
                         // No state change involved, fire broadcast immediately
@@ -2029,6 +2050,9 @@ public class HeadsetStateMachine extends StateMachine {
                   a2dpState);
         if (mHeadsetService.isVirtualCallStarted()) {
             // TODO: cross check if need to do something here
+        } else if (mHeadsetService.isVRStarted()) {
+           Log.d(TAG, "VR is in started state, creating SCO");
+           mNativeInterface.connectAudio(mDevice);
         } else if (mSystemInterface.isInCall()){
             //send incoming phone status to remote device
             Log.d(TAG, "A2dp is suspended, updating phone states");
@@ -2101,7 +2125,7 @@ public class HeadsetStateMachine extends StateMachine {
     }
 
     private void processAtCind(BluetoothDevice device) {
-        int call, callSetup, call_state;
+        int call, callSetup, call_state, service, signal;
          // get the top of the Q 
         HeadsetCallState tempCallState = mDelayedCSCallStates.peek();
         final HeadsetPhoneState phoneState = mSystemInterface.getHeadsetPhoneState();
@@ -2123,8 +2147,27 @@ public class HeadsetStateMachine extends StateMachine {
         else
               call_state = mStateMachineCallState.mCallState;
         log("sending call state in CIND resp as " + call_state);
-        mNativeInterface.cindResponse(device, phoneState.getCindService(), call, callSetup,
-                call_state, phoneState.getCindSignal(), phoneState.getCindRoam(),
+
+        /* Some Handsfree devices or carkits expect the +CIND to be properly
+           responded with the correct service availablity and signal strength,
+           while the regular call is active or held or in progress.*/
+         if(((!mHeadsetService.isVirtualCallStarted()) &&
+            (mStateMachineCallState.mNumActive > 0) || (mStateMachineCallState.mNumHeld > 0) ||
+             mStateMachineCallState.mCallState == HeadsetHalConstants.CALL_STATE_ALERTING ||
+             mStateMachineCallState.mCallState == HeadsetHalConstants.CALL_STATE_DIALING ||
+             mStateMachineCallState.mCallState == HeadsetHalConstants.CALL_STATE_INCOMING) &&
+            (phoneState.getCindService() == HeadsetHalConstants.NETWORK_STATE_NOT_AVAILABLE)) {
+             log("processAtCind: If regular call is in process/active/held while RD connection " +
+                   "during BT-ON, update service availablity and signal strength");
+             service = HeadsetHalConstants.NETWORK_STATE_AVAILABLE;
+             signal = 3;
+         } else {
+             service = phoneState.getCindService();
+             signal = phoneState.getCindSignal();
+        }
+
+        mNativeInterface.cindResponse(device, service, call, callSetup,
+                call_state, signal, phoneState.getCindRoam(),
                 phoneState.getCindBatteryCharge());
         log("Exit processAtCind()");
     }
