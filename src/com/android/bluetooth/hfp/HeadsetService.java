@@ -1553,7 +1553,7 @@ public class HeadsetService extends ProfileService {
                     getDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES);
             if (fromState != BluetoothProfile.STATE_CONNECTED
                     && toState == BluetoothProfile.STATE_CONNECTED) {
-                if (audioConnectableDevices.size() > 1) {
+                if (audioConnectableDevices.size() > 1 && isInbandRingingEnabled()) {
                     mInbandRingingRuntimeDisable = true;
                     doForEachConnectedStateMachine(
                             stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.SEND_BSIR,
@@ -1563,7 +1563,7 @@ public class HeadsetService extends ProfileService {
             }
             if (fromState != BluetoothProfile.STATE_DISCONNECTED
                     && toState == BluetoothProfile.STATE_DISCONNECTED) {
-                if (audioConnectableDevices.size() <= 1) {
+                if (audioConnectableDevices.size() <= 1 && isInbandRingingEnabled()) {
                     mInbandRingingRuntimeDisable = false;
                     doForEachConnectedStateMachine(
                             stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.SEND_BSIR,

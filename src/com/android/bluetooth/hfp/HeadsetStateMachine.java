@@ -1428,7 +1428,6 @@ public class HeadsetStateMachine extends StateMachine {
                 mHeadsetService.setActiveDevice(mDevice);
             }
             setAudioParameters();
-            mSystemInterface.getAudioManager().setParameters("BT_SCO=on");
             broadcastStateTransitions();
         }
 
@@ -1515,10 +1514,7 @@ public class HeadsetStateMachine extends StateMachine {
                 case HeadsetHalConstants.AUDIO_STATE_DISCONNECTED:
                     stateLogI("processAudioEvent: audio disconnected by remote");
                     if(mSystemInterface.getAudioManager().isSpeakerphoneOn()) {
-                        mSystemInterface.getAudioManager().setParameters("BT_SCO=off");
                         mSystemInterface.getAudioManager().setSpeakerphoneOn(true);
-                    } else {
-                        mSystemInterface.getAudioManager().setParameters("BT_SCO=off");
                     }
                     transitionTo(mConnected);
                     break;
@@ -1595,10 +1591,7 @@ public class HeadsetStateMachine extends StateMachine {
                 case HeadsetHalConstants.AUDIO_STATE_DISCONNECTED:
                     stateLogI("processAudioEvent: audio disconnected");
                     if(mSystemInterface.getAudioManager().isSpeakerphoneOn()) {
-                        mSystemInterface.getAudioManager().setParameters("BT_SCO=off");
                         mSystemInterface.getAudioManager().setSpeakerphoneOn(true);
-                    } else {
-                        mSystemInterface.getAudioManager().setParameters("BT_SCO=off");
                     }
                     transitionTo(mConnected);
                     break;
