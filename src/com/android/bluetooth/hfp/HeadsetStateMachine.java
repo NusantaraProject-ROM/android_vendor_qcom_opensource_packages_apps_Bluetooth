@@ -1454,14 +1454,24 @@ public class HeadsetStateMachine extends StateMachine {
                         stateLogW("DISCONNECT, device " + device + " not connected");
                         break;
                     }
-                    // Disconnect BT SCO first
-                    if (!mNativeInterface.disconnectAudio(mDevice)) {
-                        stateLogW("DISCONNECT failed, device=" + mDevice);
-                        // if disconnect BT SCO failed, transition to mConnected state to force
-                        // disconnect device
+                    if (mAdapterService.isTwsPlusDevice(device)) {
+                        //for twsplus device, don't disconnect the SCO for app
+                        //force the disocnnect of HF and in turn let SCO shutdown
+                        //so that SCO SM handles it gracefully
+                        if (!mNativeInterface.disconnectHfp(device)) {
+                            stateLogW("DISCONNECT failed TWS case, device=" + mDevice);
+                        }
+                        transitionTo(mDisconnecting);
+                    } else {
+                        // Disconnect BT SCO first
+                        if (!mNativeInterface.disconnectAudio(mDevice)) {
+                            stateLogW("DISCONNECT failed, device=" + mDevice);
+                            // if disconnect BT SCO failed, transition to mConnected state to force
+                            // disconnect device
+                        }
+                        deferMessage(obtainMessage(DISCONNECT, mDevice));
+                        transitionTo(mAudioDisconnecting);
                     }
-                    deferMessage(obtainMessage(DISCONNECT, mDevice));
-                    transitionTo(mAudioDisconnecting);
                     break;
                 }
                 case CONNECT_AUDIO: {
