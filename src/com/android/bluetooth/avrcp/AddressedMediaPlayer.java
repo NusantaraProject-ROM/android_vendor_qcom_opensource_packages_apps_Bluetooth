@@ -500,7 +500,7 @@ public class AddressedMediaPlayer {
                     break;
 
                 case AvrcpConstants.ATTRID_COVER_ART:
-                    attrValue = Avrcp.getImgHandleFromTitle(desc.getTitle().toString());
+                    attrValue = Avrcp_ext.getImgHandleFromTitle(desc.getTitle().toString());
                     break;
 
                 default:
@@ -517,7 +517,7 @@ public class AddressedMediaPlayer {
             }
         }
         if (DEBUG) {
-            Log.d(TAG, "getAttrValue: attrvalue = " + attrValue + ", attr id:" + attr);
+            Log.d(TAG, "getAttrValue: attrvalue = " + attrValue + ", attr id: " + attr);
         }
         return attrValue;
     }
