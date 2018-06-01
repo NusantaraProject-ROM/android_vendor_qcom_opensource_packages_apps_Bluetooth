@@ -576,17 +576,16 @@ public class A2dpService extends ProfileService {
      */
     public boolean setActiveDevice(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
+        boolean deviceChanged;
+        BluetoothCodecStatus codecStatus = null;
+        BluetoothDevice previousActiveDevice = mActiveDevice;
+        boolean isBAActive = false;
+        Log.w(TAG, "setActiveDevice(" + device + "): previous is " + previousActiveDevice);
         synchronized (mBtA2dpLock) {
-            BluetoothDevice previousActiveDevice = mActiveDevice;
-            if (DBG) {
-                Log.d(TAG, "setActiveDevice(" + device + "): previous is " + previousActiveDevice);
-            }
-
             if (previousActiveDevice != null && AvrcpTargetService.get() != null) {
                 AvrcpTargetService.get().storeVolumeForDevice(previousActiveDevice);
             }
 
-            boolean isBAActive = false;
             BATService mBatService = BATService.getBATService();
             isBAActive = (mBatService != null) && (mBatService.isBATActive());
             Log.d(TAG," setActiveDevice: BA active " + isBAActive);
@@ -597,9 +596,8 @@ public class A2dpService extends ProfileService {
                 return true;
             }
 
-            BluetoothCodecStatus codecStatus = null;
             A2dpStateMachine sm = mStateMachines.get(device);
-            boolean deviceChanged = !Objects.equals(device, mActiveDevice);
+            deviceChanged = !Objects.equals(device, mActiveDevice);
             if (!deviceChanged) {
                 Log.e(TAG, "setActiveDevice(" + device + "): already set to active ");
                 return true;
@@ -630,41 +628,42 @@ public class A2dpService extends ProfileService {
             // This needs to happen before we inform the audio manager that the device
             // disconnected. Please see comment in broadcastActiveDevice() for why.
             broadcastActiveDevice(mActiveDevice);
-            if (deviceChanged) {
-                // Send an intent with the active device codec config
-                if (codecStatus != null) {
-                    broadcastCodecConfig(mActiveDevice, codecStatus);
-                }
-                // Make sure the Audio Manager knows the previous Active device is disconnected,
-                // and the new Active device is connected.
-                if (previousActiveDevice != null) {
-                    mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
-                            previousActiveDevice, BluetoothProfile.STATE_DISCONNECTED,
-                            BluetoothProfile.A2DP, true, -1);
-                }
-
-                int rememberedVolume = -1;
-                if (AvrcpTargetService.get() != null) {
-                    AvrcpTargetService.get().volumeDeviceSwitched(mActiveDevice);
-
-                    rememberedVolume = AvrcpTargetService.get()
-                            .getRememberedVolumeForDevice(mActiveDevice);
-                }
-
-                if (!isBAActive) {
+            Log.w(TAG, "setActiveDevice coming out of mutex lock");
+        }
+        if (deviceChanged) {
+            // Send an intent with the active device codec config
+            if (codecStatus != null) {
+                broadcastCodecConfig(device, codecStatus);
+            }
+            // Make sure the Audio Manager knows the previous Active device is disconnected,
+            // and the new Active device is connected.
+            if (previousActiveDevice != null) {
                 mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
-                        mActiveDevice, BluetoothProfile.STATE_CONNECTED, BluetoothProfile.A2DP,
-                        true, rememberedVolume);
-                }
+                        previousActiveDevice, BluetoothProfile.STATE_DISCONNECTED,
+                        BluetoothProfile.A2DP, true, -1);
+            }
 
-                // Inform the Audio Service about the codec configuration
-                // change, so the Audio Service can reset accordingly the audio
-                // feeding parameters in the Audio HAL to the Bluetooth stack.
-                String offloadSupported =
-                     SystemProperties.get("persist.vendor.btstack.enable.splita2dp");
-                if (!(offloadSupported.isEmpty() || "true".equals(offloadSupported))) {
-                    mAudioManager.handleBluetoothA2dpDeviceConfigChange(mActiveDevice);
-                }
+            int rememberedVolume = -1;
+            if (AvrcpTargetService.get() != null) {
+                AvrcpTargetService.get().volumeDeviceSwitched(device);
+
+                rememberedVolume = AvrcpTargetService.get()
+                        .getRememberedVolumeForDevice(device);
+            }
+
+            if (!isBAActive) {
+                mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
+                        device, BluetoothProfile.STATE_CONNECTED, BluetoothProfile.A2DP,
+                        true, rememberedVolume);
+            }
+
+            // Inform the Audio Service about the codec configuration
+            // change, so the Audio Service can reset accordingly the audio
+            // feeding parameters in the Audio HAL to the Bluetooth stack.
+            String offloadSupported =
+                 SystemProperties.get("persist.vendor.btstack.enable.splita2dp");
+            if (!(offloadSupported.isEmpty() || "true".equals(offloadSupported))) {
+                mAudioManager.handleBluetoothA2dpDeviceConfigChange(device);
             }
         }
         return true;
