@@ -2021,8 +2021,9 @@ public class GattService extends ProfileService {
         if (app != null) {
             app.recordScanStop(client.scannerId);
         }
-
-        mScanManager.stopScan(client);
+        if (mScanManager != null) {
+            mScanManager.stopScan(client);
+        }
     }
 
     void stopScan(PendingIntent intent, String callingPackage) {
@@ -2088,7 +2089,9 @@ public class GattService extends ProfileService {
                 unregisterScanner(appId);
             }
         }
-        mAdvertiseManager.stopAdvertisingSets();
+        if (mAdvertiseManager != null) {
+            mAdvertiseManager.stopAdvertisingSets();
+        }
     }
 
     /**************************************************************************
