@@ -1945,10 +1945,13 @@ public class HeadsetService extends ProfileService {
      */
     public boolean isScoAcceptable(BluetoothDevice device) {
         synchronized (mStateMachines) {
-            if (device == null || !device.equals(mActiveDevice)) {
-                Log.w(TAG, "isScoAcceptable: rejected SCO since " + device
+            //allow 2nd eSCO from non-active tws+ earbud as well
+            if (!mAdapterService.isTwsPlusDevice(device)) {
+                if (device == null || !device.equals(mActiveDevice)) {
+                    Log.w(TAG, "isScoAcceptable: rejected SCO since " + device
                         + " is not the current active device " + mActiveDevice);
-                return false;
+                    return false;
+                }
             }
             if (mForceScoAudio) {
                 return true;

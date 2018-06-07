@@ -3441,9 +3441,4 @@ public final class Avrcp {
 
     private native boolean registerNotificationRspNowPlayingChangedNative(int type);
 
-    public static String getImgHandleFromTitle(String title) {
-        if (mAvrcpBipRsp != null && title != null)
-            return mAvrcpBipRsp.getImgHandle(mAvrcpBipRsp.getAlbumName(title));
-        return null;
-    }
 }
