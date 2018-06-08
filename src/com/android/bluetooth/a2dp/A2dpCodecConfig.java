@@ -101,7 +101,7 @@ class A2dpCodecConfig {
             return null;
         }
 
-        BT_SOC = SystemProperties.get("qcom.bluetooth.soc");
+        BT_SOC = SystemProperties.get("vendor.bluetooth.soc");
         int value;
         try {
             value = resources.getInteger(R.integer.a2dp_source_codec_priority_sbc);
