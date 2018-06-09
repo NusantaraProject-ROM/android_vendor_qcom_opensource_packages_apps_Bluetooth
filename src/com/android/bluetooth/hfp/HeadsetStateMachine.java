@@ -1435,7 +1435,14 @@ public class HeadsetStateMachine extends StateMachine {
             if (!mDevice.equals(mHeadsetService.getActiveDevice())) {
                 mHeadsetService.setActiveDevice(mDevice);
             }
-            setAudioParameters();
+            // If current device is TWSPLUS device and peer TWSPLUS device is already
+            // has SCO, dont need to update teh Audio Manager
+            if (mAdapterService.isTwsPlusDevice(mDevice) &&
+               mHeadsetService.isAudioConnected(mHeadsetService.getTwsPlusConnectedPeer(mDevice))) {
+               stateLogW("Dont update Audio as this TWS peer eSCO");
+            } else {
+               setAudioParameters();
+            }
             broadcastStateTransitions();
         }
 
@@ -1531,8 +1538,14 @@ public class HeadsetStateMachine extends StateMachine {
             switch (state) {
                 case HeadsetHalConstants.AUDIO_STATE_DISCONNECTED:
                     stateLogI("processAudioEvent: audio disconnected by remote");
-                    if(mSystemInterface.getAudioManager().isSpeakerphoneOn()) {
-                        mSystemInterface.getAudioManager().setSpeakerphoneOn(true);
+                    if (mAdapterService.isTwsPlusDevice(mDevice) && mHeadsetService.isAudioOn()) {
+                        //If It is TWSP device, make sure SCO is not active on
+                        //any devices before letting Audio knowing about it
+                        stateLogI("TWS+ device and other SCO is still Active, no BT_SCO=off");
+                    } else {
+                        if(mSystemInterface.getAudioManager().isSpeakerphoneOn()) {
+                            mSystemInterface.getAudioManager().setSpeakerphoneOn(true);
+                        }
                     }
                     transitionTo(mConnected);
                     break;
@@ -1608,8 +1621,14 @@ public class HeadsetStateMachine extends StateMachine {
             switch (state) {
                 case HeadsetHalConstants.AUDIO_STATE_DISCONNECTED:
                     stateLogI("processAudioEvent: audio disconnected");
-                    if(mSystemInterface.getAudioManager().isSpeakerphoneOn()) {
-                        mSystemInterface.getAudioManager().setSpeakerphoneOn(true);
+                    if (mAdapterService.isTwsPlusDevice(mDevice) && mHeadsetService.isAudioOn()) {
+                         //If It is TWSP device, make sure SCO is not active on
+                         //any devices before letting Audio knowing about it
+                         stateLogI("TWS+ device and other SCO is still Active, no BT_SCO=off");
+                    } else {
+                        if(mSystemInterface.getAudioManager().isSpeakerphoneOn()) {
+                            mSystemInterface.getAudioManager().setSpeakerphoneOn(true);
+                        }
                     }
                     transitionTo(mConnected);
                     break;

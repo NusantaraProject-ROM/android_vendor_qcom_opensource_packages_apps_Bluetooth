@@ -658,6 +658,9 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                             if (V) {
                                 Log.v(TAG, "Array update: inserting " + id + " @ " + arrayPos);
                             }
+                            if (shouldScanFile(arrayPos)) {
+                                scanFile(arrayPos);
+                            }
                             ++arrayPos;
                             cursor.moveToNext();
                             isAfterLast = cursor.isAfterLast();
@@ -680,6 +683,9 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                                 // This cursor row already exists in the stored array.
                                 updateShare(cursor, arrayPos);
 
+                                if (shouldScanFile(arrayPos)) {
+                                    scanFile(arrayPos);
+                                }
                                 ++arrayPos;
                                 cursor.moveToNext();
                                 isAfterLast = cursor.isAfterLast();
@@ -691,6 +697,9 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                                 }
                                 insertShare(cursor, arrayPos);
 
+                                if (shouldScanFile(arrayPos)) {
+                                    scanFile(arrayPos);
+                                }
                                 ++arrayPos;
                                 cursor.moveToNext();
                                 isAfterLast = cursor.isAfterLast();
