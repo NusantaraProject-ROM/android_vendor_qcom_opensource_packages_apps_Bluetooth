@@ -336,6 +336,14 @@
         </service>
         <service
             android:process="@string/process"
+            android:name = ".ba.BATService"
+            android:enabled="@bool/profile_supported_ba">
+            <intent-filter>
+                <action android:name="android.bluetooth.IBluetoothBATransmitter" />
+            </intent-filter>
+        </service>
+        <service
+            android:process="@string/process"
             android:name = ".hid.HidHostService"
             android:enabled="@bool/profile_supported_hid_host">
             <intent-filter>

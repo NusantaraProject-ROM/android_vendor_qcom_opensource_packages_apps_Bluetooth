@@ -103,6 +103,7 @@ import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.RemoteDevices.DeviceProperties;
 import com.android.bluetooth.gatt.GattService;
 import com.android.bluetooth.sdp.SdpManager;
+import com.android.bluetooth.ba.BATService;
 import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.app.IBatteryStats;
@@ -2146,6 +2147,10 @@ public class AdapterService extends Service {
      */
     public String getRemoteName(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (device.getAddress().equals(BATService.mBAAddress)) {
+            Log.d(TAG," Request Name for BA device ");
+            return "Broadcast_Audio";
+        }
         if (mRemoteDevices == null) {
             return null;
         }
@@ -2212,6 +2217,10 @@ public class AdapterService extends Service {
 
     boolean fetchRemoteUuids(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (device.getAddress().equals(BATService.mBAAddress)) {
+            Log.d(TAG," Update from BA, don't check UUIDS, bail out");
+            return false;
+        }
         mRemoteDevices.fetchUuids(device);
         return true;
     }

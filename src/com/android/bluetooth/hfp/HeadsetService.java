@@ -1100,7 +1100,7 @@ public class HeadsetService extends ProfileService {
         return true;
     }
 
-    boolean isAudioOn() {
+    public boolean isAudioOn() {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         int numConnectedAudioDevices = getNonIdleAudioDevices().size();
         Log.d(TAG," isAudioOn: The number of audio connected devices "
@@ -1903,7 +1903,7 @@ public class HeadsetService extends ProfileService {
      */
     public boolean okToAcceptConnection(BluetoothDevice device) {
         // Check if this is an incoming connection in Quiet mode.
-        boolean isPts = SystemProperties.getBoolean("bt.pts.certification", false);
+        boolean isPts = SystemProperties.getBoolean("vendor.bt.pts.certification", false);
         if (mAdapterService.isQuietModeEnabled()) {
             Log.w(TAG, "okToAcceptConnection: return false as quiet mode enabled");
             return false;
