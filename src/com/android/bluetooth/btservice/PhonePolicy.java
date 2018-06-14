@@ -296,12 +296,19 @@ class PhonePolicy {
         if ((profileId == BluetoothProfile.A2DP) || (profileId == BluetoothProfile.HEADSET)
                 || profileId == BluetoothProfile.A2DP_SINK) {
             if (nextState == BluetoothProfile.STATE_CONNECTED) {
+                debugLog("processProfileStateChanged: isTwsDevice: " + mAdapterService.isTwsPlusDevice(device));
                 switch (profileId) {
                     case BluetoothProfile.A2DP:
                         mA2dpRetrySet.remove(device);
+                        if (mAdapterService.isTwsPlusDevice(device)) {
+                             setAutoConnectForA2dpSink(device);
+                        }
                         break;
                     case BluetoothProfile.HEADSET:
                         mHeadsetRetrySet.remove(device);
+                        if (mAdapterService.isTwsPlusDevice(device)) {
+                             setAutoConnectForHeadset(device);
+                        }
                         break;
                 }
                 connectOtherProfile(device);
@@ -339,8 +346,10 @@ class PhonePolicy {
                     return;
                 }
                 for (BluetoothDevice device : mAdapterService.getBondedDevices()) {
-                    removeAutoConnectFromA2dpSink(device);
-                    removeAutoConnectFromHeadset(device);
+                    if (!mAdapterService.isTwsPlusDevice(activeDevice)) {
+                        removeAutoConnectFromA2dpSink(device);
+                        removeAutoConnectFromHeadset(device);
+                    }
                 }
                 setAutoConnectForA2dpSink(activeDevice);
                 setAutoConnectForHeadset(activeDevice);
