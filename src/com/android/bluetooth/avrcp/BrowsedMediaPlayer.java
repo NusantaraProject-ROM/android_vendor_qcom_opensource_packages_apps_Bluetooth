@@ -333,11 +333,11 @@ class BrowsedMediaPlayer {
                     mRootFolderUid = mMediaId;
                     /* store root folder uid to stack */
                     mPathStack.push(mMediaId);
+                    /* get root folder items */
+                    mMediaBrowser.subscribe(mRootFolderUid, mFolderItemsCb);
                 }
 
                 mMediaController = MediaControllerFactory.make(mContext, token);
-                /* get root folder items */
-                mMediaBrowser.subscribe(mRootFolderUid, mFolderItemsCb);
                 return;
             }
         } catch (NullPointerException ex) {
@@ -351,7 +351,8 @@ class BrowsedMediaPlayer {
 
     public void setBrowsed(String packageName, String cls) {
         Log.w(TAG, "!! In setBrowse function !!" + mFolderItems);
-        if ((mPackageName != packageName) || (mFolderItems == null)) {
+        if ((mPackageName != null && packageName != null
+                && !mPackageName.equals(packageName)) || (mFolderItems == null)) {
             Log.d(TAG, "setBrowse for packageName = " + packageName);
             mConnectingPackageName = packageName;
             mPackageName = packageName;
