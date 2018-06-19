@@ -94,7 +94,7 @@ public class A2dpService extends ProfileService {
     private BroadcastReceiver mBondStateChangedReceiver;
     private BroadcastReceiver mConnectionStateChangedReceiver;
     private boolean mIsTwsPlusEnabled = false;
-
+    private BluetoothDevice mDummyDevice = null;
     @Override
     protected IProfileServiceBinder initBinder() {
         return new BluetoothA2dpBinder(this);
@@ -583,7 +583,11 @@ public class A2dpService extends ProfileService {
                 suppressNoisyIntent = true;
                 Log.d(TAG," BA Active, suppress noisy intent");
             }
-
+            if (mAdapterService.isTwsPlusDevice(previousActiveDevice) &&
+                mDummyDevice != null) {
+                previousActiveDevice = mDummyDevice;
+                mDummyDevice = null;
+            }
             mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
                     previousActiveDevice, BluetoothProfile.STATE_DISCONNECTED,
                     BluetoothProfile.A2DP, suppressNoisyIntent, -1);
@@ -657,17 +661,30 @@ public class A2dpService extends ProfileService {
             broadcastActiveDevice(mActiveDevice);
             Log.w(TAG, "setActiveDevice coming out of mutex lock");
         }
-        if (deviceChanged) {
+        if (deviceChanged &&
+            (mDummyDevice == null || !mAdapterService.isTwsPlusDevice(mActiveDevice))) {
+            if (mAdapterService.isTwsPlusDevice(device) && mDummyDevice == null) {
+                Log.d(TAG,"set dummy device for tws+");
+                mDummyDevice = mAdapter.getRemoteDevice("FA:CE:FA:CE:FA:CE");
+            }
             // Send an intent with the active device codec config
             if (codecStatus != null) {
-                broadcastCodecConfig(device, codecStatus);
+                broadcastCodecConfig(mActiveDevice, codecStatus);
             }
             // Make sure the Audio Manager knows the previous Active device is disconnected,
             // and the new Active device is connected.
             if (previousActiveDevice != null) {
-                mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
-                        previousActiveDevice, BluetoothProfile.STATE_DISCONNECTED,
-                        BluetoothProfile.A2DP, true, -1);
+                if (mDummyDevice != null &&
+                    mAdapterService.isTwsPlusDevice(previousActiveDevice)) {
+                    mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
+                            mDummyDevice, BluetoothProfile.STATE_DISCONNECTED,
+                            BluetoothProfile.A2DP, true, -1);
+                    mDummyDevice = null;
+                } else  {
+                    mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
+                            previousActiveDevice, BluetoothProfile.STATE_DISCONNECTED,
+                            BluetoothProfile.A2DP, true, -1);
+                }
             }
 
             int rememberedVolume = -1;
@@ -679,9 +696,15 @@ public class A2dpService extends ProfileService {
             }
 
             if (!isBAActive) {
-                mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
-                        device, BluetoothProfile.STATE_CONNECTED, BluetoothProfile.A2DP,
-                        true, rememberedVolume);
+                if (mDummyDevice == null) {
+                    mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
+                            mActiveDevice, BluetoothProfile.STATE_CONNECTED, BluetoothProfile.A2DP,
+                            true, rememberedVolume);
+                } else {
+                    mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
+                            mDummyDevice, BluetoothProfile.STATE_CONNECTED, BluetoothProfile.A2DP,
+                            true, rememberedVolume);
+                }
             }
 
             // Inform the Audio Service about the codec configuration
