@@ -532,8 +532,9 @@ public class PanService extends ProfileService {
         // connect call will put us in STATE_DISCONNECTED. Then, the disconnect completes and
         // changes the state to STATE_DISCONNECTING. All future calls to BluetoothPan#connect
         // will fail until the caller explicitly calls BluetoothPan#disconnect.
-        if (prevState == BluetoothProfile.STATE_DISCONNECTED
-                && state == BluetoothProfile.STATE_DISCONNECTING) {
+        if (prevState == BluetoothProfile.STATE_DISCONNECTED &&
+            (state == BluetoothProfile.STATE_DISCONNECTING ||
+             state == BluetoothProfile.STATE_DISCONNECTED)) {
             Log.d(TAG, "Ignoring state change from " + prevState + " to " + state);
             mPanDevices.remove(device);
             return;
