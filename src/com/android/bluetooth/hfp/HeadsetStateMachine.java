@@ -141,6 +141,12 @@ public class HeadsetStateMachine extends StateMachine {
                                                                };
     private static final String VOIP_CALL_NUMBER = "10000000";
 
+    //VR app launched successfully
+    private static final int VR_SUCCESS = 1;
+
+    //VR app failed to launch
+    private static final int VR_FAILURE = 0;
+
     private final BluetoothDevice mDevice;
 
     // maintain call states in state machine as well
@@ -1047,8 +1053,13 @@ public class HeadsetStateMachine extends StateMachine {
                         break;
                     }
                     mNativeInterface.atResponseCode(mDevice,
-                            message.arg1 == 1 ? HeadsetHalConstants.AT_RESPONSE_OK
+                            message.arg1 == VR_SUCCESS ? HeadsetHalConstants.AT_RESPONSE_OK
                                     : HeadsetHalConstants.AT_RESPONSE_ERROR, 0);
+                    if (message.arg1 != VR_SUCCESS) {
+                       Log.d(TAG, "VOICE_RECOGNITION_RESULT: not creating SCO since VR app"+
+                                  " failed to start VR");
+                       break;
+                    }
 
                     if (mHeadsetService.getHfpA2DPSyncInterface().suspendA2DP(
                           HeadsetA2dpSync.A2DP_SUSPENDED_BY_VR, mDevice) == true) {
