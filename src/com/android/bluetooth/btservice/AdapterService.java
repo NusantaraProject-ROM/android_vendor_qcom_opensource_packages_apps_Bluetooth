@@ -367,7 +367,6 @@ public class AdapterService extends Service {
                         mAdapterStateMachine.sendMessage(AdapterState.BREDR_STOPPED);
                     } else if (mRunningProfiles.size() == 0) {
                         Log.w(TAG,"onProfileServiceStateChange() - All profile services stopped..");
-                        disableNative();
                         mAdapterStateMachine.sendMessage(AdapterState.BLE_STOPPED);
                     }
                     break;
@@ -602,6 +601,7 @@ public class AdapterService extends Service {
     void stateChangeCallback(int status) {
         if (status == AbstractionLayer.BT_STATE_OFF) {
             debugLog("stateChangeCallback: disableNative() completed");
+            mAdapterStateMachine.sendMessage(AdapterState.STACK_DISABLED);
         } else if (status == AbstractionLayer.BT_STATE_ON) {
             mAdapterStateMachine.sendMessage(AdapterState.BLE_STARTED);
         } else {
@@ -636,7 +636,7 @@ public class AdapterService extends Service {
     }
 
     void startBluetoothDisable() {
-        mAdapterStateMachine.sendMessage(AdapterState.BEGIN_DISABLE);
+        mAdapterStateMachine.sendMessage(AdapterState.BEGIN_BREDR_STOP);
     }
 
     void startProfileServices() {
@@ -654,14 +654,16 @@ public class AdapterService extends Service {
     }
 
     void startBrEdrCleanup(){
+        mAdapterProperties.onBluetoothDisable();
         if (isVendorIntfEnabled()) {
+            mVendor.bredrCleanup();
+        } else {
             mAdapterStateMachine.sendMessage(
-            mAdapterStateMachine.obtainMessage(AdapterState.BEGIN_BREDR_CLEANUP));
+            mAdapterStateMachine.obtainMessage(AdapterState.BEGIN_BREDR_STOP));
         }
     }
 
     void stopProfileServices() {
-        mAdapterProperties.onBluetoothDisable();
         Class[] supportedProfileServices = Config.getSupportedProfiles();
         if (supportedProfileServices.length == 1 && (mRunningProfiles.size() == 1
                 && GattService.class.getSimpleName().equals(mRunningProfiles.get(0).getName()))) {
@@ -672,20 +674,23 @@ public class AdapterService extends Service {
         }
     }
 
-    void disableProfileServices() {
+    void disableProfileServices(boolean onlyGatt) {
         Class[] services = Config.getSupportedProfiles();
         for (int i = 0; i < services.length; i++) {
-             boolean res = false;
-             String serviceName = services[i].getName();
-
-             mProfileServicesState.put(serviceName,BluetoothAdapter.STATE_OFF);
-             Intent intent = new Intent(this,services[i]);
-             intent.putExtra(EXTRA_ACTION,ACTION_SERVICE_STATE_CHANGED);
-             intent.putExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.STATE_OFF);
-             intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-             res = stopService(intent);
-             Log.d(TAG, "disableProfileServices() - Stopping service "
-                   + serviceName + " with result: " + res);
+            if (onlyGatt && !(GattService.class.getSimpleName().equals(services[i].getSimpleName())))
+                continue;
+            boolean res = false;
+            String serviceName = services[i].getName();
+            mProfileServicesState.put(serviceName,BluetoothAdapter.STATE_OFF);
+            Intent intent = new Intent(this,services[i]);
+            intent.putExtra(EXTRA_ACTION,ACTION_SERVICE_STATE_CHANGED);
+            intent.putExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.STATE_OFF);
+            intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+            res = stopService(intent);
+            Log.d(TAG, "disableProfileServices() - Stopping service "
+                + serviceName + " with result: " + res);
+            if(onlyGatt)
+                break;
         }
         return;
     }
