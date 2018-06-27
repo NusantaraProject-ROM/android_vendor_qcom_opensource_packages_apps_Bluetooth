@@ -233,6 +233,7 @@ public class A2dpService extends ProfileService {
             if(mAvrcp_ext != null) {
                 mAvrcp_ext.doQuit();
                 mAvrcp_ext.cleanup();
+                Avrcp_ext.clearAvrcpInstance();
                 mAvrcp_ext = null;
             } else if(mAvrcp != null) {
                 mAvrcp.doQuit();
