@@ -29,6 +29,7 @@ import android.util.Log;
 
 import com.android.bluetooth.R;
 import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
+import com.android.bluetooth.avrcpcontroller.CoverArtUtils;
 
 import java.util.List;
 
@@ -313,6 +314,9 @@ public class A2dpSinkStreamHandler extends Handler {
         } else {
             Log.e(TAG, "stopAvrcpUpdates failed because of connection.");
         }
+
+        CoverArtUtils coverArt = new CoverArtUtils();
+        coverArt.broadcastInValidHandle(mContext ,avrcpService, mStreamAvailable);
     }
 
     private void sendAvrcpPause() {

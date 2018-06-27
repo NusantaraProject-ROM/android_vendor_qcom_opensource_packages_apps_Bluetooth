@@ -21,6 +21,7 @@
 #include "android_runtime/AndroidRuntime.h"
 #include "com_android_bluetooth.h"
 #include "hardware/bt_rc.h"
+#include "hardware/bt_vendor_rc.h"
 #include "utils/Log.h"
 
 #include <string.h>
@@ -35,6 +36,7 @@ static jmethodID method_handleplayerappsettingchanged;
 static jmethodID method_handleSetAbsVolume;
 static jmethodID method_handleRegisterNotificationAbsVol;
 static jmethodID method_handletrackchanged;
+static jmethodID method_handleElementAttrupdate;
 static jmethodID method_handleplaypositionchanged;
 static jmethodID method_handleplaystatuschanged;
 static jmethodID method_handleGetFolderItemsRsp;
@@ -51,6 +53,7 @@ static jclass class_MediaBrowser_MediaItem;
 static jclass class_AvrcpPlayer;
 
 static const btrc_ctrl_interface_t* sBluetoothAvrcpInterface = NULL;
+static const btrc_vendor_ctrl_interface_t* sBluetoothAvrcpVendorInterface = NULL;
 static jobject sCallbacksObj = NULL;
 
 static void btavrcp_passthrough_response_callback(const RawAddress& bd_addr,
@@ -117,7 +120,7 @@ static void btavrcp_get_rcfeatures_callback(const RawAddress& bd_addr,
   sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
                                    (jbyte*)&bd_addr.address);
   sCallbackEnv->CallVoidMethod(sCallbacksObj, method_getRcFeatures, addr.get(),
-                               (jint)features);
+                               (jint)features, (jint) 0);
 }
 
 static void btavrcp_setplayerapplicationsetting_rsp_callback(
@@ -137,6 +140,86 @@ static void btavrcp_setplayerapplicationsetting_rsp_callback(
                                    (jbyte*)&bd_addr.address);
   sCallbackEnv->CallVoidMethod(sCallbacksObj, method_setplayerappsettingrsp,
                                addr.get(), (jint)accepted);
+}
+
+static void btavrcp_get_vendor_rcfeatures_callback(RawAddress* bd_addr, int features,
+    uint16_t cover_art_psm) {
+  ALOGV("%s", __func__);
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  ScopedLocalRef<jbyteArray> addr(
+      sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
+  if (!addr.get()) {
+    ALOGE("Fail to new jbyteArray bd addr ");
+    return;
+  }
+
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
+                                   (jbyte*)bd_addr);
+  sCallbackEnv->CallVoidMethod(sCallbacksObj, method_getRcFeatures, addr.get(),
+                               (jint)features, (jint) cover_art_psm);
+}
+
+static void  btavrcp_vendor_get_mediaelementattribute_rsp_callback(RawAddress *bd_addr,
+        uint8_t num_attr, btrc_element_attr_val_t *p_attrs) {
+   /*
+    * byteArray will be formatted like this: id,len,string
+    * Assuming text feild to be null terminated.
+    */
+    jbyteArray addr;
+    jintArray attribIds;
+    jobjectArray stringArray;
+    jstring str;
+    jclass strclazz;
+    jint i;
+    ALOGV("%s", __func__);
+    CallbackEnv sCallbackEnv(__func__);
+    if (!sCallbackEnv.valid()) return;
+
+    addr = sCallbackEnv->NewByteArray(sizeof(RawAddress));
+    if (!addr) {
+        ALOGE("Fail to get new array ");
+        return;
+    }
+    attribIds = sCallbackEnv->NewIntArray(num_attr);
+    if(!attribIds) {
+        ALOGE(" failed to set new array for attribIds");
+        sCallbackEnv->DeleteLocalRef(addr);
+        return;
+    }
+    sCallbackEnv->SetByteArrayRegion(addr, 0, sizeof(RawAddress), (jbyte *) bd_addr);
+
+    strclazz = sCallbackEnv->FindClass("java/lang/String");
+    stringArray = sCallbackEnv->NewObjectArray((jint)num_attr, strclazz, 0);
+    if(!stringArray) {
+        ALOGE(" failed to get String array");
+        sCallbackEnv->DeleteLocalRef(addr);
+        sCallbackEnv->DeleteLocalRef(attribIds);
+        return;
+    }
+    for(i = 0; i < num_attr; i++)
+    {
+        str = sCallbackEnv->NewStringUTF((char*)(p_attrs[i].text));
+        if(!str) {
+            ALOGE(" Unable to get str ");
+            sCallbackEnv->DeleteLocalRef(addr);
+            sCallbackEnv->DeleteLocalRef(attribIds);
+            sCallbackEnv->DeleteLocalRef(stringArray);
+            return;
+        }
+        sCallbackEnv->SetIntArrayRegion(attribIds, i, 1, (jint*)&(p_attrs[i].attr_id));
+        sCallbackEnv->SetObjectArrayElement(stringArray, i,str);
+        sCallbackEnv->DeleteLocalRef(str);
+    }
+
+    sCallbackEnv->CallVoidMethod(sCallbacksObj, method_handleElementAttrupdate, addr,
+         (jbyte)(num_attr), attribIds, stringArray);
+    sCallbackEnv->DeleteLocalRef(addr);
+    sCallbackEnv->DeleteLocalRef(attribIds);
+    /* TODO check do we need to delete str seperately or not */
+    sCallbackEnv->DeleteLocalRef(stringArray);
+    sCallbackEnv->DeleteLocalRef(strclazz);
 }
 
 static void btavrcp_playerapplicationsetting_callback(
@@ -598,6 +681,12 @@ static btrc_ctrl_callbacks_t sBluetoothAvrcpCallbacks = {
     btavrcp_set_browsed_player_callback,
     btavrcp_set_addressed_player_callback};
 
+static btrc_vendor_ctrl_callbacks_t  sBluetoothAvrcpVendorCallbacks = {
+    sizeof(sBluetoothAvrcpVendorCallbacks),
+    btavrcp_get_vendor_rcfeatures_callback,
+    btavrcp_vendor_get_mediaelementattribute_rsp_callback,
+};
+
 static void classInitNative(JNIEnv* env, jclass clazz) {
   method_handlePassthroughRsp =
       env->GetMethodID(clazz, "handlePassthroughRsp", "(II[B)V");
@@ -608,7 +697,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
   method_onConnectionStateChanged =
       env->GetMethodID(clazz, "onConnectionStateChanged", "(ZZ[B)V");
 
-  method_getRcFeatures = env->GetMethodID(clazz, "getRcFeatures", "([BI)V");
+  method_getRcFeatures = env->GetMethodID(clazz, "getRcFeatures", "([BII)V");
 
   method_setplayerappsettingrsp =
       env->GetMethodID(clazz, "setPlayerAppSettingRsp", "([BB)V");
@@ -627,6 +716,9 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 
   method_handletrackchanged =
       env->GetMethodID(clazz, "onTrackChanged", "([BB[I[Ljava/lang/String;)V");
+
+  method_handleElementAttrupdate =
+       env->GetMethodID(clazz, "onElementAttributeUpdate", "([BB[I[Ljava/lang/String;)V");
 
   method_handleplaypositionchanged =
       env->GetMethodID(clazz, "onPlayPositionChanged", "([BII)V");
@@ -676,6 +768,12 @@ static void initNative(JNIEnv* env, jobject object) {
     return;
   }
 
+  if (sBluetoothAvrcpVendorInterface != NULL) {
+    ALOGW("Cleaning up Avrcp Vendor Interface before initializing...");
+    sBluetoothAvrcpVendorInterface->cleanup_vendor();
+    sBluetoothAvrcpVendorInterface = NULL;
+  }
+
   if (sBluetoothAvrcpInterface != NULL) {
     ALOGW("Cleaning up Avrcp Interface before initializing...");
     sBluetoothAvrcpInterface->cleanup();
@@ -705,6 +803,28 @@ static void initNative(JNIEnv* env, jobject object) {
     return;
   }
 
+  sBluetoothAvrcpVendorInterface =
+      (btrc_vendor_ctrl_interface_t*)btInf->get_profile_interface(
+          BT_PROFILE_AV_RC_VENDOR_CTRL_ID);
+  if (sBluetoothAvrcpVendorInterface == NULL) {
+    ALOGE("Failed to get Bluetooth Avrcp Vendor Controller Interface");
+    sBluetoothAvrcpInterface->cleanup();
+    sBluetoothAvrcpInterface = NULL;
+    return;
+  }
+
+  status =
+      sBluetoothAvrcpVendorInterface->init_vendor(&sBluetoothAvrcpVendorCallbacks);
+  if (status != BT_STATUS_SUCCESS) {
+    ALOGE("Failed to initialize Bluetooth Avrcp Vendor Controller, status: %d",
+          status);
+    sBluetoothAvrcpVendorInterface = NULL;
+    sBluetoothAvrcpInterface->cleanup();
+    sBluetoothAvrcpInterface = NULL;
+    return;
+  }
+
+
   sCallbacksObj = env->NewGlobalRef(object);
 }
 
@@ -713,6 +833,11 @@ static void cleanupNative(JNIEnv* env, jobject object) {
   if (btInf == NULL) {
     ALOGE("Bluetooth module is not loaded");
     return;
+  }
+
+  if (sBluetoothAvrcpVendorInterface != NULL) {
+    sBluetoothAvrcpVendorInterface->cleanup_vendor();
+    sBluetoothAvrcpVendorInterface = NULL;
   }
 
   if (sBluetoothAvrcpInterface != NULL) {
@@ -1054,6 +1179,49 @@ static void playItemNative(JNIEnv* env, jobject object, jbyteArray address,
   env->ReleaseByteArrayElements(address, addr, 0);
 }
 
+/* This api is used to fetch metadata for currently playing track
+ * num_attribs: number of attributes to be fetched. 0 corresponds to fetch  all
+ *              attributes
+ * attrib_ids: list of attributes we want to fetch. NULL corresponds to fetch
+ *             all attributes.
+ */
+  static void getElementAttributesNative(JNIEnv *env, jobject object, jbyteArray address,
+                                        jbyte num_attribs, jbyteArray attrib_ids) {
+    if (!sBluetoothAvrcpVendorInterface) return;
+    bt_status_t status;
+    jbyte *addr;
+    uint32_t *pAttrs = NULL;
+    jbyte *attr;
+    int i;
+
+    if (!sBluetoothAvrcpInterface) return;
+    addr = env->GetByteArrayElements(address, NULL);
+    if (!addr) {
+        jniThrowIOException(env, EINVAL);
+        return;
+    }
+    if (num_attribs == 0) {
+        // we have to fetch all element attributes
+        sBluetoothAvrcpVendorInterface->get_media_element_attributes_vendor((RawAddress *)addr,
+                    (uint8_t)num_attribs, NULL);
+        env->ReleaseByteArrayElements(address, addr, 0);
+        return;
+    }
+    pAttrs = new uint32_t[num_attribs];
+    attr = env->GetByteArrayElements(attrib_ids, NULL);
+    for (i = 0; i < num_attribs; ++i) {
+        pAttrs[i] = (uint32_t)attr[i];
+    }
+    status = sBluetoothAvrcpVendorInterface->get_media_element_attributes_vendor(
+            (RawAddress *)addr, (uint8_t)num_attribs, pAttrs);
+    if (status != BT_STATUS_SUCCESS) {
+        ALOGE("Failed sending getElementAttributesNative command, status: %d", status);
+    }
+    delete[] pAttrs;
+    env->ReleaseByteArrayElements(address, addr, 0);
+    env->ReleaseByteArrayElements(attrib_ids, attr, 0);
+  }
+
 static JNINativeMethod sMethods[] = {
     {"classInitNative", "()V", (void*)classInitNative},
     {"initNative", "()V", (void*)initNative},
@@ -1075,6 +1243,7 @@ static JNINativeMethod sMethods[] = {
     {"playItemNative", "([BB[BI)V", (void*)playItemNative},
     {"setBrowsedPlayerNative", "([BI)V", (void*)setBrowsedPlayerNative},
     {"setAddressedPlayerNative", "([BI)V", (void*)setAddressedPlayerNative},
+    {"getElementAttributesNative", "([BB[B)V",(void *) getElementAttributesNative},
 };
 
 int register_com_android_bluetooth_avrcp_controller(JNIEnv* env) {

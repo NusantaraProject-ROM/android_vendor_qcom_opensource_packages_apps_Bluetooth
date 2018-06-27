@@ -776,11 +776,12 @@ public class AvrcpControllerService extends ProfileService {
     }
 
     // Called by JNI to notify Avrcp of features supported by the Remote device.
-    private void getRcFeatures(byte[] address, int features) {
+    private void getRcFeatures(byte[] address, int features, int caPsm) {
+        Log.i(TAG, " getRcFeatures caPsm :" + caPsm);
+        if (caPsm <= 0) return;
         BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address);
-        Message msg =
-                mAvrcpCtSm.obtainMessage(AvrcpControllerStateMachine.MESSAGE_PROCESS_RC_FEATURES,
-                        features, 0, device);
+        Message msg = mAvrcpCtSm.obtainMessage(
+            AvrcpControllerStateMachine.MESSAGE_PROCESS_RC_FEATURES, features, caPsm, device);
         mAvrcpCtSm.sendMessage(msg);
     }
 
@@ -840,6 +841,13 @@ public class AvrcpControllerService extends ProfileService {
         Message msg = mAvrcpCtSm.obtainMessage(
                 AvrcpControllerStateMachine.MESSAGE_PROCESS_TRACK_CHANGED, trackInfo);
         mAvrcpCtSm.sendMessage(msg);
+    }
+
+    private void onElementAttributeUpdate(byte[] address, byte numAttributes, int[] attributes,
+            String[] attribVals) {
+        CoverArtUtils coverArtUtils= new CoverArtUtils();
+        coverArtUtils.onElementAttributeUpdate(address, numAttributes, attributes, attribVals,
+                mConnectedDevice, mAvrcpCtSm);
     }
 
     // Called by JNI periodically based upon timer to update play position
@@ -1136,4 +1144,8 @@ public class AvrcpControllerService extends ProfileService {
     static native void setBrowsedPlayerNative(byte[] address, int playerId);
 
     static native void setAddressedPlayerNative(byte[] address, int playerId);
+
+    /* This api is used to fetch ElementAttributes */
+    native static void getElementAttributesNative(byte[] address, byte numAttributes,
+                                                   byte[] attribIds);
 }

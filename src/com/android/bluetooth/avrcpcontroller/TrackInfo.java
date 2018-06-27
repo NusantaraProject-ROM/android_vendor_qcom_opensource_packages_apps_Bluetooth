@@ -17,7 +17,10 @@
 
 package com.android.bluetooth.avrcpcontroller;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.media.MediaMetadata;
+import android.net.Uri;
 import android.util.Log;
 
 import java.util.ArrayList;
@@ -32,7 +35,7 @@ import java.util.Map;
  */
 class TrackInfo {
     private static final String TAG = "AvrcpTrackInfo";
-    private static final boolean VDBG = false;
+    private static final boolean VDBG = AvrcpControllerService.VDBG;
 
     /*
      * Default values for each of the items from JNI
@@ -52,6 +55,7 @@ class TrackInfo {
     private static final int MEDIA_ATTRIBUTE_TOTAL_TRACK_NUMBER = 0x05;
     private static final int MEDIA_ATTRIBUTE_GENRE = 0x06;
     private static final int MEDIA_ATTRIBUTE_PLAYING_TIME = 0x07;
+    private static final int MEDIA_ATTRIBUTE_COVER_ART_HANDLE = 0x08;
 
 
     private final String mArtistName;
@@ -61,6 +65,9 @@ class TrackInfo {
     private final long mTrackNum; // number of audio file on original recording.
     private final long mTotalTracks; // total number of tracks on original recording
     private final long mTrackLen; // full length of AudioFile.
+    private String mCoverArtHandle;
+    private String mImageLocation;
+    private String mThumbNailLocation;
 
     TrackInfo() {
         this(new ArrayList<Integer>(), new ArrayList<String>());
@@ -92,14 +99,36 @@ class TrackInfo {
         attribute = attributeMap.get(MEDIA_ATTRIBUTE_PLAYING_TIME);
         mTrackLen = (attribute != null && !attribute.isEmpty()) ? Long.valueOf(attribute)
                 : TOTAL_TRACK_TIME_INVALID;
+        mCoverArtHandle = attributeMap.getOrDefault(MEDIA_ATTRIBUTE_COVER_ART_HANDLE,
+                UNPOPULATED_ATTRIBUTE);
+        mImageLocation = UNPOPULATED_ATTRIBUTE;
+        mThumbNailLocation = UNPOPULATED_ATTRIBUTE;
     }
 
-    @Override
+    boolean updateImageLocation(String mCAHandle, String mLocation) {
+        if (VDBG) Log.d(TAG, " updateImageLocation hndl " + mCAHandle + " location " + mLocation);
+        if (!mCAHandle.equals(mCoverArtHandle) || (mLocation == null)) {
+            return false;
+        }
+        mImageLocation = mLocation;
+        return true;
+    }
+
+    boolean updateThumbNailLocation(String mCAHandle, String mLocation) {
+        if (VDBG) Log.d(TAG, " mCAHandle " + mCAHandle + " location " + mLocation);
+        if (!mCAHandle.equals(mCoverArtHandle) || (mLocation == null)) {
+            return false;
+        }
+        mThumbNailLocation = mLocation;
+        return true;
+    }
+
     public String toString() {
         return "Metadata [artist=" + mArtistName + " trackTitle= " + mTrackTitle + " albumTitle= "
                 + mAlbumTitle + " genre= " + mGenre + " trackNum= " + Long.toString(mTrackNum)
                 + " track_len : " + Long.toString(mTrackLen) + " TotalTracks " + Long.toString(
-                mTotalTracks) + "]";
+                mTotalTracks) + " mCoverArtHandle=" + mCoverArtHandle +
+                " mImageLocation :"+mImageLocation+"]";
     }
 
     public MediaMetadata getMediaMetaData() {
@@ -114,6 +143,16 @@ class TrackInfo {
         mMetaDataBuilder.putLong(MediaMetadata.METADATA_KEY_TRACK_NUMBER, mTrackNum);
         mMetaDataBuilder.putLong(MediaMetadata.METADATA_KEY_NUM_TRACKS, mTotalTracks);
         mMetaDataBuilder.putLong(MediaMetadata.METADATA_KEY_DURATION, mTrackLen);
+        if (mImageLocation != UNPOPULATED_ATTRIBUTE) {
+            Uri imageUri = Uri.parse(mImageLocation);
+            if (VDBG) Log.d(TAG," updating image uri = " + imageUri.toString());
+            mMetaDataBuilder.putString(MediaMetadata.METADATA_KEY_ALBUM_ART_URI,
+                    imageUri.toString());
+        }
+        if (mThumbNailLocation != UNPOPULATED_ATTRIBUTE) {
+            Bitmap mThumbNailBitmap = BitmapFactory.decodeFile(mThumbNailLocation);
+            mMetaDataBuilder.putBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON, mThumbNailBitmap);
+        }
         return mMetaDataBuilder.build();
     }
 
@@ -144,4 +183,15 @@ class TrackInfo {
         }
         return sb.toString();
     }
+
+    String getCoverArtHandle() {
+        return mCoverArtHandle;
+    }
+
+    void clearCoverArtData() {
+        mCoverArtHandle = UNPOPULATED_ATTRIBUTE;
+        mImageLocation = UNPOPULATED_ATTRIBUTE;
+        mThumbNailLocation = UNPOPULATED_ATTRIBUTE;
+    }
+
 }
