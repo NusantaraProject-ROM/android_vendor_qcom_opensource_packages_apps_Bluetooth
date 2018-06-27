@@ -108,4 +108,14 @@
 
      <!-- Reload supported Bluetooth Profiles while BLE is turning ON -->
      <bool name="reload_supported_profiles_when_enabled">true</bool>
+    <!-- For AVRCP cover art configuration If there is no update from UI
+         these default values would be used to fetch cover art.
+         height and width are to be  mentioned in pixels
+         maxsize is to be mentioned in bytes -->
+    <string name="avrcp_cover_art_default_mimetype">JPEG</string>
+    <string name="avrcp_cover_art_default_image_type">image</string>
+    <integer name="avrcp_cover_art_default_height">500</integer>
+    <integer name="avrcp_cover_art_default_width">500</integer>
+    <integer name="avrcp_cover_art_default_maxsize">200000</integer>
+
 </resources>
