@@ -72,7 +72,7 @@ public class BluetoothMapAppObserver {
         }
         if (isEmailSupported) {
             mLoader = new BluetoothMapAccountEmailLoader(mContext);
-            SystemProperties.set("persist.bluetooth.emailaccountcount",
+            SystemProperties.set("vendor.bluetooth.emailaccountcount",
                 String.valueOf(mLoader.getAccountsEnabledCount()));
         } else {
             mLoader = new BluetoothMapAccountLoader(mContext);

@@ -165,7 +165,8 @@ public class Config {
 
     private static synchronized boolean addAudioProfiles(String serviceName) {
         Log.d(TAG," addAudioProfiles profile" + serviceName);
-        boolean isA2dpSink = SystemProperties.getBoolean("persist.service.bt.a2dp.sink", false);
+        boolean isA2dpSink = SystemProperties.getBoolean(
+                "persist.vendor.service.bt.a2dp.sink", false);
         Log.i(TAG, "addAudioProfiles isA2dpSink :" + isA2dpSink);
         /* If property not enabled and request is for A2DPSinkService, don't add */
         if ((serviceName.equals("A2dpSinkService")) && (!isA2dpSink))
