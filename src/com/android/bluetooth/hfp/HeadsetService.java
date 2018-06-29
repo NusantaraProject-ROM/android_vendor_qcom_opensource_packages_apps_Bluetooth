@@ -158,7 +158,7 @@ public class HeadsetService extends ProfileService {
         // Step 4: Initialize native interface
         mSetMaxConfig = mMaxHeadsetConnections = mAdapterService.getMaxConnectedAudioDevices();
         if(mAdapterService.isVendorIntfEnabled()) {
-            String twsPlusEnabled = SystemProperties.get("persist.bt.enable.twsplus");
+            String twsPlusEnabled = SystemProperties.get("persist.vendor.btstack.enable.twsplus");
             if (!twsPlusEnabled.isEmpty() && "true".equals(twsPlusEnabled)) {
                 mIsTwsPlusEnabled = true;
             }
