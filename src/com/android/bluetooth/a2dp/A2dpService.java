@@ -128,7 +128,7 @@ public class A2dpService extends ProfileService {
         mMaxConnectedAudioDevices = mAdapterService.getMaxConnectedAudioDevices();
         mSetMaxConnectedAudioDevices = mMaxConnectedAudioDevices;
         if (mAdapterService.isVendorIntfEnabled()) {
-            String twsPlusEnabled = SystemProperties.get("persist.bt.enable.twsplus");
+            String twsPlusEnabled = SystemProperties.get("persist.vendor.btstack.enable.twsplus");
             if (!twsPlusEnabled.isEmpty() && "true".equals(twsPlusEnabled)) {
                 mIsTwsPlusEnabled = true;
             }
