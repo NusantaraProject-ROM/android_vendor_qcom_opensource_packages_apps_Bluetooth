@@ -111,6 +111,7 @@ public class HeadsetStateMachine extends StateMachine {
     static final int CS_CALL_STATE_CHANGED_ACTIVE = 23;
     static final int A2DP_STATE_CHANGED = 24;
     static final int UPDATE_CALL_TYPE = 25;
+    static final int RESUME_A2DP = 26;
 
     static final int STACK_EVENT = 101;
     private static final int CLCC_RSP_TIMEOUT = 104;
@@ -712,6 +713,11 @@ public class HeadsetStateMachine extends StateMachine {
                     stateLogD("UPDATE_CALL_TYPE event");
                     processIntentUpdateCallType((Intent) message.obj);
                     break;
+                case RESUME_A2DP: {
+                     stateLogD("RESUME_A2DP evt, resuming A2DP");
+                     mHeadsetService.getHfpA2DPSyncInterface().releaseA2DP(mDevice);
+                     break;
+                }
                 case STACK_EVENT:
                     HeadsetStackEvent event = (HeadsetStackEvent) message.obj;
                     stateLogD("STACK_EVENT: " + event);
@@ -1333,6 +1339,11 @@ public class HeadsetStateMachine extends StateMachine {
                     stateLogD("ignore DISCONNECT_AUDIO, device=" + mDevice);
                     // ignore
                     break;
+                case RESUME_A2DP: {
+                     stateLogD("RESUME_A2DP evt, resuming A2DP");
+                     mHeadsetService.getHfpA2DPSyncInterface().releaseA2DP(mDevice);
+                     break;
+                }
                 default:
                     return super.processMessage(message);
             }
@@ -2107,14 +2118,6 @@ public class HeadsetStateMachine extends StateMachine {
                 mNativeInterface.phoneStateChange(mDevice, callState);
             }
         }
-
-        // if call ended when there is no SCO, resume A2DP if we have suspended
-        if ((getCurrentState() == mConnecting || getCurrentState() == mConnected) &&
-               !(mSystemInterface.isInCall() || mSystemInterface.isRinging())) {
-           Log.d(TAG, "No call is present, resume A2DP if suspended by us");
-           mHeadsetService.getHfpA2DPSyncInterface().releaseA2DP(mDevice);
-        }
-
     }
 
     private void processIntentUpdateCallType(Intent intent) {
