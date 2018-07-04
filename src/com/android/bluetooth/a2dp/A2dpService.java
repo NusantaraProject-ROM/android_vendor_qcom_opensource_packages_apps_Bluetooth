@@ -716,6 +716,8 @@ public class A2dpService extends ProfileService {
             if (!(offloadSupported.isEmpty() || "true".equals(offloadSupported))) {
                 mAudioManager.handleBluetoothA2dpDeviceConfigChange(device);
             }
+            if(mAvrcp_ext != null)
+                mAvrcp_ext.setActiveDevice(device);
         }
         return true;
     }
