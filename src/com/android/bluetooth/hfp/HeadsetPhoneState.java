@@ -249,10 +249,12 @@ public class HeadsetPhoneState {
     }
 
     boolean getIsCsCall() {
+        Log.d(TAG, "In getIsCsCall, mIsCsCall: " + mIsCsCall);
         return mIsCsCall;
     }
 
     void setIsCsCall(boolean isCsCall) {
+        Log.d(TAG, "In setIsCsCall, mIsCsCall: " + isCsCall);
         mIsCsCall = isCsCall;
     }
 
