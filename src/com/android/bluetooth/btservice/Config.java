@@ -174,9 +174,9 @@ public class Config {
         if ((serviceName.equals("A2dpService")) && (isA2dpSink))
             return false;
 
-        boolean isBAEnabled = SystemProperties.getBoolean("persist.service.bt.bca", false);
+        boolean isBAEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bca", false);
         boolean isSplitA2dpSupported = SystemProperties.
-            getBoolean("persist.vendor.bt.enable.splita2dp", true);
+            getBoolean("persist.vendor.btstack.enable.splita2dp", true);
 
         if(serviceName.equals("BATService")) {
             Log.d(TAG," isBAEnabled = " + isBAEnabled
