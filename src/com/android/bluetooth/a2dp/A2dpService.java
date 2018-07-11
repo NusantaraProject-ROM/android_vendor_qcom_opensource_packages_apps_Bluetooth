@@ -704,7 +704,14 @@ public class A2dpService extends ProfileService {
             }
             // Make sure the Audio Manager knows the previous Active device is disconnected,
             // and the new Active device is connected.
+            // Also, mute and unmute the output during the switch to avoid audio glitches.
+            boolean wasMuted = false;
             if (previousActiveDevice != null) {
+                if (!mAudioManager.isStreamMute(AudioManager.STREAM_MUSIC)) {
+                   mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
+                                                 AudioManager.ADJUST_MUTE, 0);
+                   wasMuted = true;
+                }
                 if (mDummyDevice != null &&
                     mAdapterService.isTwsPlusDevice(previousActiveDevice)) {
                     mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
@@ -763,6 +770,10 @@ public class A2dpService extends ProfileService {
                  SystemProperties.get("persist.vendor.btstack.enable.splita2dp");
             if (!(offloadSupported.isEmpty() || "true".equals(offloadSupported))) {
                 mAudioManager.handleBluetoothA2dpDeviceConfigChange(device);
+            }
+            if (wasMuted) {
+               mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
+                                          AudioManager.ADJUST_UNMUTE, 0);
             }
             if(mAvrcp_ext != null)
                 mAvrcp_ext.setActiveDevice(device);
