@@ -2140,12 +2140,10 @@ public class HeadsetStateMachine extends StateMachine {
     private void processIntentA2dpPlayStateChanged(int a2dpState) {
         Log.d(TAG, "Enter processIntentA2dpPlayStateChanged(): a2dp state "+
                   a2dpState);
-        if (mHeadsetService.isVirtualCallStarted()) {
-            // TODO: cross check if need to do something here
-        } else if (mHeadsetService.isVRStarted()) {
-           Log.d(TAG, "VR is in started state, creating SCO");
-           mNativeInterface.connectAudio(mDevice);
-        } else if (mSystemInterface.isInCall()){
+        if (mHeadsetService.isVRStarted()) {
+            Log.d(TAG, "VR is in started state, creating SCO");
+            mNativeInterface.connectAudio(mDevice);
+        } else if (mSystemInterface.isInCall() || mHeadsetService.isVirtualCallStarted()){
             //send incoming phone status to remote device
             Log.d(TAG, "A2dp is suspended, updating phone states");
             Iterator<HeadsetCallState> it = mPendingCallStates.iterator();
