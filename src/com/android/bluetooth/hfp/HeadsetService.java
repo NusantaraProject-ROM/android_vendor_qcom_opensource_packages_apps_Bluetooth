@@ -821,7 +821,6 @@ public class HeadsetService extends ProfileService {
                       allowSecondHfConnection = true;
                    } else {
                       allowSecondHfConnection = false;
-                      mDisconnectAll = true;
                    }
                }
             }
