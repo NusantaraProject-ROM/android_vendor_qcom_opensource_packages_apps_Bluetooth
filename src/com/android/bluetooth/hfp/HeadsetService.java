@@ -1891,6 +1891,12 @@ public class HeadsetService extends ProfileService {
 
     private boolean shouldCallAudioBeActive() {
         boolean retVal = false;
+        // When the call is active/held, the call audio must be active
+        if (mSystemInterface.getHeadsetPhoneState().getNumActiveCall() > 0 ||
+            mSystemInterface.getHeadsetPhoneState().getNumHeldCall() > 0 ) {
+            Log.d(TAG, "shouldCallAudioBeActive(): returning true, since call is active/held");
+            return true;
+        }
         // When call is in  ringing state, SCO should not be accepted if
         // in-band ringtone is not enabled
         retVal = (mSystemInterface.isInCall() && !mSystemInterface.isRinging() )||
