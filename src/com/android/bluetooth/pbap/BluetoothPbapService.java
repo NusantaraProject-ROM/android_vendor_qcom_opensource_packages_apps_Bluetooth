@@ -798,9 +798,14 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
             Runnable r = new Runnable() {
                 @Override
                 public void run() {
-                    BluetoothPbapUtils.loadAllContacts(mContext,
-                            mSessionStatusHandler);
-                    mThreadLoadContacts = null;
+                    try {
+                        BluetoothPbapUtils.loadAllContacts(mContext,
+                                mSessionStatusHandler);
+                    } catch (Exception e) {
+                        Log.e(TAG, "loadAllContacts failed: " + e);
+                    } finally {
+                        mThreadLoadContacts = null;
+                    }
                 }
             };
             mThreadLoadContacts = new Thread(r);
@@ -813,9 +818,14 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
             Runnable r = new Runnable() {
                 @Override
                 public void run() {
-                    BluetoothPbapUtils.updateSecondaryVersionCounter(mContext,
-                            mSessionStatusHandler);
-                    mThreadUpdateSecVersionCounter = null;
+                    try {
+                        BluetoothPbapUtils.updateSecondaryVersionCounter(mContext,
+                                mSessionStatusHandler);
+                    } catch (Exception e) {
+                        Log.e(TAG, "updateSecondaryVersion counter failed: " + e);
+                    } finally {
+                        mThreadUpdateSecVersionCounter = null;
+                    }
                 }
             };
             mThreadUpdateSecVersionCounter = new Thread(r);
