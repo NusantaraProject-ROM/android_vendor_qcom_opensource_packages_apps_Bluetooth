@@ -40,6 +40,7 @@ class A2dpCodecConfig {
     private int mA2dpSourceCodecPriorityAac = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
     private int mA2dpSourceCodecPriorityAptx = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
     private int mA2dpSourceCodecPriorityAptxHd = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
+    private int mA2dpSourceCodecPriorityAptxAdaptive = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
     private int mA2dpSourceCodecPriorityLdac = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
     private int mA2dpSourceCodecPriorityAptxTws = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
     private int SOURCE_CODEC_TYPE_APTX_TWS = BluetoothCodecConfig.SOURCE_CODEC_TYPE_MAX + 1;
@@ -132,6 +133,15 @@ class A2dpCodecConfig {
                 < BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST)) {
             mA2dpSourceCodecPriorityAptx = value;
         }
+        try {
+            value = resources.getInteger(R.integer.a2dp_source_codec_priority_aptx_adaptive);
+        } catch (NotFoundException e) {
+            value = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
+        }
+        if ((value >= BluetoothCodecConfig.CODEC_PRIORITY_DISABLED) && (value
+                < BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST)) {
+            mA2dpSourceCodecPriorityAptxAdaptive = value;
+        }
 
         if(BT_SOC.equals("cherokee")) {
             try {
@@ -223,6 +233,13 @@ class A2dpCodecConfig {
                     0 /* codecSpecific2 */, 0 /* codecSpecific3 */, 0 /* codecSpecific4 */);
             codecConfigArray[5] = codecConfig;
         }
+
+        codecConfig = new BluetoothCodecConfig(BluetoothCodecConfig.SOURCE_CODEC_TYPE_APTX_ADAPTIVE,
+                mA2dpSourceCodecPriorityAptxAdaptive, BluetoothCodecConfig.SAMPLE_RATE_NONE,
+                BluetoothCodecConfig.BITS_PER_SAMPLE_NONE, BluetoothCodecConfig
+                .CHANNEL_MODE_NONE, 0 /* codecSpecific1 */,
+                0 /* codecSpecific2 */, 0 /* codecSpecific3 */, 0 /* codecSpecific4 */);
+        codecConfigArray[6] = codecConfig;
         return codecConfigArray;
     }
 }
