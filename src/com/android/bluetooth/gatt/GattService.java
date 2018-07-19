@@ -172,6 +172,7 @@ public class GattService extends ProfileService {
     private AppOpsManager mAppOps;
 
     private static GattService sGattService;
+    private boolean mNativeAvailable;
 
     /**
      * Reliable write queue
@@ -195,6 +196,7 @@ public class GattService extends ProfileService {
             Log.d(TAG, "start()");
         }
         initializeNative();
+        mNativeAvailable = true;
         mAdapter = BluetoothAdapter.getDefaultAdapter();
         mAppOps = getSystemService(AppOpsManager.class);
         mAdvertiseManager = new AdvertiseManager(this, AdapterService.getAdapterService());
@@ -221,17 +223,18 @@ public class GattService extends ProfileService {
         mServerMap.clear();
         mHandleMap.clear();
         mReliableQueue.clear();
-        if (mAdvertiseManager != null) {
-            mAdvertiseManager.cleanup();
-            mAdvertiseManager = null;
-        }
-        if (mScanManager != null) {
-            mScanManager.cleanup();
-            mScanManager = null;
-        }
-        if (mPeriodicScanManager != null) {
-            mPeriodicScanManager.cleanup();
-            mPeriodicScanManager = null;
+        if (mNativeAvailable) {
+            mNativeAvailable = false;
+            cleanupNative();
+            if (mAdvertiseManager != null) {
+                mAdvertiseManager.cleanup();
+            }
+            if (mScanManager != null) {
+                mScanManager.cleanup();
+            }
+            if (mPeriodicScanManager != null) {
+                mPeriodicScanManager.cleanup();
+            }
         }
         return true;
     }
@@ -241,19 +244,19 @@ public class GattService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "cleanup()");
         }
-        cleanupNative();
 
-        if (mAdvertiseManager != null) {
-            mAdvertiseManager.cleanup();
-            mAdvertiseManager = null;
-        }
-        if (mScanManager != null) {
-            mScanManager.cleanup();
-            mScanManager = null;
-        }
-        if (mPeriodicScanManager != null) {
-            mPeriodicScanManager.cleanup();
-            mPeriodicScanManager = null;
+        if (mNativeAvailable) {
+            mNativeAvailable = false;
+            cleanupNative();
+            if (mAdvertiseManager != null) {
+                mAdvertiseManager.cleanup();
+            }
+            if (mScanManager != null) {
+                mScanManager.cleanup();
+            }
+            if (mPeriodicScanManager != null) {
+                mPeriodicScanManager.cleanup();
+            }
         }
     }
 
