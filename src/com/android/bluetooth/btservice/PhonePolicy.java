@@ -126,6 +126,11 @@ class PhonePolicy {
                             BluetoothProfile.A2DP, -1, // No-op argument
                             intent).sendToTarget();
                     break;
+                case BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED:
+                    mHandler.obtainMessage(MESSAGE_PROFILE_ACTIVE_DEVICE_CHANGED,
+                            BluetoothProfile.HEADSET, -1, // No-op argument
+                            intent).sendToTarget();
+                    break;
                 case BluetoothAdapter.ACTION_STATE_CHANGED:
                     // Only pass the message on if the adapter has actually changed state from
                     // non-ON to ON. NOTE: ON is the state depicting BREDR ON and not just BLE ON.
@@ -230,6 +235,7 @@ class PhonePolicy {
         filter.addAction(BluetoothDevice.ACTION_UUID);
         filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
+        filter.addAction(BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED);
         mAdapterService.registerReceiver(mReceiver, filter);
     }
 
@@ -353,6 +359,25 @@ class PhonePolicy {
                 }
                 setAutoConnectForA2dpSink(activeDevice);
                 setAutoConnectForHeadset(activeDevice);
+                break;
+            case BluetoothProfile.HEADSET:
+                // Ignore null active device since we don't know if the change is triggered by
+                // normal device disconnection during Bluetooth shutdown or user action
+                if (activeDevice == null) {
+                    warnLog("processProfileActiveDeviceChanged: ignore null HFP active device");
+                    return;
+                }
+                // If a device with only HFP profile is connected then set autoconnection for
+                // that device.
+                A2dpService a2dpService = mFactory.getA2dpService();
+                if (a2dpService != null) {
+                     if (a2dpService.getConnectedDevices().size() == 0) {
+                         warnLog("processProfileActiveDeviceChanged: HFP active device changed and"+
+                         " no A2DP device connected, so setting priority to auto connect for HFP"+
+                         " device: " + activeDevice);
+                         setAutoConnectForHeadset(activeDevice);
+                     }
+                }
                 break;
         }
     }
