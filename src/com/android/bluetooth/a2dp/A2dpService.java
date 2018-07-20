@@ -43,6 +43,7 @@ import com.android.bluetooth.avrcp.AvrcpTargetService;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.ba.BATService;
+import android.os.SystemClock;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -81,6 +82,11 @@ public class A2dpService extends ProfileService {
     private static final int[] CONNECTING_CONNECTED_STATES = {
              BluetoothProfile.STATE_CONNECTING, BluetoothProfile.STATE_CONNECTED
              };
+    // A2DP disconnet will be delayed at audioservice,
+    // follwoing flags capture delay and delay time.
+    private int mDisconnectDelay = 0;
+    private long mDisconnectTime = 0;
+
     // Upper limit of all A2DP devices: Bonded or Connected
     private static final int MAX_A2DP_STATE_MACHINES = 50;
     // Upper limit of all A2DP devices that are Connected or Connecting
@@ -589,9 +595,13 @@ public class A2dpService extends ProfileService {
                 previousActiveDevice = mDummyDevice;
                 mDummyDevice = null;
             }
-            mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
+            mDisconnectDelay =
+                    mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
                     previousActiveDevice, BluetoothProfile.STATE_DISCONNECTED,
                     BluetoothProfile.A2DP, suppressNoisyIntent, -1);
+            if (mDisconnectDelay > 0) {
+                mDisconnectTime = SystemClock.uptimeMillis();
+            }
             // Make sure the Active device in native layer is set to null and audio is off
             if (!mA2dpNativeInterface.setActiveDevice(null)) {
                 Log.w(TAG, "setActiveDevice(null): Cannot remove active device in native "
@@ -696,7 +706,25 @@ public class A2dpService extends ProfileService {
                         .getRememberedVolumeForDevice(device);
             }
 
-            if (!isBAActive) {
+            // Check if ther is any delay set on audioservice for previous
+            // disconnect, if so then need to serialise disconnect/connect
+            // requests to audioservice, wait till prev disconnect is completed
+            if (mDisconnectDelay > 0) {
+                long currentTime = SystemClock.uptimeMillis();
+                if (mDisconnectDelay > (currentTime - mDisconnectTime)) {
+                    try {
+                        Log.d(TAG, "Enter wait for previous disconnect");
+                        Thread.sleep(mDisconnectDelay - (currentTime - mDisconnectTime));
+                        Log.d(TAG, "Exiting Wait for previous disconnect");
+                    } catch (InterruptedException e) {
+                        Log.e(TAG, "setactive was interrupted");
+                    }
+                }
+                mDisconnectDelay = 0;
+                mDisconnectTime = 0;
+             }
+
+             if (!isBAActive) {
                 if (mDummyDevice == null) {
                     mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
                             mActiveDevice, BluetoothProfile.STATE_CONNECTED, BluetoothProfile.A2DP,
