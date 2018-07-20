@@ -1086,7 +1086,8 @@ public class HeadsetService extends ProfileService {
                 }
                 pendingRequestByHeadset = true;
             }
-            if (!Objects.equals(device, mActiveDevice) && !setActiveDevice(device)) {
+            if (!Objects.equals(device, mActiveDevice) &&
+                  !mAdapterService.isTwsPlusDevice(device) && !setActiveDevice(device)) {
                 Log.w(TAG, "startVoiceRecognition: failed to set " + device + " as active");
                 return false;
             }
@@ -1548,7 +1549,8 @@ public class HeadsetService extends ProfileService {
                     return false;
                 }
             }
-            if (!setActiveDevice(fromDevice)) {
+            if (!mAdapterService.isTwsPlusDevice(fromDevice) &&
+                !setActiveDevice(fromDevice)) {
                 Log.e(TAG, "dialOutgoingCall failed to set active device to " + fromDevice);
                 return false;
             }
@@ -1637,7 +1639,7 @@ public class HeadsetService extends ProfileService {
                         + ", already pending by " + mVoiceRecognitionTimeoutEvent);
                 return false;
             }
-            if (!setActiveDevice(fromDevice)) {
+            if (!mAdapterService.isTwsPlusDevice(fromDevice) && !setActiveDevice(fromDevice)) {
                 Log.w(TAG, "startVoiceRecognitionByHeadset: failed to set " + fromDevice
                         + " as active");
                 return false;
