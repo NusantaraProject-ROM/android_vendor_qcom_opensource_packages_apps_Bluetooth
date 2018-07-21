@@ -290,7 +290,7 @@ public class AddressedMediaPlayer {
             (qid != mLastTrackIdSent)) {
              byte[] lastTrack =
                     ByteBuffer.allocate(AvrcpConstants.UID_SIZE).putLong(mLastTrackIdSent).array();
-             mMediaInterface.trackChangedRsp(type, lastTrack);
+             mAvrcp.trackChangedAddressedRsp(type, lastTrack, bdaddr);
              type = AvrcpConstants.NOTIFICATION_TYPE_CHANGED;
         }
         // The nowPlayingList changed: the new list has the full data for the current item
