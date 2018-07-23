@@ -381,8 +381,10 @@ class AvrcpControllerStateMachine extends StateMachine {
 
                     case MESSAGE_PROCESS_RC_FEATURES:
                         mRemoteDevice.setRemoteFeatures(msg.arg1);
-                        mCoveArtUtils.msgProcessRcFeatures
-                            (mBipStateMachine, mRemoteDevice,msg.arg2);
+                        if (msg.arg2 > 0) {
+                            mCoveArtUtils.msgProcessRcFeatures
+                                (mBipStateMachine, mRemoteDevice,msg.arg2);
+                        }
                         break;
 
                     case MESSAGE_PROCESS_SET_ABS_VOL_CMD:
