@@ -778,7 +778,6 @@ public class AvrcpControllerService extends ProfileService {
     // Called by JNI to notify Avrcp of features supported by the Remote device.
     private void getRcFeatures(byte[] address, int features, int caPsm) {
         Log.i(TAG, " getRcFeatures caPsm :" + caPsm);
-        if (caPsm <= 0) return;
         BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address);
         Message msg = mAvrcpCtSm.obtainMessage(
             AvrcpControllerStateMachine.MESSAGE_PROCESS_RC_FEATURES, features, caPsm, device);
