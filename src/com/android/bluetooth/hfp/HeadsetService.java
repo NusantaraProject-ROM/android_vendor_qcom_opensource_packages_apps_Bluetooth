@@ -1360,22 +1360,12 @@ public class HeadsetService extends ProfileService {
                 return true;
             }
             if (isAudioOn()) {
-                Log.w(TAG, "connectAudio: audio is not idle, current audio devices are "
-                        + Arrays.toString(getNonIdleAudioDevices().toArray()));
-
-                BluetoothDevice activeScoDevice = getNonIdleAudioDevices().get(0);
-                AdapterService adapterService = AdapterService.getAdapterService();
-                //If activeScoDevice present and It is TWSP device
-                //and PeerDevice is still connected
-                //return true to telePhony
-                if (activeScoDevice != null
-                    && adapterService.isTwsPlusDevice(activeScoDevice)
-                    && getTwsPlusConnectedPeer(activeScoDevice) != null) {
-                    Log.d(TAG, "is Tws case, keeping Audioon is Success");
-                    return true;
-                } else {
-                    return false;
-                }
+                //SCO is connecting or connected.
+                //Return true to telephony
+                Log.w(TAG, "connectAudio: audio is not idle, current audio devices are: "
+                        + Arrays.toString(getNonIdleAudioDevices().toArray()) + 
+                        " ,returning true");
+                return true;
             }
             stateMachine.sendMessage(HeadsetStateMachine.CONNECT_AUDIO, device);
         }

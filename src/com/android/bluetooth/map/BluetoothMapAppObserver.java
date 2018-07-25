@@ -72,12 +72,14 @@ public class BluetoothMapAppObserver {
         }
         if (isEmailSupported) {
             mLoader = new BluetoothMapAccountEmailLoader(mContext);
-            SystemProperties.set("vendor.bluetooth.emailaccountcount",
-                String.valueOf(mLoader.getAccountsEnabledCount()));
         } else {
             mLoader = new BluetoothMapAccountLoader(mContext);
         }
         mFullList   = mLoader.parsePackages(false); /* Get the current list of apps */
+        if (isEmailSupported) {
+            SystemProperties.set("vendor.bluetooth.emailaccountcount",
+                String.valueOf(mLoader.getAccountsEnabledCount()));
+        }
         createReceiver();
         initObservers();
     }
