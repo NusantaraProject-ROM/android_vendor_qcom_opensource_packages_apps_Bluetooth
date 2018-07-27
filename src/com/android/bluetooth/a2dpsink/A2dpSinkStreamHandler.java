@@ -121,11 +121,9 @@ public class A2dpSinkStreamHandler extends Handler {
                 }
                 // Audio stream has started, stop it if we don't have focus.
                 if (mAudioFocus == AudioManager.AUDIOFOCUS_NONE) {
-                    sendAvrcpPause();
                     requestAudioFocus();
-                } else {
-                    startAvrcpUpdates();
                 }
+                startAvrcpUpdates();
                 break;
 
             case SRC_STR_STOP:
@@ -157,12 +155,10 @@ public class A2dpSinkStreamHandler extends Handler {
                     startAvrcpUpdates();
                     break;
                 }
-                // Otherwise, pause if we don't have focus
                 if (mAudioFocus == AudioManager.AUDIOFOCUS_NONE) {
-                    sendAvrcpPause();
-                } else {
-                    startAvrcpUpdates();
+                    requestAudioFocus();
                 }
+                startAvrcpUpdates();
                 break;
 
             case SRC_PAUSE:
