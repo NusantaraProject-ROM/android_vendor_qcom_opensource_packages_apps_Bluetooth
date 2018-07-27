@@ -238,7 +238,10 @@ public class ObexServerSockets {
      */
     private synchronized boolean onConnect(BluetoothDevice device, BluetoothSocket conSocket) {
         if (D) {
-            Log.d(mTag, "onConnect() socket: " + conSocket);
+            Log.d(mTag, "onConnect() socket: " + conSocket + " mConHandler " + mConHandler);
+        }
+        if (mConHandler == null) {
+            return false;
         }
         return mConHandler.onConnect(device, conSocket);
     }
@@ -249,7 +252,8 @@ public class ObexServerSockets {
     private synchronized void onAcceptFailed() {
         shutdown(false);
         BluetoothAdapter mAdapter = BluetoothAdapter.getDefaultAdapter();
-        if ((mAdapter != null) && (mAdapter.getState() == BluetoothAdapter.STATE_ON)) {
+        if ((mAdapter != null) && (mAdapter.getState() == BluetoothAdapter.STATE_ON)
+                && mConHandler != null) {
             Log.d(mTag, "onAcceptFailed() calling shutdown...");
             mConHandler.onAcceptFailed();
         }
