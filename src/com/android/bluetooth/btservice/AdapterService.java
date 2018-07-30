@@ -221,6 +221,7 @@ public class AdapterService extends Service {
     private PowerManager.WakeLock mWakeLock;
     private String mWakeLockName;
     private UserManager mUserManager;
+    private static BluetoothAdapter mAdapter;
 
     private ProfileObserver mProfileObserver;
     private PhonePolicy mPhonePolicy;
@@ -447,6 +448,7 @@ public class AdapterService extends Service {
     public void onCreate() {
         super.onCreate();
         debugLog("onCreate()");
+        mAdapter = BluetoothAdapter.getDefaultAdapter();
         mRemoteDevices = new RemoteDevices(this, Looper.getMainLooper());
         mRemoteDevices.init();
         mBinder = new AdapterServiceBinder(this);
@@ -744,6 +746,12 @@ public class AdapterService extends Service {
         if (mCleaningUp) {
             errorLog("cleanup() - Service already starting to cleanup, ignoring request...");
             return;
+        }
+
+        // Unregistering Bluetooth Adapter
+        if ( mAdapter!= null ){
+            mAdapter.unregisterAdapter();
+            mAdapter = null;
         }
 
         clearAdapterService(this);
