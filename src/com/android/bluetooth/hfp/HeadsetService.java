@@ -1745,17 +1745,23 @@ public class HeadsetService extends ProfileService {
             doForEachConnectedConnectingStateMachine(
                      stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.CALL_STATE_CHANGED,
                              new HeadsetCallState(numActive, numHeld, callState, number, type)));
-            if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging())) {
-                Log.i(TAG, "no call, sending resume A2DP message to state machines");
-                doForEachConnectedConnectingStateMachine(
-                     stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.RESUME_A2DP));
-            }
+            mStateMachinesThread.getThreadHandler().post(() -> {
+                if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging())) {
+                    Log.i(TAG, "no call, sending resume A2DP message to state machines");
+                    for (BluetoothDevice device : availableDevices) {
+                        HeadsetStateMachine stateMachine = mStateMachines.get(device);
+                        stateMachine.sendMessage(HeadsetStateMachine.RESUME_A2DP);
+                    }
+                }
+            });
         } else {
-            if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging())) {
-                //If no device is connected, resume A2DP if there is no call
-                Log.i(TAG, "No device is connected and no call, set A2DPsuspended to false");
-                mHfpA2dpSyncInterface.releaseA2DP(null);
-            }
+            mStateMachinesThread.getThreadHandler().post(() -> {
+                if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging())) {
+                    //If no device is connected, resume A2DP if there is no call
+                    Log.i(TAG, "No device is connected and no call, set A2DPsuspended to false");
+                    mHfpA2dpSyncInterface.releaseA2DP(null);
+                }
+            });
         }
     }
 
