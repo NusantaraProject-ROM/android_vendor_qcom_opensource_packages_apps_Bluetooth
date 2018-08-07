@@ -239,7 +239,8 @@ class A2dpCodecConfig {
                 BluetoothCodecConfig.BITS_PER_SAMPLE_NONE, BluetoothCodecConfig
                 .CHANNEL_MODE_NONE, 0 /* codecSpecific1 */,
                 0 /* codecSpecific2 */, 0 /* codecSpecific3 */, 0 /* codecSpecific4 */);
-        codecConfigArray[6] = codecConfig;
+        final int offsetAptxAdaptive = (5 + (mAdapterService.isVendorIntfEnabled() ? 1 : 0));
+        codecConfigArray[offsetAptxAdaptive] = codecConfig;
         return codecConfigArray;
     }
 }
