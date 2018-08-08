@@ -2097,6 +2097,10 @@ public class GattService extends ProfileService {
         }
     }
 
+    public void setAptXLowLatencyMode(boolean enabled){
+        mScanManager.setAptXLowLatencyMode(enabled);
+    }
+
     /**************************************************************************
      * PERIODIC SCANNING
      *************************************************************************/
