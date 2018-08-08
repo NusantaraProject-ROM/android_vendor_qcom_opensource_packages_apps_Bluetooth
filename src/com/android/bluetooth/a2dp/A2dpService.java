@@ -44,6 +44,7 @@ import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.ba.BATService;
 import android.os.SystemClock;
+import com.android.bluetooth.gatt.GattService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -101,6 +102,11 @@ public class A2dpService extends ProfileService {
     private BroadcastReceiver mConnectionStateChangedReceiver;
     private boolean mIsTwsPlusEnabled = false;
     private BluetoothDevice mDummyDevice = null;
+
+    private static final long AptxBLEScanMask = 0x3000;
+    private static final long Aptx_BLEScanEnable = 0x1000;
+    private static final long Aptx_BLEScanDisable = 0x2000;
+
     @Override
     protected IProfileServiceBinder initBinder() {
         return new BluetoothA2dpBinder(this);
@@ -900,6 +906,21 @@ public class A2dpService extends ProfileService {
         if (device == null) {
             Log.e(TAG, "Cannot set codec config preference: no active A2DP device");
             return;
+        }
+
+        if((codecConfig.getCodecSpecific4() & AptxBLEScanMask) > 0) {
+            GattService mGattService = GattService.getGattService();
+
+            if(mGattService != null) {
+                long mScanMode = codecConfig.getCodecSpecific4() & AptxBLEScanMask;
+                if(mScanMode == Aptx_BLEScanEnable) {
+                    mGattService.setAptXLowLatencyMode(false);
+                }
+                else if(mScanMode == Aptx_BLEScanDisable) {
+                    Log.w(TAG, "Disable BLE scanning to support aptX LL Mode");
+                    mGattService.setAptXLowLatencyMode(true);
+                }
+            }
         }
         mA2dpCodecConfig.setCodecConfigPreference(device, codecConfig);
     }
