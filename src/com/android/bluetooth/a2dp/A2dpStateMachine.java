@@ -564,6 +564,8 @@ final class A2dpStateMachine extends StateMachine {
                             mA2dpService.setAvrcpAudioState(BluetoothA2dp.STATE_PLAYING, mDevice);
                             broadcastAudioState(BluetoothA2dp.STATE_PLAYING,
                                                 BluetoothA2dp.STATE_NOT_PLAYING);
+                            Log.i(TAG,"state:AUDIO_STATE_STARTED");
+                            mA2dpService.A2dpAudioState(BluetoothA2dp.STATE_PLAYING, mDevice);
                         }
                     }
                     break;
@@ -576,6 +578,10 @@ final class A2dpStateMachine extends StateMachine {
                             mA2dpService.setAvrcpAudioState(BluetoothA2dp.STATE_NOT_PLAYING, mDevice);
                             broadcastAudioState(BluetoothA2dp.STATE_NOT_PLAYING,
                                                 BluetoothA2dp.STATE_PLAYING);
+                            if (state == A2dpStackEvent.AUDIO_STATE_REMOTE_SUSPEND) {
+                                Log.i(TAG,"state:AUDIO_STATE_REMOTE_SUSPEND");
+                                mA2dpService.A2dpAudioState(BluetoothA2dp.STATE_NOT_PLAYING, mDevice);
+                            }
                         }
                     }
                     break;
