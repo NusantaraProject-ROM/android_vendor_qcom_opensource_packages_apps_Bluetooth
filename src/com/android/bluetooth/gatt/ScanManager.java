@@ -659,7 +659,7 @@ public class ScanManager {
             int phyCnt = 0;
 
 
-            if (client != null) {
+            if (phyInfoResult != null) {
                 curScanSettingLE1M = phyInfoResult.scanModeLE1M;
                 curScanSettingLECoded = phyInfoResult.scanModeLECoded;
                 scanPhy = phyInfoResult.scanPhy;
@@ -673,9 +673,13 @@ public class ScanManager {
                         + "scanPhy=" + scanPhy);
             }
 
+            /* Check whether scan mode for LE 1M PHY has changed and compute the appropriate
+             * scan interval and scan window values
+             */
             if ((curScanSettingLE1M != Integer.MIN_VALUE
                     && curScanSettingLE1M != ScanSettings.SCAN_MODE_OPPORTUNISTIC)) {
-                if (curScanSettingLE1M != mLastConfiguredScanSettingLE1M) {
+                if ((curScanSettingLE1M != mLastConfiguredScanSettingLE1M) ||
+                       (curScanSettingLECoded != mLastConfiguredScanSettingLECoded)) {
                     scanModeChanged = true;
                     ScanSettings settings = new ScanSettings.Builder().setScanMode(curScanSettingLE1M).build();
                     scanWindowLE1M = getScanWindowMillis(settings);
@@ -692,9 +696,14 @@ public class ScanManager {
                     Log.d(TAG, "configureRegularScanParams() - queue emtpy, scan stopped");
                 }
             }
+
+            /* Check whether scan mode for LE Coded PHY has changed and compute the appropriate
+             * scan interval and scan window values
+             */
             if((curScanSettingLECoded != Integer.MIN_VALUE
                     && curScanSettingLECoded != ScanSettings.SCAN_MODE_OPPORTUNISTIC)) {
-                if (curScanSettingLECoded != mLastConfiguredScanSettingLECoded) {
+                if ((curScanSettingLECoded != mLastConfiguredScanSettingLECoded) ||
+                       (curScanSettingLE1M != mLastConfiguredScanSettingLE1M)) {
                     scanModeChanged = true;
                     ScanSettings settings = new ScanSettings.Builder().setScanMode(curScanSettingLECoded).build();
                     scanWindowLECoded = getScanWindowMillis(settings);
@@ -715,7 +724,7 @@ public class ScanManager {
                 if (DBG) {
                     Log.d(TAG, "configureRegularScanParams - scanInterval LE 1M = " + scanIntervalLE1M
                             + "configureRegularScanParams - scanWindow LE 1M= " + scanWindowLE1M
-                            + "configureRegularScanParams - scanWindow LE Coded= " + scanWindowLECoded
+                            + "configureRegularScanParams - scanInterval LE Coded= " + scanIntervalLECoded
                             + "configureRegularScanParams - scanWindow LE Coded= " + scanWindowLECoded);
                 }
                 gattSetScanParametersNative(client.scannerId, scanPhy, scanInterval, scanWindow);
