@@ -62,7 +62,7 @@ public class A2dpService extends ProfileService {
     private static final String TAG = "A2dpService";
 
     private static A2dpService sA2dpService;
-
+    private static boolean mA2dpsuspend = false;
     private BluetoothAdapter mAdapter;
     private AdapterService mAdapterService;
     private HandlerThread mStateMachinesThread;
@@ -234,6 +234,8 @@ public class A2dpService extends ProfileService {
             for (A2dpStateMachine sm : mStateMachines.values()) {
                 sm.doQuit();
                 sm.cleanup();
+                Log.w(TAG,"stop(): ma2dpsuspend flag is " + mA2dpsuspend);
+                mA2dpsuspend = false;
             }
             mStateMachines.clear();
         }
@@ -569,6 +571,8 @@ public class A2dpService extends ProfileService {
         synchronized (mStateMachines) {
             // Clear the active device
             mActiveDevice = null;
+            Log.w(TAG,"removeActiveDevice(): ma2dpsuspend flag is " + mA2dpsuspend);
+            mA2dpsuspend = false;
             // This needs to happen before we inform the audio manager that the device
             // disconnected. Please see comment in broadcastActiveDevice() for why.
             broadcastActiveDevice(null);
@@ -676,6 +680,10 @@ public class A2dpService extends ProfileService {
             // This needs to happen before we inform the audio manager that the device
             // disconnected. Please see comment in broadcastActiveDevice() for why.
             broadcastActiveDevice(mActiveDevice);
+            Log.w(TAG,"setActiveDevice(): ma2dpsuspend flag is " + mA2dpsuspend);
+            if (mA2dpsuspend == true) {
+                mA2dpsuspend = false;
+            }
             Log.w(TAG, "setActiveDevice coming out of mutex lock");
         }
         if (deviceChanged &&
@@ -1096,6 +1104,25 @@ public class A2dpService extends ProfileService {
         mAudioManager.setParameters("reconfigA2dp=true");
     }
 
+    public void A2dpAudioState(int state, BluetoothDevice device) {
+        Log.w(TAG, "A2dpAudioState()");
+        if (device != null && Objects.equals(device, mActiveDevice)) {
+            Log.e(TAG, "device is active:" + device);
+            if ((state == BluetoothA2dp.STATE_PLAYING) && (mA2dpsuspend == true)) {
+                mA2dpsuspend = false;
+                Log.i(TAG,"A2dp started playing, make a2dpsuspend flag to:" + mA2dpsuspend);
+                mAudioManager.setParameters("A2dpSuspended=false");
+            } else if((state == BluetoothA2dp.STATE_NOT_PLAYING) && (mA2dpsuspend == false)) {
+                mA2dpsuspend = true;
+                Log.i(TAG,"On remote suspend, A2dp would suspend, make a2dpsuspend flag to: " + mA2dpsuspend);
+                mAudioManager.setParameters("A2dpSuspended=true");
+            } else {
+                Log.i(TAG,"Ignore update to Audio manager");
+            }
+        } else {
+            Log.e(TAG, "device is inactive/NULL" + device);
+        }
+    }
 
     private A2dpStateMachine getOrCreateStateMachine(BluetoothDevice device) {
         if (device == null) {
