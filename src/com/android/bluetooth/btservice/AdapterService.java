@@ -1920,6 +1920,47 @@ public class AdapterService extends Service {
         return result && storeBluetoothClassConfig(bluetoothClass.getClassOfDevice());
     }
 
+    private boolean validateInputOutputCapability(int capability) {
+        if (capability < 0 || capability >= BluetoothAdapter.IO_CAPABILITY_MAX) {
+            Log.e(TAG, "Invalid IO capability value - " + capability);
+            return false;
+        }
+
+        return true;
+    }
+
+    int getIoCapability() {
+        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
+
+        return mAdapterProperties.getIoCapability();
+    }
+
+    boolean setIoCapability(int capability) {
+        enforceCallingOrSelfPermission(
+                BLUETOOTH_PRIVILEGED, "Need BLUETOOTH PRIVILEGED permission");
+        if (!validateInputOutputCapability(capability)) {
+            return false;
+        }
+
+        return mAdapterProperties.setIoCapability(capability);
+    }
+
+    int getLeIoCapability() {
+        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
+
+        return mAdapterProperties.getLeIoCapability();
+    }
+
+    boolean setLeIoCapability(int capability) {
+        enforceCallingOrSelfPermission(
+                BLUETOOTH_PRIVILEGED, "Need BLUETOOTH PRIVILEGED permission");
+        if (!validateInputOutputCapability(capability)) {
+            return false;
+        }
+
+        return mAdapterProperties.setLeIoCapability(capability);
+    }
+
     boolean setTwsPlusDevType(byte[] address, short twsPlusDevType) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         BluetoothDevice device = mRemoteDevices.getDevice(address);

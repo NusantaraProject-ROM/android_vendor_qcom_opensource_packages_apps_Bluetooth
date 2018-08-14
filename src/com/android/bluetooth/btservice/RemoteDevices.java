@@ -673,7 +673,7 @@ final class RemoteDevices {
                             if ((sAdapterService.getState() == BluetoothAdapter.STATE_ON) &&
                                                             device.autoConnect ) {
                                 debugLog("sendUuidIntent as Auto connect is set ");
-                                sendUuidIntent(bdDevice);
+                                sendUuidIntent(bdDevice, device);
                             }
                             break;
                         case AbstractionLayer.BT_PROPERTY_TYPE_OF_DEVICE:

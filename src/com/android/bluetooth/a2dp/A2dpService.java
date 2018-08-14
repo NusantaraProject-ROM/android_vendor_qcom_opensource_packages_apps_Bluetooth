@@ -32,6 +32,9 @@ import android.media.AudioManager;
 import android.os.HandlerThread;
 import android.provider.Settings;
 import android.util.Log;
+
+import androidx.annotation.GuardedBy;
+import androidx.annotation.VisibleForTesting;
 import android.os.SystemProperties;
 
 import com.android.bluetooth.Utils;
@@ -157,20 +160,20 @@ public class A2dpService extends ProfileService {
         mStateMachinesThread = new HandlerThread("A2dpService.StateMachines");
         mStateMachinesThread.start();
 
-        // Step 4: Setup codec config
+        // Step 5: Setup codec config
         mA2dpCodecConfig = new A2dpCodecConfig(this, mA2dpNativeInterface);
 
-        // Step 5: Initialize native interface
+        // Step 6: Initialize native interface
         mA2dpNativeInterface.init(mMaxConnectedAudioDevices,
                                   mA2dpCodecConfig.codecConfigPriorities());
 
-        // Step 6: Check if A2DP is in offload mode
+        // Step 7: Check if A2DP is in offload mode
         mA2dpOffloadEnabled = mAdapterService.isA2dpOffloadEnabled();
         if (DBG) {
             Log.d(TAG, "A2DP offload flag set to " + mA2dpOffloadEnabled);
         }
 
-        // Step 7: Setup broadcast receivers
+        // Step 8: Setup broadcast receivers
         IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
         mBondStateChangedReceiver = new BondStateChangedReceiver();
@@ -180,10 +183,10 @@ public class A2dpService extends ProfileService {
         mConnectionStateChangedReceiver = new ConnectionStateChangedReceiver();
         registerReceiver(mConnectionStateChangedReceiver, filter);
 
-        // Step 8: Mark service as started
+        // Step 9: Mark service as started
         setA2dpService(this);
 
-        // Step 9: Clear active device
+        // Step 10: Clear active device
         setActiveDevice(null);
 
         return true;
@@ -682,7 +685,14 @@ public class A2dpService extends ProfileService {
             }
             // Make sure the Audio Manager knows the previous Active device is disconnected,
             // and the new Active device is connected.
+            // Also, mute and unmute the output during the switch to avoid audio glitches.
+            boolean wasMuted = false;
             if (previousActiveDevice != null) {
+                if (!mAudioManager.isStreamMute(AudioManager.STREAM_MUSIC)) {
+                    mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
+                                                     AudioManager.ADJUST_MUTE, 0);
+                    wasMuted = true;
+                }
                 if (mDummyDevice != null &&
                     mAdapterService.isTwsPlusDevice(previousActiveDevice)) {
                     mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
@@ -741,6 +751,10 @@ public class A2dpService extends ProfileService {
                  SystemProperties.get("persist.vendor.btstack.enable.splita2dp");
             if (!(offloadSupported.isEmpty() || "true".equals(offloadSupported))) {
                 mAudioManager.handleBluetoothA2dpDeviceConfigChange(device);
+                if (wasMuted) {
+                    mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
+                                                     AudioManager.ADJUST_UNMUTE, 0);
+                }
             }
             if(mAvrcp_ext != null)
                 mAvrcp_ext.setActiveDevice(device);
@@ -784,13 +798,13 @@ public class A2dpService extends ProfileService {
         return priority;
     }
 
+    /* Absolute volume implementation */
     public boolean isAvrcpAbsoluteVolumeSupported() {
         synchronized(mBtAvrcpLock) {
             if (mAvrcp_ext != null) return mAvrcp_ext.isAbsoluteVolumeSupported();
             return (mAvrcp != null) && mAvrcp.isAbsoluteVolumeSupported();
         }
     }
-
 
     public void setAvrcpAbsoluteVolume(int volume) {
         // TODO (apanicke): Instead of using A2DP as a middleman for volume changes, add a binder

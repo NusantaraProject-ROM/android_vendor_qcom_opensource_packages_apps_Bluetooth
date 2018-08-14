@@ -472,6 +472,17 @@ class AvrcpControllerStateMachine extends StateMachine {
                         }
                         break;
 
+                    case MESSAGE_PROCESS_ADDRESSED_PLAYER_CHANGED:
+                        mAddressedPlayerID = msg.arg1;
+                        if (DBG) Log.d(TAG, "AddressedPlayer = " + mAddressedPlayerID);
+                        AvrcpPlayer updatedPlayer = mAvailablePlayerList.get(mAddressedPlayerID);
+                        if (updatedPlayer != null) {
+                            mAddressedPlayer = updatedPlayer;
+                            if (DBG) Log.d(TAG, "AddressedPlayer = " + mAddressedPlayer.getName());
+                        }
+                        sendMessage(MESSAGE_PROCESS_SET_ADDRESSED_PLAYER);
+                        break;
+
                     case CoverArtUtils.MESSAGE_BIP_CONNECTED:
                     case CoverArtUtils.MESSAGE_BIP_DISCONNECTED:
                     case CoverArtUtils.MESSAGE_BIP_IMAGE_FETCHED:
@@ -479,6 +490,7 @@ class AvrcpControllerStateMachine extends StateMachine {
                         mCoveArtUtils.processBipAction(mContext, mAddressedPlayer,
                             mRemoteDevice, msg.what, msg);
                         break;
+
                     default:
                         return false;
                 }
