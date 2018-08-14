@@ -80,6 +80,9 @@ class AdapterProperties {
     private volatile int mScanMode;
     private volatile int mDiscoverableTimeout;
     private volatile ParcelUuid[] mUuids;
+    private volatile int mLocalIOCapability = BluetoothAdapter.IO_CAPABILITY_UNKNOWN;
+    private volatile int mLocalIOCapabilityBLE = BluetoothAdapter.IO_CAPABILITY_UNKNOWN;
+
     private CopyOnWriteArrayList<BluetoothDevice> mBondedDevices =
             new CopyOnWriteArrayList<BluetoothDevice>();
 
@@ -298,6 +301,45 @@ class AdapterProperties {
     BluetoothClass getBluetoothClass() {
         synchronized (mObject) {
             return mBluetoothClass;
+        }
+    }
+
+    boolean setIoCapability(int capability) {
+        synchronized (mObject) {
+            boolean result = mService.setAdapterPropertyNative(
+                    AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS, Utils.intToByteArray(capability));
+
+            if (result) {
+                mLocalIOCapability = capability;
+            }
+
+            return result;
+        }
+    }
+
+    int getIoCapability() {
+        synchronized (mObject) {
+            return mLocalIOCapability;
+        }
+    }
+
+    boolean setLeIoCapability(int capability) {
+        synchronized (mObject) {
+            boolean result = mService.setAdapterPropertyNative(
+                    AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS_BLE,
+                    Utils.intToByteArray(capability));
+
+            if (result) {
+                mLocalIOCapabilityBLE = capability;
+            }
+
+            return result;
+        }
+    }
+
+    int getLeIoCapability() {
+        synchronized (mObject) {
+            return mLocalIOCapabilityBLE;
         }
     }
 
@@ -805,6 +847,16 @@ class AdapterProperties {
 
                     case AbstractionLayer.BT_PROPERTY_LOCAL_LE_FEATURES:
                         updateFeatureSupport(val);
+                        break;
+
+                    case AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS:
+                        mLocalIOCapability = Utils.byteArrayToInt(val);
+                        debugLog("mLocalIOCapability set to " + mLocalIOCapability);
+                        break;
+
+                    case AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS_BLE:
+                        mLocalIOCapabilityBLE = Utils.byteArrayToInt(val);
+                        debugLog("mLocalIOCapabilityBLE set to " + mLocalIOCapabilityBLE);
                         break;
 
                     default:

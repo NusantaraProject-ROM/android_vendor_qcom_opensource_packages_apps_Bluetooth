@@ -70,6 +70,8 @@
     <uses-permission android:name="com.android.email.permission.ACCESS_PROVIDER"/>
     <uses-permission android:name="com.android.email.permission.READ_ATTACHMENT"/>
 
+    <uses-sdk android:minSdkVersion="14"/>
+
     <!-- For PBAP Owner Vcard Info -->
     <uses-permission android:name="android.permission.READ_PROFILE"/>
     <application

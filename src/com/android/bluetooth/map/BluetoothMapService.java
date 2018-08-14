@@ -39,10 +39,11 @@ import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.SystemProperties;
 import android.provider.Settings;
-import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.SparseArray;
+
+import androidx.annotation.VisibleForTesting;
 
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.R;

@@ -302,8 +302,8 @@ final class MceStateMachine extends StateMachine {
     }
 
     public void dump(StringBuilder sb) {
-        ProfileService.println(sb, "mCurrentDevice: " + mDevice.getAddress() + " (name = "
-                + mDevice.getName() + "), StateMachine: " + this.toString());
+        ProfileService.println(sb, "mCurrentDevice: " + mDevice.getAddress() + "("
+                + mDevice.getName() + ") " + this.toString());
     }
 
     class Disconnected extends State {
@@ -492,10 +492,8 @@ final class MceStateMachine extends StateMachine {
                 case MSG_NOTIFICATION:
                     EventReport ev = (EventReport) msg.obj;
                     if (DBG) {
-                        Log.d(TAG, "Message Type = " + ev.getType());
-                    }
-                    if (DBG) {
-                        Log.d(TAG, "Message handle = " + ev.getHandle());
+                        Log.d(TAG, "Message Type = " + ev.getType()
+                                + ", Message handle = " + ev.getHandle());
                     }
                     switch (ev.getType()) {
 
@@ -688,10 +686,8 @@ final class MceStateMachine extends StateMachine {
 
     void receiveEvent(EventReport ev) {
         if (DBG) {
-            Log.d(TAG, "Message Type = " + ev.getType());
-        }
-        if (DBG) {
-            Log.d(TAG, "Message handle = " + ev.getHandle());
+            Log.d(TAG, "Message Type = " + ev.getType()
+                    + ", Message handle = " + ev.getHandle());
         }
         sendMessage(MSG_NOTIFICATION, ev);
     }

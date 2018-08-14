@@ -64,10 +64,6 @@ public class HeadsetClientService extends ProfileService {
 
     public static final String HFP_CLIENT_STOP_TAG = "hfp_client_stop_tag";
 
-    static {
-        NativeInterface.classInitNative();
-    }
-
     @Override
     public IProfileServiceBinder initBinder() {
         return new BluetoothHeadsetClientBinder(this);
@@ -78,8 +74,15 @@ public class HeadsetClientService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "start()");
         }
+        if (sHeadsetClientService != null) {
+            Log.w(TAG, "start(): start called without stop");
+            return false;
+        }
+
         // Setup the JNI service
-        NativeInterface.initializeNative();
+        mNativeInterface = new NativeInterface();
+        mNativeInterface.initializeNative();
+
         mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         if (mAudioManager == null) {
             Log.e(TAG, "AudioManager service doesn't exist?");
@@ -93,8 +96,6 @@ public class HeadsetClientService extends ProfileService {
 
         IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
         registerReceiver(mBroadcastReceiver, filter);
-
-        mNativeInterface = new NativeInterface();
 
         // Start the HfpClientConnectionService to create connection with telecom when HFP
         // connection is available.
@@ -131,13 +132,13 @@ public class HeadsetClientService extends ProfileService {
         Intent stopIntent = new Intent(this, HfpClientConnectionService.class);
         stopIntent.putExtra(HFP_CLIENT_STOP_TAG, true);
         startService(stopIntent);
-        mNativeInterface = null;
 
         // Stop the handler thread
         mSmThread.quit();
         mSmThread = null;
 
-        NativeInterface.cleanupNative();
+        mNativeInterface.cleanupNative();
+        mNativeInterface = null;
 
         return true;
     }
@@ -914,8 +915,6 @@ public class HeadsetClientService extends ProfileService {
         super.dump(sb);
         for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
             if (sm != null) {
-                println(sb, "State machine:");
-                println(sb, "=============");
                 sm.dump(sb);
             }
         }

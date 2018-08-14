@@ -65,8 +65,9 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.ParcelUuid;
-import android.support.annotation.VisibleForTesting;
 import android.util.Log;
+
+import androidx.annotation.VisibleForTesting;
 
 import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
@@ -114,7 +115,8 @@ final class RemoteDevices {
                 case MESSAGE_UUID_INTENT:
                     BluetoothDevice device = (BluetoothDevice) msg.obj;
                     if (device != null) {
-                        sendUuidIntent(device);
+                        DeviceProperties prop = getDeviceProperties(device);
+                        sendUuidIntent(device, prop);
                     }
                     break;
             }
@@ -483,8 +485,7 @@ final class RemoteDevices {
         }
     }
 
-    private void sendUuidIntent(BluetoothDevice device) {
-        DeviceProperties prop = getDeviceProperties(device);
+    private void sendUuidIntent(BluetoothDevice device, DeviceProperties prop) {
         Intent intent = new Intent(BluetoothDevice.ACTION_UUID);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         intent.putExtra(BluetoothDevice.EXTRA_UUID, prop == null ? null : prop.mUuids);
@@ -949,13 +950,13 @@ final class RemoteDevices {
         }
         int batteryLevel = (Integer) args[1];
         int numberOfLevels = (Integer) args[2];
-        if (batteryLevel < 0 || numberOfLevels < 0 || batteryLevel > numberOfLevels) {
+        if (batteryLevel < 0 || numberOfLevels <= 1 || batteryLevel > numberOfLevels) {
             Log.w(TAG, "getBatteryLevelFromXEventVsc() wrong event value, batteryLevel="
                     + String.valueOf(batteryLevel) + ", numberOfLevels=" + String.valueOf(
                     numberOfLevels));
             return BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
         }
-        return batteryLevel * 100 / numberOfLevels;
+        return batteryLevel * 100 / (numberOfLevels - 1);
     }
 
     private static void errorLog(String msg) {

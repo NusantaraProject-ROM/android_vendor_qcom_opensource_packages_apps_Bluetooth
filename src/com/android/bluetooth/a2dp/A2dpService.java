@@ -31,8 +31,6 @@ import android.content.IntentFilter;
 import android.media.AudioManager;
 import android.os.HandlerThread;
 import android.provider.Settings;
-import android.support.annotation.GuardedBy;
-import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 import android.os.SystemProperties;
 
@@ -159,20 +157,20 @@ public class A2dpService extends ProfileService {
         mStateMachinesThread = new HandlerThread("A2dpService.StateMachines");
         mStateMachinesThread.start();
 
-        // Step 5: Setup codec config
+        // Step 4: Setup codec config
         mA2dpCodecConfig = new A2dpCodecConfig(this, mA2dpNativeInterface);
 
-        // Step 6: Initialize native interface
+        // Step 5: Initialize native interface
         mA2dpNativeInterface.init(mMaxConnectedAudioDevices,
                                   mA2dpCodecConfig.codecConfigPriorities());
 
-        // Step 7: Check if A2DP is in offload mode
+        // Step 6: Check if A2DP is in offload mode
         mA2dpOffloadEnabled = mAdapterService.isA2dpOffloadEnabled();
         if (DBG) {
             Log.d(TAG, "A2DP offload flag set to " + mA2dpOffloadEnabled);
         }
 
-        // Step 8: Setup broadcast receivers
+        // Step 7: Setup broadcast receivers
         IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
         mBondStateChangedReceiver = new BondStateChangedReceiver();
@@ -182,10 +180,10 @@ public class A2dpService extends ProfileService {
         mConnectionStateChangedReceiver = new ConnectionStateChangedReceiver();
         registerReceiver(mConnectionStateChangedReceiver, filter);
 
-        // Step 9: Mark service as started
+        // Step 8: Mark service as started
         setA2dpService(this);
 
-        // Step 10: Clear active device
+        // Step 9: Clear active device
         setActiveDevice(null);
 
         return true;
@@ -786,13 +784,13 @@ public class A2dpService extends ProfileService {
         return priority;
     }
 
-    /* Absolute volume implementation */
     public boolean isAvrcpAbsoluteVolumeSupported() {
         synchronized(mBtAvrcpLock) {
             if (mAvrcp_ext != null) return mAvrcp_ext.isAbsoluteVolumeSupported();
             return (mAvrcp != null) && mAvrcp.isAbsoluteVolumeSupported();
         }
     }
+
 
     public void setAvrcpAbsoluteVolume(int volume) {
         // TODO (apanicke): Instead of using A2DP as a middleman for volume changes, add a binder
