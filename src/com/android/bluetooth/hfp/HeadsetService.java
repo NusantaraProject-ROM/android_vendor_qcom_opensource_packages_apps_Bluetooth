@@ -1803,7 +1803,7 @@ public class HeadsetService extends ProfileService {
         boolean returnVal;
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         returnVal = BluetoothHeadset.isInbandRingingSupported(this) && !SystemProperties.getBoolean(
-                DISABLE_INBAND_RINGING_PROPERTY, false) && !mInbandRingingRuntimeDisable;
+                DISABLE_INBAND_RINGING_PROPERTY, true) && !mInbandRingingRuntimeDisable;
         Log.d(TAG, "isInbandRingingEnabled returning: " + returnVal);
         return returnVal;
     }
@@ -1834,11 +1834,13 @@ public class HeadsetService extends ProfileService {
             }
             if (fromState != BluetoothProfile.STATE_DISCONNECTED
                     && toState == BluetoothProfile.STATE_DISCONNECTED) {
-                if (audioConnectableDevices.size() <= 1 && isInbandRingingEnabled()) {
+                if (audioConnectableDevices.size() <= 1 ) {
                     mInbandRingingRuntimeDisable = false;
-                    doForEachConnectedStateMachine(
+                    if(isInbandRingingEnabled()) {
+                        doForEachConnectedStateMachine(
                             stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.SEND_BSIR,
-                                    1));
+                                   1));
+                    }
                 }
                 if (device.equals(mActiveDevice)) {
                     AdapterService adapterService = AdapterService.getAdapterService();
