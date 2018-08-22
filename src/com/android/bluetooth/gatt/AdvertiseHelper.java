@@ -39,6 +39,7 @@ class AdvertiseHelper {
     private static final int SERVICE_DATA_32_BIT_UUID = 0X20;
     private static final int SERVICE_DATA_128_BIT_UUID = 0X21;
     private static final int MANUFACTURER_SPECIFIC_DATA = 0XFF;
+    private static final int TRANSPORT_DISCOVERY_DATA = 0X26;
 
     public static byte[] advertiseDataToBytes(AdvertiseData data, String name) {
 
@@ -164,6 +165,13 @@ class AdvertiseHelper {
                     ret.write(concated, 0, concated.length);
                 }
             }
+        }
+
+        byte[] transportDiscoveryData = data.getTransportDiscoveryData();
+        if (transportDiscoveryData != null && (transportDiscoveryData.length > 0)) {
+            ret.write(transportDiscoveryData.length + 1);
+            ret.write(TRANSPORT_DISCOVERY_DATA);
+            ret.write(transportDiscoveryData, 0, transportDiscoveryData.length);
         }
 
         return ret.toByteArray();
