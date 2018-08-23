@@ -831,10 +831,16 @@ public class A2dpService extends ProfileService {
         synchronized(mBtAvrcpLock) {
             if (mAvrcp_ext != null) {
                 mAvrcp_ext.setA2dpAudioState(state, device);
-                return;
-            }
-            if (mAvrcp != null) {
+            } else if (mAvrcp != null) {
                 mAvrcp.setA2dpAudioState(state);
+            }
+        }
+
+        if(state == BluetoothA2dp.STATE_NOT_PLAYING) {
+            GattService mGattService = GattService.getGattService();
+            if(mGattService != null) {
+                Log.d(TAG, "Enable BLE scanning");
+                mGattService.setAptXLowLatencyMode(false);
             }
         }
     }
