@@ -1263,6 +1263,9 @@ public class HeadsetService extends ProfileService {
                         Log.w(TAG, "setActiveDevice: disconnectAudio failed on " + mActiveDevice);
                     }
                 }
+                if (!mNativeInterface.setActiveDevice(null)) {
+                    Log.w(TAG, "setActiveDevice: Cannot set active device as null in native layer");
+                }
                 mActiveDevice = null;
                 broadcastActiveDevice(null);
                 return true;
