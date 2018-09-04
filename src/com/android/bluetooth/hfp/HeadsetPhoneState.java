@@ -33,10 +33,10 @@ import android.util.Log;
 
 import com.android.internal.telephony.IccCardConstants;
 import com.android.internal.telephony.TelephonyIntents;
+import com.android.internal.telephony.PhoneConstants;
 
 import java.util.HashMap;
 import java.util.Objects;
-
 
 /**
  * Class that manages Telephony states
@@ -78,6 +78,12 @@ public class HeadsetPhoneState {
     private int mType = 0;
     // if its a CS call
     private boolean mIsCsCall = true;
+    // SIM is absent
+    private int SIM_ABSENT = 0;
+    // SIM is present
+    private int SIM_PRESENT = 1;
+    // Array to keep the SIM status
+    private int[] mSimStatus = {0, 0};
 
     private final HashMap<BluetoothDevice, Integer> mDeviceEventMap = new HashMap<>();
     private PhoneStateListener mPhoneStateListener;
@@ -99,10 +105,22 @@ public class HeadsetPhoneState {
         mSubscriptionManager.addOnSubscriptionsChangedListener(mOnSubscriptionsChangedListener);
         IntentFilter simStateChangedFilter =
                         new IntentFilter(TelephonyIntents.ACTION_SIM_STATE_CHANGED);
+        //Record the SIM states upon BT reset
         try {
-             mHeadsetService.registerReceiver(mPhoneStateChangeReceiver, simStateChangedFilter);
+            for (int slotIndex = 0; slotIndex < mSimStatus.length; slotIndex++) {
+                if (mTelephonyManager.getSimState(slotIndex) ==
+                        TelephonyManager.SIM_STATE_READY) {
+                    Log.d(TAG, "The sim in slotIndex: " + slotIndex + " is present");
+                    mSimStatus[slotIndex] = SIM_PRESENT;
+                } else {
+                    Log.d(TAG, "The sim in slotIndex: " + slotIndex + " is absent");
+                    mSimStatus[slotIndex] = SIM_ABSENT;
+                }
+            }
+            mHeadsetService.registerReceiver(mPhoneStateChangeReceiver, simStateChangedFilter);
         } catch (Exception e) {
-            Log.w(TAG, "Unable to register phone state change receiver", e);
+            Log.w(TAG, "Unable to register phone state change receiver and unable to get" +
+                       " sim states", e);
         }
     }
 
@@ -184,11 +202,15 @@ public class HeadsetPhoneState {
         } else {
             mPhoneStateListener = new HeadsetPhoneStateListener(subId,
                     mHeadsetService.getStateMachinesThreadLooper());
-            mTelephonyManager.listen(mPhoneStateListener, events);
-            if ((events & PhoneStateListener.LISTEN_SIGNAL_STRENGTHS) != 0) {
-                mTelephonyManager.setRadioIndicationUpdateMode(
-                        TelephonyManager.INDICATION_FILTER_SIGNAL_STRENGTH,
-                        TelephonyManager.INDICATION_UPDATE_MODE_IGNORE_SCREEN_OFF);
+            try {
+                mTelephonyManager.listen(mPhoneStateListener, events);
+                if ((events & PhoneStateListener.LISTEN_SIGNAL_STRENGTHS) != 0) {
+                    mTelephonyManager.setRadioIndicationUpdateMode(
+                            TelephonyManager.INDICATION_FILTER_SIGNAL_STRENGTH,
+                            TelephonyManager.INDICATION_UPDATE_MODE_IGNORE_SCREEN_OFF);
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Exception while registering for signal strength notifications", e);
             }
         }
     }
@@ -204,10 +226,14 @@ public class HeadsetPhoneState {
             Log.e(TAG, "mTelephonyManager is null, "
                 + "cannot send request to stop listening or update radio to normal state");
         } else {
-            mTelephonyManager.listen(mPhoneStateListener, PhoneStateListener.LISTEN_NONE);
-            mTelephonyManager.setRadioIndicationUpdateMode(
-                    TelephonyManager.INDICATION_FILTER_SIGNAL_STRENGTH,
-                    TelephonyManager.INDICATION_UPDATE_MODE_NORMAL);
+            try {
+                mTelephonyManager.listen(mPhoneStateListener, PhoneStateListener.LISTEN_NONE);
+                mTelephonyManager.setRadioIndicationUpdateMode(
+                        TelephonyManager.INDICATION_FILTER_SIGNAL_STRENGTH,
+                        TelephonyManager.INDICATION_UPDATE_MODE_NORMAL);
+            } catch (Exception e) {
+                Log.w(TAG, "exception while registering for signal strength notifications", e);
+            }
         }
         mPhoneStateListener = null;
     }
@@ -221,14 +247,30 @@ public class HeadsetPhoneState {
                 // This is a sticky broadcast, so if it's already been loaded,
                 // this'll execute immediately.
                 if (IccCardConstants.INTENT_VALUE_ICC_LOADED.equals(stateExtra)) {
-                    Log.d(TAG, "SIM loaded, making mIsSimStateLoaded to true");
+                    final int slotId = intent.getIntExtra(PhoneConstants.SLOT_KEY,
+                                       SubscriptionManager.getDefaultVoicePhoneId());
+                    Log.d(TAG, "SIM loaded, making mIsSimStateLoaded to true for slotId = "
+                               + slotId);
+                    mSimStatus[slotId] = SIM_PRESENT;
                     mIsSimStateLoaded = true;
                     sendDeviceStateChanged();
                 } else if (IccCardConstants.INTENT_VALUE_ICC_ABSENT.equals(stateExtra)
                            || IccCardConstants.INTENT_VALUE_ICC_UNKNOWN.equals(stateExtra)
                            || IccCardConstants.INTENT_VALUE_ICC_CARD_IO_ERROR.equals(stateExtra)) {
-                    Log.d(TAG, "SIM unloaded, making mIsSimStateLoaded to false");
+                    final int slotId = intent.getIntExtra(PhoneConstants.SLOT_KEY,
+                                       SubscriptionManager.getDefaultVoicePhoneId());
+                    Log.d(TAG, "SIM unloaded, making mIsSimStateLoaded to false for slotId = "
+                               + slotId);
+                    mSimStatus[slotId] = SIM_ABSENT;
                     mIsSimStateLoaded = false;
+                    for (int i = 0; i < mSimStatus.length; i++) {
+                        if (mSimStatus[i] == SIM_PRESENT) {
+                            Log.d(TAG, "SIM is loaded in either of the slots, making" +
+                                  " mIsSimStateLoaded to true");
+                              mIsSimStateLoaded = true;
+                              break;
+                         }
+                    }
                     sendDeviceStateChanged();
                 }
             }
@@ -328,7 +370,7 @@ public class HeadsetPhoneState {
         // use the service indicator, but only the signal indicator
         int signal = service == HeadsetHalConstants.NETWORK_STATE_AVAILABLE ? mCindSignal : 0;
 
-        Log.d(TAG, "sendDeviceStateChanged. mService=" + mCindService + " mIsSimStateLoaded="
+        Log.d(TAG, "sendDeviceStateChanged. mService=" + service + " mIsSimStateLoaded="
                 + mIsSimStateLoaded + " mSignal=" + signal + " mRoam=" + mCindRoam
                 + " mBatteryCharge=" + mCindBatteryCharge);
         mHeadsetService.onDeviceStateChanged(
