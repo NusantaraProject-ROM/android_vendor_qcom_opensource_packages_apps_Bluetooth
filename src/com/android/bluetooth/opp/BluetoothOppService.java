@@ -665,9 +665,6 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                             }
                         }
 
-                        if (shouldScanFile(arrayPos)) {
-                            scanFile(arrayPos);
-                        }
                         deleteShare(arrayPos); // this advances in the array
                     } else {
                         int id = cursor.getInt(idColumn);
@@ -677,9 +674,7 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                             if (V) {
                                 Log.v(TAG, "Array update: inserting " + id + " @ " + arrayPos);
                             }
-                            if (shouldScanFile(arrayPos)) {
-                                scanFile(arrayPos);
-                            }
+                            scanFileIfNeeded(arrayPos);
                             ++arrayPos;
                             cursor.moveToNext();
                             isAfterLast = cursor.isAfterLast();
@@ -694,17 +689,11 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                                     Log.v(TAG,
                                             "Array update: removing " + arrayId + " @ " + arrayPos);
                                 }
-                                if (shouldScanFile(arrayPos)) {
-                                    scanFile(arrayPos);
-                                }
                                 deleteShare(arrayPos);
                             } else if (arrayId == id) {
                                 // This cursor row already exists in the stored array.
                                 updateShare(cursor, arrayPos);
-
-                                if (shouldScanFile(arrayPos)) {
-                                    scanFile(arrayPos);
-                                }
+                                scanFileIfNeeded(arrayPos);
                                 ++arrayPos;
                                 cursor.moveToNext();
                                 isAfterLast = cursor.isAfterLast();
@@ -715,10 +704,7 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                                     Log.v(TAG, "Array update: appending " + id + " @ " + arrayPos);
                                 }
                                 insertShare(cursor, arrayPos);
-
-                                if (shouldScanFile(arrayPos)) {
-                                    scanFile(arrayPos);
-                                }
+                                scanFileIfNeeded(arrayPos);
                                 ++arrayPos;
                                 cursor.moveToNext();
                                 isAfterLast = cursor.isAfterLast();
@@ -1073,8 +1059,14 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
         }
     }
 
-    private boolean scanFile(int arrayPos) {
+    private void scanFileIfNeeded(int arrayPos) {
         BluetoothOppShareInfo info = mShares.get(arrayPos);
+        boolean isFileReceived = BluetoothShare.isStatusSuccess(info.mStatus)
+                && info.mDirection == BluetoothShare.DIRECTION_INBOUND && !info.mMediaScanned
+                && info.mConfirm != BluetoothShare.USER_CONFIRMATION_HANDOVER_CONFIRMED;
+        if (!isFileReceived) {
+            return;
+        }
         synchronized (BluetoothOppService.this) {
             if (D) {
                 Log.d(TAG, "Scanning file " + info.mFilename);
@@ -1082,18 +1074,8 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
             if (!mMediaScanInProgress) {
                 mMediaScanInProgress = true;
                 new MediaScannerNotifier(this, info, mHandler);
-                return true;
-            } else {
-                return false;
             }
         }
-    }
-
-    private boolean shouldScanFile(int arrayPos) {
-        BluetoothOppShareInfo info = mShares.get(arrayPos);
-        return BluetoothShare.isStatusSuccess(info.mStatus)
-                && info.mDirection == BluetoothShare.DIRECTION_INBOUND && !info.mMediaScanned
-                && info.mConfirm != BluetoothShare.USER_CONFIRMATION_HANDOVER_CONFIRMED;
     }
 
     // Run in a background thread at boot.

@@ -310,10 +310,24 @@ public class A2dpService extends ProfileService {
         }
 
         synchronized (mBtA2dpLock) {
-            disconnectExisting = false;
-            if (!connectionAllowedCheckMaxDevices(device) && !disconnectExisting) {
-                Log.e(TAG, "Cannot connect to " + device + " : too many connected devices");
-                return false;
+            if (!connectionAllowedCheckMaxDevices(device)) {
+                // when mMaxConnectedAudioDevices is one, disconnect current device first.
+                if (mMaxConnectedAudioDevices == 1) {
+                    List<BluetoothDevice> sinks = getDevicesMatchingConnectionStates(
+                            new int[] {BluetoothProfile.STATE_CONNECTED,
+                                    BluetoothProfile.STATE_CONNECTING,
+                                    BluetoothProfile.STATE_DISCONNECTING});
+                    for (BluetoothDevice sink : sinks) {
+                        if (sink.equals(device)) {
+                            Log.w(TAG, "Connecting to device " + device + " : disconnect skipped");
+                            continue;
+                        }
+                        disconnect(sink);
+                    }
+                } else {
+                    Log.e(TAG, "Cannot connect to " + device + " : too many connected devices");
+                    return false;
+                }
             }
             if (disconnectExisting) {
                 disconnectExisting = false;

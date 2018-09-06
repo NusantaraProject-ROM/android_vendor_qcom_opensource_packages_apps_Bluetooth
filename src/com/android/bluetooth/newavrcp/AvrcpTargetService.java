@@ -144,11 +144,6 @@ public class AvrcpTargetService extends ProfileService {
         mAdapterService = Objects.requireNonNull(AdapterService.getAdapterService(),
                 "AdapterService cannot be null when A2dpService starts");
 
-        mReceiver = new AvrcpBroadcastReceiver();
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
-        registerReceiver(mReceiver, filter);
-
         if(mAdapterService.isVendorIntfEnabled()) {
             Log.i(TAG, "Vendor Stack is enabled, using legacy implementation");
             SystemProperties.set(AVRCP_ENABLE_PROPERTY, "false");
@@ -159,6 +154,11 @@ public class AvrcpTargetService extends ProfileService {
             sInstance = null;
             return true;
         }
+
+        mReceiver = new AvrcpBroadcastReceiver();
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
+        registerReceiver(mReceiver, filter);
 
         mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         sDeviceMaxVolume = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
