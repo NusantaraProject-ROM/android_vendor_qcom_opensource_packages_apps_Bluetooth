@@ -134,8 +134,8 @@ public class HeadsetStateMachine extends StateMachine {
     /* Delay between call alerting, active updates for VOIP call */
     private static final int VOIP_CALL_ACTIVE_DELAY_TIME_MSEC =
                                VOIP_CALL_ALERTING_DELAY_TIME_MSEC + 50;
-    private static final int CS_CALL_ALERTING_DELAY_TIME_MSEC = 800;
-    private static final int CS_CALL_ACTIVE_DELAY_TIME_MSEC = 10;
+    private int CS_CALL_ALERTING_DELAY_TIME_MSEC = 800;
+    private int CS_CALL_ACTIVE_DELAY_TIME_MSEC = 10;
     private static final int INCOMING_CALL_IND_DELAY = 200;
     private static final int MAX_RETRY_CONNECT_COUNT = 2;
     // Blacklist remote device addresses to send incoimg call indicators with delay of 200ms
@@ -146,6 +146,8 @@ public class HeadsetStateMachine extends StateMachine {
                                                                 "00:17:53", /* ADAYO Carkit */
                                                                 "40:ef:4c", /* Road Rover Carkit */
                                                                };
+    private static final String [] BlacklistDeviceForSendingVOIPCallIndsBackToBack =
+                                                               {"f4:15:fd"}; /* Rongwei 360 Car */
     private static final String VOIP_CALL_NUMBER = "10000000";
 
     //VR app launched successfully
@@ -260,6 +262,14 @@ public class HeadsetStateMachine extends StateMachine {
         addState(mAudioConnecting);
         addState(mAudioDisconnecting);
         setInitialState(mDisconnected);
+
+        if (isDeviceBlacklistedForSendingCallIndsBackToBack()) {
+            CS_CALL_ALERTING_DELAY_TIME_MSEC = 0;
+            CS_CALL_ACTIVE_DELAY_TIME_MSEC = 0;
+            Log.w(TAG, "alerting delay " + CS_CALL_ALERTING_DELAY_TIME_MSEC +
+                      " active delay " + CS_CALL_ACTIVE_DELAY_TIME_MSEC);
+        }
+
         Log.i(TAG," Exiting HeadsetStateMachine constructor for device :" + device);
     }
 
@@ -2667,6 +2677,19 @@ public class HeadsetStateMachine extends StateMachine {
             String addr = BlacklistDeviceAddrToDelayCallInd[j];
             if (mDevice.toString().toLowerCase().startsWith(addr.toLowerCase())) {
                 log("Remote device address Blacklisted for sending delay");
+                return true;
+            }
+        }
+        return false;
+    }
+
+    boolean isDeviceBlacklistedForSendingCallIndsBackToBack() {
+        // Checking for the Blacklisted device Addresses
+        for (int j = 0; j < BlacklistDeviceForSendingVOIPCallIndsBackToBack.length;j++) {
+            String addr = BlacklistDeviceForSendingVOIPCallIndsBackToBack[j];
+            if (mDevice.toString().toLowerCase().startsWith(addr.toLowerCase())) {
+                Log.w(TAG, "Remote device " + mDevice +
+                   " address Blacklisted for sending VOIP call inds back to back");
                 return true;
             }
         }
