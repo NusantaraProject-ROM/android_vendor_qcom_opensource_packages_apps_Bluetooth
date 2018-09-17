@@ -1795,11 +1795,11 @@ public class A2dpService extends ProfileService {
             return;
         }
         if (previousSupport == BluetoothA2dp.OPTIONAL_CODECS_SUPPORT_UNKNOWN
-                || supportsOptional != (previousSupport
-                                    == BluetoothA2dp.OPTIONAL_CODECS_SUPPORTED)) {
+                || previousSupport == BluetoothA2dp.OPTIONAL_CODECS_NOT_SUPPORTED) {
             setSupportsOptionalCodecs(device, supportsOptional);
         }
-        if (supportsOptional) {
+        if (supportsOptional
+                || previousSupport == BluetoothA2dp.OPTIONAL_CODECS_SUPPORTED) {
             int enabled = getOptionalCodecsEnabled(device);
             switch (enabled) {
                 case BluetoothA2dp.OPTIONAL_CODECS_PREF_UNKNOWN:
