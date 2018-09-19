@@ -651,6 +651,8 @@ public class A2dpService extends ProfileService {
             if (device == null) {
                 // Remove active device and continue playing audio only if necessary.
                 removeActiveDevice(false);
+                if(mAvrcp_ext != null)
+                    mAvrcp_ext.setActiveDevice(device);
                 return true;
             }
 
