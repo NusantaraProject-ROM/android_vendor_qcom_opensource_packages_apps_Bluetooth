@@ -49,6 +49,7 @@ static jmethodID method_handleChangeFolderRsp;
 static jmethodID method_handleSetBrowsedPlayerRsp;
 static jmethodID method_handleSetAddressedPlayerRsp;
 static jmethodID method_handleAddressedPlayerChanged;
+static jmethodID method_handleNowPlayingContentChanged;
 
 static jclass class_MediaBrowser_MediaItem;
 static jclass class_AvrcpPlayer;
@@ -674,6 +675,17 @@ static void btavrcp_addressed_player_changed_callback(const RawAddress& bd_addr,
                                method_handleAddressedPlayerChanged, (jint)id);
 }
 
+static void btavrcp_now_playing_content_changed_callback(
+    const RawAddress& bd_addr) {
+  ALOGI("%s", __func__);
+
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+
+  sCallbackEnv->CallVoidMethod(sCallbacksObj,
+                               method_handleNowPlayingContentChanged);
+}
+
 static btrc_ctrl_callbacks_t sBluetoothAvrcpCallbacks = {
     sizeof(sBluetoothAvrcpCallbacks),
     btavrcp_passthrough_response_callback,
@@ -692,7 +704,8 @@ static btrc_ctrl_callbacks_t sBluetoothAvrcpCallbacks = {
     btavrcp_change_path_callback,
     btavrcp_set_browsed_player_callback,
     btavrcp_set_addressed_player_callback,
-    btavrcp_addressed_player_changed_callback};
+    btavrcp_addressed_player_changed_callback,
+    btavrcp_now_playing_content_changed_callback};
 
 static btrc_vendor_ctrl_callbacks_t  sBluetoothAvrcpVendorCallbacks = {
     sizeof(sBluetoothAvrcpVendorCallbacks),
@@ -765,6 +778,8 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
       env->GetMethodID(clazz, "handleSetAddressedPlayerRsp", "(I)V");
   method_handleAddressedPlayerChanged =
       env->GetMethodID(clazz, "handleAddressedPlayerChanged", "(I)V");
+  method_handleNowPlayingContentChanged =
+      env->GetMethodID(clazz, "handleNowPlayingContentChanged", "()V");
 
   ALOGI("%s: succeeds", __func__);
 }

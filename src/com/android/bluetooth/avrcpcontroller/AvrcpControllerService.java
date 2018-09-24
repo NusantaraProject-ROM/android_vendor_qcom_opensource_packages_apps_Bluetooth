@@ -723,7 +723,7 @@ public class AvrcpControllerService extends ProfileService {
                 playbackState = PlaybackState.STATE_FAST_FORWARDING;
                 break;
             case JNI_PLAY_STATUS_REV_SEEK:
-                playbackState = PlaybackState.STATE_FAST_FORWARDING;
+                playbackState = PlaybackState.STATE_REWINDING;
                 break;
             default:
                 playbackState = PlaybackState.STATE_NONE;
@@ -909,6 +909,14 @@ public class AvrcpControllerService extends ProfileService {
         Message msg = mAvrcpCtSm.obtainMessage(
                 AvrcpControllerStateMachine.MESSAGE_PROCESS_ADDRESSED_PLAYER_CHANGED, id);
         mAvrcpCtSm.sendMessage(msg);
+    }
+
+    private void handleNowPlayingContentChanged() {
+        if (DBG) {
+            Log.d(TAG, "handleNowPlayingContentChanged");
+        }
+        mAvrcpCtSm.sendMessage(
+                AvrcpControllerStateMachine.MESSAGE_PROCESS_NOW_PLAYING_CONTENTS_CHANGED);
     }
 
     @Override
