@@ -150,8 +150,9 @@ final class A2dpStateMachine extends StateMachine {
             Message currentMessage = getCurrentMessage();
             Log.i(TAG, "Enter Disconnected(" + mDevice + "): " + (currentMessage == null ? "null"
                     : messageWhatToString(currentMessage.what)));
-            mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
-
+            synchronized (this) {
+                mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
+            }
             removeDeferredMessages(DISCONNECT);
 
             if (mLastConnectionState != -1) {
@@ -266,7 +267,9 @@ final class A2dpStateMachine extends StateMachine {
             Log.i(TAG, "Enter Connecting(" + mDevice + "): " + (currentMessage == null ? "null"
                     : messageWhatToString(currentMessage.what)));
             sendMessageDelayed(CONNECT_TIMEOUT, sConnectTimeoutMs);
-            mConnectionState = BluetoothProfile.STATE_CONNECTING;
+            synchronized (this) {
+                mConnectionState = BluetoothProfile.STATE_CONNECTING;
+            }
             broadcastConnectionState(mConnectionState, mLastConnectionState);
         }
 
@@ -362,7 +365,9 @@ final class A2dpStateMachine extends StateMachine {
             Log.i(TAG, "Enter Disconnecting(" + mDevice + "): " + (currentMessage == null ? "null"
                     : messageWhatToString(currentMessage.what)));
             sendMessageDelayed(CONNECT_TIMEOUT, sConnectTimeoutMs);
-            mConnectionState = BluetoothProfile.STATE_DISCONNECTING;
+            synchronized (this) {
+                mConnectionState = BluetoothProfile.STATE_DISCONNECTING;
+            }
             broadcastConnectionState(mConnectionState, mLastConnectionState);
         }
 
@@ -466,8 +471,9 @@ final class A2dpStateMachine extends StateMachine {
             Message currentMessage = getCurrentMessage();
             Log.i(TAG, "Enter Connected(" + mDevice + "): " + (currentMessage == null ? "null"
                     : messageWhatToString(currentMessage.what)));
-            mConnectionState = BluetoothProfile.STATE_CONNECTED;
-
+            synchronized (this) {
+                mConnectionState = BluetoothProfile.STATE_CONNECTED;
+            }
             removeDeferredMessages(CONNECT);
 
             broadcastConnectionState(mConnectionState, mLastConnectionState);
@@ -602,7 +608,7 @@ final class A2dpStateMachine extends StateMachine {
 
     boolean isConnected() {
         synchronized (this) {
-            return (getCurrentState() == mConnected);
+            return (mConnectionState == BluetoothProfile.STATE_CONNECTED);
         }
     }
 
