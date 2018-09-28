@@ -1716,6 +1716,12 @@ public class HeadsetService extends ProfileService {
                     // stop voice recognition if there is any incoming call
                     stopVoiceRecognition(mActiveDevice);
                 }
+            } else {
+                // ignore CS non-call state update when virtual call started
+                if (!isVirtualCall && mVirtualCallStarted) {
+                    Log.i(TAG, "Ignore CS non-call state update");
+                    return ;
+                }
             }
             if (mDialingOutTimeoutEvent != null) {
                 // Send result to state machine when dialing starts
