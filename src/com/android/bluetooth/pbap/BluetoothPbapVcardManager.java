@@ -348,6 +348,9 @@ public class BluetoothPbapVcardManager {
             ArrayList<String> contactNameIdList = new ArrayList<String>();
             contactCursor = getContactNameIdList(contactCursor,
                         contactNameIdList, mContext.getString(android.R.string.unknownName));
+            appendDistinctNameIdList(contactNameIdList,
+                    mContext.getString(android.R.string.unknownName), contactCursor);
+
             if (contactCursor != null) {
                 if (!composer.initWithCallback(contactCursor,
                         new EnterpriseRawContactEntitlesInfoCallback())) {
