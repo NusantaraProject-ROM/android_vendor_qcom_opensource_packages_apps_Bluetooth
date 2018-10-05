@@ -2047,6 +2047,16 @@ public class AdapterService extends Service {
         return Utils.getAddressStringFromByte(address);
     }
 
+    public BluetoothDevice getTwsPlusPeerDevice(BluetoothDevice device) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
+        if (deviceProp == null) {
+            return null;
+        }
+        byte[] address = deviceProp.getTwsPlusPeerAddress();
+        return mRemoteDevices.getDevice(address);
+    }
+
     boolean createBond(BluetoothDevice device, int transport, OobData oobData) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);

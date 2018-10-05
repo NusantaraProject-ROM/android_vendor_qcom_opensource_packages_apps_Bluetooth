@@ -259,6 +259,10 @@ class PhonePolicy {
         HeadsetService headsetService = mFactory.getHeadsetService();
         PanService panService = mFactory.getPanService();
         HearingAidService hearingAidService = mFactory.getHearingAidService();
+        BluetoothDevice peerTwsDevice = null;
+        if (mAdapterService.isTwsPlusDevice(device)) {
+            peerTwsDevice = mAdapterService.getTwsPlusPeerDevice(device);
+        }
 
         // Set profile priorities only for the profiles discovered on the remote device.
         // This avoids needless auto-connect attempts to profiles non-existent on the remote device
@@ -273,12 +277,20 @@ class PhonePolicy {
                 || BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.Handsfree)) && (
                 headsetService.getPriority(device) == BluetoothProfile.PRIORITY_UNDEFINED))) {
             headsetService.setPriority(device, BluetoothProfile.PRIORITY_ON);
+            if (peerTwsDevice != null) {
+                debugLog("setting peer earbud to priority on for hfp" + peerTwsDevice);
+                headsetService.setPriority(peerTwsDevice, BluetoothProfile.PRIORITY_ON);
+            }
         }
 
         if ((a2dpService != null) && (BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.AudioSink)
                 || BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.AdvAudioDist)) && (
                 a2dpService.getPriority(device) == BluetoothProfile.PRIORITY_UNDEFINED)) {
             a2dpService.setPriority(device, BluetoothProfile.PRIORITY_ON);
+            if (peerTwsDevice != null) {
+                debugLog("setting peer earbud to priority on for a2dp" + peerTwsDevice);
+                a2dpService.setPriority(peerTwsDevice, BluetoothProfile.PRIORITY_ON);
+            }
         }
 
         if ((a2dpSinkService != null)
