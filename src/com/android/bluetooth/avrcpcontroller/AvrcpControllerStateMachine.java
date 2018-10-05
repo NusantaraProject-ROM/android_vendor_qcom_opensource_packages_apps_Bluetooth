@@ -68,6 +68,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int MESSAGE_PROCESS_SET_BROWSED_PLAYER = 113;
     static final int MESSAGE_PROCESS_SET_ADDRESSED_PLAYER = 114;
     static final int MESSAGE_PROCESS_ADDRESSED_PLAYER_CHANGED = 115;
+    static final int MESSAGE_PROCESS_NOW_PLAYING_CONTENTS_CHANGED = 116;
 
     // commands for connection
     static final int MESSAGE_PROCESS_RC_FEATURES = 301;
@@ -369,7 +370,6 @@ class AvrcpControllerStateMachine extends StateMachine {
                         boolean updateTrack =
                                 mAddressedPlayer.updateCurrentTrack((TrackInfo) msg.obj);
                         if (updateTrack) {
-                            mBrowseTree.mNowPlayingNode.setCached(false);
                             broadcastMetaDataChanged(
                                     mAddressedPlayer.getCurrentTrack().getMediaMetaData());
                         }
@@ -404,6 +404,12 @@ class AvrcpControllerStateMachine extends StateMachine {
                             mBrowseTree.mRootNode.setCached(false);
                         }
                         sendMessage(MESSAGE_PROCESS_SET_ADDRESSED_PLAYER);
+                        break;
+
+                    case MESSAGE_PROCESS_NOW_PLAYING_CONTENTS_CHANGED:
+                        mBrowseTree.mNowPlayingNode.setCached(false);
+                        mGetFolderList.setFolder(mBrowseTree.mNowPlayingNode.getID());
+                        transitionTo(mGetFolderList);
                         break;
 
                     case CoverArtUtils.MESSAGE_BIP_CONNECTED:
