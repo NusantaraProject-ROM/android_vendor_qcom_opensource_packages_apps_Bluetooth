@@ -45,6 +45,7 @@ import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.ba.BATService;
 import android.os.SystemClock;
+import com.android.bluetooth.gatt.GattService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -70,6 +71,7 @@ public class A2dpService extends ProfileService {
     private Avrcp_ext mAvrcp_ext;
     private final Object mBtA2dpLock = new Object();
     private final Object mBtAvrcpLock = new Object();
+    private final Object mActiveDeviceLock = new Object();
 
     @VisibleForTesting
     A2dpNativeInterface mA2dpNativeInterface;
@@ -102,6 +104,11 @@ public class A2dpService extends ProfileService {
     private BroadcastReceiver mConnectionStateChangedReceiver;
     private boolean mIsTwsPlusEnabled = false;
     private BluetoothDevice mDummyDevice = null;
+
+    private static final long AptxBLEScanMask = 0x3000;
+    private static final long Aptx_BLEScanEnable = 0x1000;
+    private static final long Aptx_BLEScanDisable = 0x2000;
+
     @Override
     protected IProfileServiceBinder initBinder() {
         return new BluetoothA2dpBinder(this);
@@ -633,6 +640,11 @@ public class A2dpService extends ProfileService {
      */
     public boolean setActiveDevice(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
+        synchronized (mActiveDeviceLock) {
+            return setActiveDeviceInternal(device);
+        }
+    }
+    private boolean setActiveDeviceInternal(BluetoothDevice device) {
         boolean deviceChanged;
         BluetoothCodecStatus codecStatus = null;
         BluetoothDevice previousActiveDevice = mActiveDevice;
@@ -650,6 +662,8 @@ public class A2dpService extends ProfileService {
             if (device == null) {
                 // Remove active device and continue playing audio only if necessary.
                 removeActiveDevice(false);
+                if(mAvrcp_ext != null)
+                    mAvrcp_ext.setActiveDevice(device);
                 return true;
             }
 
@@ -770,6 +784,10 @@ public class A2dpService extends ProfileService {
                                                      AudioManager.ADJUST_UNMUTE, 0);
                 }
             }
+            if (wasMuted) {
+               mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
+                                          AudioManager.ADJUST_UNMUTE, 0);
+            }
             if(mAvrcp_ext != null)
                 mAvrcp_ext.setActiveDevice(device);
         }
@@ -843,10 +861,16 @@ public class A2dpService extends ProfileService {
         synchronized(mBtAvrcpLock) {
             if (mAvrcp_ext != null) {
                 mAvrcp_ext.setA2dpAudioState(state, device);
-                return;
-            }
-            if (mAvrcp != null) {
+            } else if (mAvrcp != null) {
                 mAvrcp.setA2dpAudioState(state);
+            }
+        }
+
+        if(state == BluetoothA2dp.STATE_NOT_PLAYING) {
+            GattService mGattService = GattService.getGattService();
+            if(mGattService != null) {
+                Log.d(TAG, "Enable BLE scanning");
+                mGattService.setAptXLowLatencyMode(false);
             }
         }
     }
@@ -926,6 +950,21 @@ public class A2dpService extends ProfileService {
         if (device == null) {
             Log.e(TAG, "Cannot set codec config preference: no active A2DP device");
             return;
+        }
+
+        if((codecConfig.getCodecSpecific4() & AptxBLEScanMask) > 0) {
+            GattService mGattService = GattService.getGattService();
+
+            if(mGattService != null) {
+                long mScanMode = codecConfig.getCodecSpecific4() & AptxBLEScanMask;
+                if(mScanMode == Aptx_BLEScanEnable) {
+                    mGattService.setAptXLowLatencyMode(false);
+                }
+                else if(mScanMode == Aptx_BLEScanDisable) {
+                    Log.w(TAG, "Disable BLE scanning to support aptX LL Mode");
+                    mGattService.setAptXLowLatencyMode(true);
+                }
+            }
         }
         mA2dpCodecConfig.setCodecConfigPreference(device, codecConfig);
     }
