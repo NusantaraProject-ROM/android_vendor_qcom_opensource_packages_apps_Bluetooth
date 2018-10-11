@@ -637,7 +637,8 @@ class PhonePolicy {
         if (a2dpService != null) {
             if ((a2dpConnDevList.isEmpty() || !(a2dpConnDevList.contains(device)))
                     && (!mA2dpRetrySet.contains(device))
-                    && (a2dpService.getPriority(device) >= BluetoothProfile.PRIORITY_ON)
+                    && (a2dpService.getPriority(device) >= BluetoothProfile.PRIORITY_ON ||
+                        mAdapterService.isTwsPlusDevice(device))
                     && (a2dpService.getConnectionState(device)
                                == BluetoothProfile.STATE_DISCONNECTED)
                     && (hsConnected || (hsService != null &&
