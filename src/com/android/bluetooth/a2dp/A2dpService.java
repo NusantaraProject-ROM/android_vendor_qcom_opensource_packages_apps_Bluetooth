@@ -1276,15 +1276,6 @@ public class A2dpService extends ProfileService {
                 // it differs from what we had saved before.
                 updateOptionalCodecsSupport(device);
             }
-            // Set the active device if only one connected device is supported and it was connected
-            if (toState == BluetoothProfile.STATE_CONNECTED && (mMaxConnectedAudioDevices == 1)) {
-                setActiveDevice(device);
-            }
-            // Check if the active device is not connected anymore
-            if (isActiveDevice(device) && (fromState == BluetoothProfile.STATE_CONNECTED) &&
-                mMaxConnectedAudioDevices == 1) {
-                setActiveDevice(null);
-            }
             // Check if the device is disconnected - if unbond, remove the state machine
             if (toState == BluetoothProfile.STATE_DISCONNECTED) {
                 int bondState = mAdapterService.getBondState(device);
