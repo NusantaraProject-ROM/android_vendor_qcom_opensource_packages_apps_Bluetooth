@@ -60,6 +60,9 @@ class BrowsedMediaPlayer {
     private AvrcpMediaRspInterface mMediaInterface;
     private byte[] mBDAddr;
 
+    private String mCurrentBrowsePackage;
+    private String mCurrentBrowseClass;
+
     /* Object used to connect to MediaBrowseService of Media Player */
     private MediaBrowser mMediaBrowser = null;
     private MediaController mMediaController = null;
@@ -151,6 +154,7 @@ class BrowsedMediaPlayer {
                         if (DEBUG) {
                             Log.d(TAG, "sending setbrowsed player rsp");
                         }
+                        Log.w(TAG, "sending setbrowsed player rsp");
                         mFolderItems = children;
                         mMediaInterface.setBrowsedPlayerRsp(mBDAddr, AvrcpConstants.RSP_NO_ERROR,
                                 (byte) 0x00, children.size(), ROOT_FOLDER);
@@ -344,6 +348,7 @@ class BrowsedMediaPlayer {
                         }
                     }
                     /* get root folder items */
+                    Log.e(TAG, "onBrowseConnect: subscribe event for FolderCb");
                     mMediaBrowser.subscribe(mRootFolderUid, mFolderItemsCb);
                 }
 
@@ -431,6 +436,35 @@ class BrowsedMediaPlayer {
             }
             Log.d(TAG, "send setbrowse rsp status=" + rsp_status + " folder_depth=" + folder_depth);
         }
+    }
+
+    public void TryReconnectBrowse(String packageName, String cls) {
+        Log.w(TAG, "Try reconnection with Browser service for package = " + packageName);
+        mConnectingPackageName = packageName;
+        mPackageName = packageName;
+        mClassName = cls;
+
+        /* cleanup variables from previous browsed calls */
+        mFolderItems = null;
+        mMediaId = null;
+        mRootFolderUid = null;
+
+        if (mPathStack != null)
+            mPathStack = null;
+        mPathStack = new Stack<String>();
+
+        MediaConnectionCallback callback = new MediaConnectionCallback(packageName);
+        MediaBrowser tempBrowser = new MediaBrowser(
+                mContext, new ComponentName(packageName, cls), callback, null);
+        callback.setBrowser(tempBrowser);
+        tempBrowser.connect();
+        Log.w(TAG, "Reconnected with Browser service");
+    }
+
+    public void setCurrentPackage(String packageName, String cls) {
+        Log.w(TAG, "Set current Browse based on Addr Player as " + packageName);
+        mCurrentBrowsePackage = packageName;
+        mCurrentBrowseClass = cls;
     }
 
     /* called when connection to media player is closed */
@@ -593,17 +627,16 @@ class BrowsedMediaPlayer {
     }
 
     public void getFolderItemsVFS(AvrcpCmd.FolderItemsCmd reqObj) {
-        if (!isPlayerConnected()) {
-            Log.e(TAG, "unable to connect to media player, sending internal error");
-            /* unable to connect to media player. Send error response to remote device */
-            mMediaInterface.folderItemsRsp(mBDAddr, AvrcpConstants.RSP_INTERNAL_ERR, null);
-            return;
-        }
-
         if (DEBUG) {
             Log.d(TAG, "getFolderItemsVFS");
         }
         mFolderItemsReqObj = reqObj;
+
+        if ((mCurrentBrowsePackage != null) && (!mCurrentBrowsePackage.equals(mPackageName))) {
+            Log.w(TAG, "Try reconnection with Browser service as addressed pkg is changed = "
+                    + mCurrentBrowsePackage + "from " + mPackageName);
+            TryReconnectBrowse(mCurrentBrowsePackage, mCurrentBrowseClass);
+        }
 
         if (mFolderItems == null) {
             /* Failed to fetch folder items from media player. Send error to remote device */
