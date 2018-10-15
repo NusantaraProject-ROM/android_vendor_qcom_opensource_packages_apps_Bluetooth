@@ -669,10 +669,24 @@ public class A2dpService extends ProfileService {
      */
     public boolean setActiveDevice(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
+
+        if(mAvrcp_ext != null) {
+            if (mAvrcp_ext.startSHO(device, false) == false) {
+                return startSHO(device);
+            } else {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public boolean startSHO(BluetoothDevice device) {
         synchronized (mActiveDeviceLock) {
             return setActiveDeviceInternal(device);
         }
     }
+
     private boolean setActiveDeviceInternal(BluetoothDevice device) {
         boolean deviceChanged;
         BluetoothCodecStatus codecStatus = null;
