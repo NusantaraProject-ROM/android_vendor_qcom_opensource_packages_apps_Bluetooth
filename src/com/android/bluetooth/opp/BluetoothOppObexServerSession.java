@@ -104,6 +104,10 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler
 
     private int mNumFilesAttemptedToReceive;
 
+    private boolean isHandover = false;
+
+    private String destination;
+
     public BluetoothOppObexServerSession(Context context, ObexTransport transport,
             BluetoothOppService service) {
         mContext = context;
@@ -202,8 +206,6 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler
         } else {
             destination = "FF:FF:FF:00:00:00";
         }
-        boolean isWhitelisted =
-                BluetoothOppManager.getInstance(mContext).isWhitelisted(destination);
 
         HeaderSet request;
         String name, mimeType;
@@ -264,7 +266,7 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler
         }
 
         // Reject anything outside the "whitelist" plus unspecified MIME Types.
-        if (mimeType == null || (!isWhitelisted && !Constants.mimeTypeMatches(mimeType,
+        if (mimeType == null || (!isHandover && !Constants.mimeTypeMatches(mimeType,
                 Constants.ACCEPTABLE_SHARE_INBOUND_TYPES))) {
             if (D) {
                 Log.w(TAG, "mimeType is null or in unacceptable list, reject the transfer");
@@ -288,7 +290,7 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler
             needConfirm = false;
         }
 
-        if (isWhitelisted) {
+        if (isHandover) {
             values.put(BluetoothShare.USER_CONFIRMATION,
                     BluetoothShare.USER_CONFIRMATION_HANDOVER_CONFIRMED);
             needConfirm = false;
@@ -603,13 +605,13 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler
             Log.e(TAG, e.toString());
             return ResponseCodes.OBEX_HTTP_INTERNAL_ERROR;
         }
-        String destination;
         if (mTransport instanceof BluetoothObexTransport) {
             destination = ((BluetoothObexTransport) mTransport).getRemoteAddress();
         } else {
             destination = "FF:FF:FF:00:00:00";
         }
-        boolean isHandover = BluetoothOppManager.getInstance(mContext).isWhitelisted(destination);
+        isHandover = BluetoothOppManager.getInstance(mContext).isWhitelisted(destination);
+        if (D) Log.d(TAG, "isHandover :" + isHandover);
         if (isHandover) {
             // Notify the handover requester file transfer has started
             Intent intent = new Intent(Constants.ACTION_HANDOVER_STARTED);
@@ -650,7 +652,10 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler
     @Override
     public void onClose() {
         if (D) {
-            Log.d(TAG, "onClose");
+            Log.d(TAG, "onClose isHandover :" + isHandover);
+        }
+        if (isHandover) {
+            BluetoothOppManager.getInstance(mContext).removeWhitelist(destination);
         }
         releaseWakeLocks();
         mBluetoothOppService.acceptNewConnections();

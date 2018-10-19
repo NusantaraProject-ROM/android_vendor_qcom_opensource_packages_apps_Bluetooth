@@ -131,6 +131,7 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
     static final int CONTACTS_LOADED = 5;
     static final int CHECK_SECONDARY_VERSION_COUNTER = 6;
     static final int ROLLOVER_COUNTERS = 7;
+    static final int GET_LOCAL_TELEPHONY_DETAILS = 8;
 
     static final int USER_CONFIRM_TIMEOUT_VALUE = 30000;
     static final int RELEASE_WAKE_LOCK_DELAY = 10000;
@@ -449,6 +450,8 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
                         mPbapStateMachineMap.remove(remoteDevice);
                     }
                     break;
+                case GET_LOCAL_TELEPHONY_DETAILS:
+                    getLocalTelephonyDetails();
                 default:
                     break;
             }
@@ -552,15 +555,8 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
             Log.e(TAG, "Error while rigistering ContactChangeObserver " + e);
         }
 
-        TelephonyManager tm = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
-        if (tm != null) {
-            sLocalPhoneNum = tm.getLine1Number();
-            sLocalPhoneName = tm.getLine1AlphaTag();
-            if (TextUtils.isEmpty(sLocalPhoneName)) {
-                sLocalPhoneName = this.getString(R.string.localPhoneName);
-            }
-        }
-
+        mSessionStatusHandler.sendMessage(
+                mSessionStatusHandler.obtainMessage(GET_LOCAL_TELEPHONY_DETAILS));
         mSessionStatusHandler.sendMessage(mSessionStatusHandler.obtainMessage(LOAD_CONTACTS));
         mSessionStatusHandler.sendMessage(mSessionStatusHandler.obtainMessage(START_LISTENER));
         setBluetoothPbapService(this);
@@ -832,5 +828,19 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
             mThreadUpdateSecVersionCounter = new Thread(r);
             mThreadUpdateSecVersionCounter.start();
         }
+    }
+
+    private void getLocalTelephonyDetails() {
+        TelephonyManager tm = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+        if (tm != null) {
+            sLocalPhoneNum = tm.getLine1Number();
+            sLocalPhoneName = tm.getLine1AlphaTag();
+            if (TextUtils.isEmpty(sLocalPhoneName)) {
+                sLocalPhoneName = this.getString(R.string.localPhoneName);
+            }
+        }
+        if (VERBOSE)
+            Log.v(TAG, "Local Phone Details- Number:" + sLocalPhoneNum
+                    + ", Name:" + sLocalPhoneName);
     }
 }
