@@ -264,8 +264,9 @@ public class AddressedMediaPlayer {
         Log.d(TAG, "sendTrackChangeWithId (" + type + "): controller " + mediaController);
         long qid = getActiveQueueItemId(mediaController);
         byte[] track = ByteBuffer.allocate(AvrcpConstants.UID_SIZE).putLong(qid).array();
+        Log.d(TAG, "qid: " + qid );
         if ((type == AvrcpConstants.NOTIFICATION_TYPE_INTERIM) &&
-            (mLastTrackIdSent == MediaSession.QueueItem.UNKNOWN_ID) &&
+            (qid != MediaSession.QueueItem.UNKNOWN_ID) &&
             (qid != mLastTrackIdSent)) {
              byte[] lastTrack =
                     ByteBuffer.allocate(AvrcpConstants.UID_SIZE).putLong(mLastTrackIdSent).array();
@@ -273,6 +274,7 @@ public class AddressedMediaPlayer {
              type = AvrcpConstants.NOTIFICATION_TYPE_CHANGED;
         }
         // The nowPlayingList changed: the new list has the full data for the current item
+        Log.d(TAG, "last_sent_qid: " + mLastTrackIdSent);
         mMediaInterface.trackChangedRsp(type, track);
         mLastTrackIdSent = qid;
     }
@@ -285,8 +287,9 @@ public class AddressedMediaPlayer {
         }
         long qid = getActiveQueueItemId(mediaController);
         byte[] track = ByteBuffer.allocate(AvrcpConstants.UID_SIZE).putLong(qid).array();
+        Log.d(TAG, "qid: " + qid );
         if ((type == AvrcpConstants.NOTIFICATION_TYPE_INTERIM) &&
-            (mLastTrackIdSent == MediaSession.QueueItem.UNKNOWN_ID) &&
+            (qid != MediaSession.QueueItem.UNKNOWN_ID) &&
             (qid != mLastTrackIdSent)) {
              byte[] lastTrack =
                     ByteBuffer.allocate(AvrcpConstants.UID_SIZE).putLong(mLastTrackIdSent).array();
@@ -294,6 +297,7 @@ public class AddressedMediaPlayer {
              type = AvrcpConstants.NOTIFICATION_TYPE_CHANGED;
         }
         // The nowPlayingList changed: the new list has the full data for the current item
+        Log.d(TAG, "last_sent_qid: " + mLastTrackIdSent);
         mAvrcp.trackChangedAddressedRsp(type, track, bdaddr);
         mLastTrackIdSent = qid;
     }

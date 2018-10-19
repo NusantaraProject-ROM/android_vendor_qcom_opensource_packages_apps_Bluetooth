@@ -194,6 +194,23 @@ public class BluetoothOppManager {
         return false;
     }
 
+    synchronized void removeWhitelist(String address) {
+        Log.d(TAG, " removeWhitelist :" + address);
+        if (address == null) {
+            return;
+        }
+        // Remove any existing entries
+        for (Iterator<Pair<String, Long>> iter = mWhitelist.iterator(); iter.hasNext(); ) {
+            Pair<String, Long> entry = iter.next();
+            if (entry.first.equals(address)) {
+                iter.remove();
+                Log.i(TAG," removeWhitelist device found removed ");
+            }
+        }
+        Log.d(TAG," removeWhitelist END :");
+    }
+
+
     /**
      * Restore data from preference
      */

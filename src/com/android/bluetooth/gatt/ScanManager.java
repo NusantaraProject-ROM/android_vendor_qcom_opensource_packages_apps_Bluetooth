@@ -78,8 +78,11 @@ public class ScanManager {
     private static final int MSG_SUSPEND_SCANS = 4;
     private static final int MSG_RESUME_SCANS = 5;
     private static final int MSG_IMPORTANCE_CHANGE = 6;
+    /*For suspending both unfiltered & filtered scans*/
+    private static final int MSG_SUSPEND_SCAN_ALL = 7;
     private static final String ACTION_REFRESH_BATCHED_SCAN =
             "com.android.bluetooth.gatt.REFRESH_BATCHED_SCAN";
+
 
     // Timeout for each controller operation.
     private static final int OPERATION_TIME_OUT_MILLIS = 500;
@@ -93,6 +96,7 @@ public class ScanManager {
     private GattService mService;
     private BroadcastReceiver mBatchAlarmReceiver;
     private boolean mBatchAlarmReceiverRegistered;
+    private boolean mIsAptXLowLatencyModeEnabled;
     private ScanNative mScanNative;
     private volatile ClientHandler mHandler;
 
@@ -303,6 +307,9 @@ public class ScanManager {
                 case MSG_IMPORTANCE_CHANGE:
                     handleImportanceChange((UidImportance) msg.obj);
                     break;
+                case MSG_SUSPEND_SCAN_ALL:
+                    handleSuspendScanAll();
+                    break;
                 default:
                     // Shouldn't happen.
                     Log.e(TAG, "received an unkown message : " + msg.what);
@@ -340,6 +347,16 @@ public class ScanManager {
             if (!locationEnabled && !isFiltered && !client.legacyForegroundApp) {
                 Log.i(TAG, "Cannot start unfiltered scan in location-off. This scan will be"
                         + " resumed when location is on: " + client.scannerId);
+                mSuspendedScanClients.add(client);
+                if (client.stats != null) {
+                    client.stats.recordScanSuspend(client.scannerId);
+                }
+                return;
+            }
+
+            if (isAptXLowLatencyModeEnabled()) {
+                Log.i(TAG, "Cannot start Scan when aptX LL mode is enabled. This scan will be"
+                        + " resumed when aptX LL mode is disabled: " + client.scannerId);
                 mSuspendedScanClients.add(client);
                 if (client.stats != null) {
                     client.stats.recordScanSuspend(client.scannerId);
@@ -455,6 +472,18 @@ public class ScanManager {
                 if (!mScanNative.isOpportunisticScanClient(client) && (client.filters == null
                         || client.filters.isEmpty()) && !client.legacyForegroundApp) {
                     /*Suspend unfiltered scans*/
+                    if (client.stats != null) {
+                        client.stats.recordScanSuspend(client.scannerId);
+                    }
+                    handleStopScan(client);
+                    mSuspendedScanClients.add(client);
+                }
+            }
+        }
+        void handleSuspendScanAll() {
+            for (ScanClient client : mRegularScanClients) {
+                if (!mScanNative.isOpportunisticScanClient(client)) {
+                    /*Suspend both unfiltered & filtered scans*/
                     if (client.stats != null) {
                         client.stats.recordScanSuspend(client.scannerId);
                     }
@@ -630,7 +659,7 @@ public class ScanManager {
             int phyCnt = 0;
 
 
-            if (client != null) {
+            if (phyInfoResult != null) {
                 curScanSettingLE1M = phyInfoResult.scanModeLE1M;
                 curScanSettingLECoded = phyInfoResult.scanModeLECoded;
                 scanPhy = phyInfoResult.scanPhy;
@@ -644,9 +673,13 @@ public class ScanManager {
                         + "scanPhy=" + scanPhy);
             }
 
+            /* Check whether scan mode for LE 1M PHY has changed and compute the appropriate
+             * scan interval and scan window values
+             */
             if ((curScanSettingLE1M != Integer.MIN_VALUE
                     && curScanSettingLE1M != ScanSettings.SCAN_MODE_OPPORTUNISTIC)) {
-                if (curScanSettingLE1M != mLastConfiguredScanSettingLE1M) {
+                if ((curScanSettingLE1M != mLastConfiguredScanSettingLE1M) ||
+                       (curScanSettingLECoded != mLastConfiguredScanSettingLECoded)) {
                     scanModeChanged = true;
                     ScanSettings settings = new ScanSettings.Builder().setScanMode(curScanSettingLE1M).build();
                     scanWindowLE1M = getScanWindowMillis(settings);
@@ -663,9 +696,14 @@ public class ScanManager {
                     Log.d(TAG, "configureRegularScanParams() - queue emtpy, scan stopped");
                 }
             }
+
+            /* Check whether scan mode for LE Coded PHY has changed and compute the appropriate
+             * scan interval and scan window values
+             */
             if((curScanSettingLECoded != Integer.MIN_VALUE
                     && curScanSettingLECoded != ScanSettings.SCAN_MODE_OPPORTUNISTIC)) {
-                if (curScanSettingLECoded != mLastConfiguredScanSettingLECoded) {
+                if ((curScanSettingLECoded != mLastConfiguredScanSettingLECoded) ||
+                       (curScanSettingLE1M != mLastConfiguredScanSettingLE1M)) {
                     scanModeChanged = true;
                     ScanSettings settings = new ScanSettings.Builder().setScanMode(curScanSettingLECoded).build();
                     scanWindowLECoded = getScanWindowMillis(settings);
@@ -686,7 +724,7 @@ public class ScanManager {
                 if (DBG) {
                     Log.d(TAG, "configureRegularScanParams - scanInterval LE 1M = " + scanIntervalLE1M
                             + "configureRegularScanParams - scanWindow LE 1M= " + scanWindowLE1M
-                            + "configureRegularScanParams - scanWindow LE Coded= " + scanWindowLECoded
+                            + "configureRegularScanParams - scanInterval LE Coded= " + scanIntervalLECoded
                             + "configureRegularScanParams - scanWindow LE Coded= " + scanWindowLECoded);
                 }
                 gattSetScanParametersNative(client.scannerId, scanPhy, scanInterval, scanWindow);
@@ -1445,6 +1483,23 @@ public class ScanManager {
 
         return false;
     }
+
+    public boolean isAptXLowLatencyModeEnabled() {
+        Log.d(TAG, "isAptXLowLatencyModeEnabled: " + mIsAptXLowLatencyModeEnabled);
+        return mIsAptXLowLatencyModeEnabled;
+    }
+
+    public void setAptXLowLatencyMode(boolean enabled){
+        Log.d(TAG, "setAptXLowLatencyMode: mIsAptXLowLatencyModeEnabled: "
+            + mIsAptXLowLatencyModeEnabled + "enabled: " + enabled);
+        mIsAptXLowLatencyModeEnabled = enabled;
+        if (mIsAptXLowLatencyModeEnabled) {
+            sendMessage(MSG_SUSPEND_SCAN_ALL, null);
+        } else {
+            sendMessage(MSG_RESUME_SCANS, null);
+        }
+    }
+
 
     private final DisplayManager.DisplayListener mDisplayListener =
             new DisplayManager.DisplayListener() {
