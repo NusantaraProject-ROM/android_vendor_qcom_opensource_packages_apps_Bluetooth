@@ -485,10 +485,7 @@ public class A2dpService extends ProfileService {
                     + " : too many connected devices");
             return false;
         }
-        if (mAdapterService.isTwsPlusDevice(device)) {
-           Log.e(TAG, "allow second tws connection to " + device);
-           return true;
-        }
+
         // Check priority and accept or reject the connection.
         // Note: Logic can be simplified, but keeping it this way for readability
         int priority = getPriority(device);
