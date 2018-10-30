@@ -554,11 +554,11 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
             Log.e(TAG, "Error while rigistering ContactChangeObserver " + e);
         }
 
+        setBluetoothPbapService(this);
         mSessionStatusHandler.sendMessage(
                 mSessionStatusHandler.obtainMessage(GET_LOCAL_TELEPHONY_DETAILS));
         mSessionStatusHandler.sendMessage(mSessionStatusHandler.obtainMessage(LOAD_CONTACTS));
         mSessionStatusHandler.sendMessage(mSessionStatusHandler.obtainMessage(START_LISTENER));
-        setBluetoothPbapService(this);
         return true;
     }
 
