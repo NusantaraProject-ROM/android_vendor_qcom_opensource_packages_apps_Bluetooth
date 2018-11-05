@@ -100,6 +100,8 @@ public class BluetoothOppManager {
 
     private static final int ALLOWED_INSERT_SHARE_THREAD_NUMBER = 3;
 
+    static boolean isReadyForFileSharing = true;
+
     // used to judge if need continue sending process after received a
     // ENABLED_ACTION
     public boolean mSendingFlag;
