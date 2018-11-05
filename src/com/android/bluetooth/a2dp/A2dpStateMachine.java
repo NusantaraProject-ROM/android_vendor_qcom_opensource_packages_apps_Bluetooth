@@ -615,14 +615,14 @@ final class A2dpStateMachine extends StateMachine {
     // NOTE: This event is processed in any state
     private void processCodecConfigEvent(BluetoothCodecStatus newCodecStatus) {
         BluetoothCodecConfig prevCodecConfig = null;
-        int codec_type = newCodecStatus.getCodecConfig().getCodecType();
+        int new_codec_type = newCodecStatus.getCodecConfig().getCodecType();
         String offloadSupported =
                 SystemProperties.get("persist.vendor.btstack.enable.splita2dp");
         if (DBG) Log.d(TAG, "START of A2dpService");
+        Log.w(TAG,"processCodecConfigEvent: new_codec_type = " + new_codec_type);
         // Split A2dp will be enabled by default
         if (offloadSupported.isEmpty() || "true".equals(offloadSupported)) {
-            Log.w(TAG,"Split enabled: codec_type " + codec_type);
-            if (codec_type  == BluetoothCodecConfig.SOURCE_CODEC_TYPE_MAX) {
+            if (new_codec_type  == BluetoothCodecConfig.SOURCE_CODEC_TYPE_MAX) {
                 AdapterService adapterService = AdapterService.getAdapterService();
                 if (adapterService.isVendorIntfEnabled() &&
                     adapterService.isTwsPlusDevice(mDevice)) {
@@ -675,9 +675,26 @@ final class A2dpStateMachine extends StateMachine {
         }
 
         if (!(offloadSupported.isEmpty() || "true".equals(offloadSupported))) {
-            boolean sameAudioFeedingParameters =
-                   newCodecStatus.getCodecConfig().sameAudioFeedingParameters(prevCodecConfig);
-            mA2dpService.codecConfigUpdated(mDevice, mCodecStatus, sameAudioFeedingParameters);
+            boolean isUpdateRequired = false;
+            if ((prevCodecConfig != null) && (prevCodecConfig.getCodecType() != new_codec_type)) {
+                Log.d(TAG, "previous codec is differs from new codec");
+                isUpdateRequired = true;
+            } else if (!newCodecStatus.getCodecConfig().sameAudioFeedingParameters(prevCodecConfig)) {
+                Log.d(TAG, "codec config parameters mismatched with previous config: ");
+                isUpdateRequired = true;
+            } else if ((newCodecStatus.getCodecConfig().getCodecType()
+                        == BluetoothCodecConfig.SOURCE_CODEC_TYPE_LDAC)
+                    && (prevCodecConfig != null)
+                    && (prevCodecConfig.getCodecSpecific1()
+                        != newCodecStatus.getCodecConfig().getCodecSpecific1())) {
+                Log.d(TAG, "LDAC: codec config parameters mismatched with previous config: ");
+                isUpdateRequired = true;
+            }
+            Log.d(TAG, "isUpdateRequired: " + isUpdateRequired);
+            //update MM only when previous and current codec config has been changed.
+            if (isUpdateRequired) {
+                mA2dpService.codecConfigUpdated(mDevice, mCodecStatus, false);
+            }
         }
     }
 

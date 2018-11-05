@@ -1101,6 +1101,8 @@ public class A2dpService extends ProfileService {
      */
     void codecConfigUpdated(BluetoothDevice device, BluetoothCodecStatus codecStatus,
                             boolean sameAudioFeedingParameters) {
+        Log.w(TAG, "codecConfigUpdated for device:" + device +
+                                "sameAudioFeedingParameters: " + sameAudioFeedingParameters);
         broadcastCodecConfig(device, codecStatus);
 
         // Inform the Audio Service about the codec configuration change,
