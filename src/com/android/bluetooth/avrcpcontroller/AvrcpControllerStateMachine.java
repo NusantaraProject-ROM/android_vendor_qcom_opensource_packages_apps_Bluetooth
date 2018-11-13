@@ -68,6 +68,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int MESSAGE_PROCESS_SET_BROWSED_PLAYER = 113;
     static final int MESSAGE_PROCESS_SET_ADDRESSED_PLAYER = 114;
     static final int MESSAGE_PROCESS_ADDRESSED_PLAYER_CHANGED = 115;
+    static final int MESSAGE_PROCESS_NOW_PLAYING_CONTENTS_CHANGED = 116;
 
     // commands for connection
     static final int MESSAGE_PROCESS_RC_FEATURES = 301;
@@ -369,7 +370,6 @@ class AvrcpControllerStateMachine extends StateMachine {
                         boolean updateTrack =
                                 mAddressedPlayer.updateCurrentTrack((TrackInfo) msg.obj);
                         if (updateTrack) {
-                            mBrowseTree.mNowPlayingNode.setCached(false);
                             broadcastMetaDataChanged(
                                     mAddressedPlayer.getCurrentTrack().getMediaMetaData());
                         }
@@ -404,6 +404,12 @@ class AvrcpControllerStateMachine extends StateMachine {
                             mBrowseTree.mRootNode.setCached(false);
                         }
                         sendMessage(MESSAGE_PROCESS_SET_ADDRESSED_PLAYER);
+                        break;
+
+                    case MESSAGE_PROCESS_NOW_PLAYING_CONTENTS_CHANGED:
+                        mBrowseTree.mNowPlayingNode.setCached(false);
+                        mGetFolderList.setFolder(mBrowseTree.mNowPlayingNode.getID());
+                        transitionTo(mGetFolderList);
                         break;
 
                     case CoverArtUtils.MESSAGE_BIP_CONNECTED:
@@ -574,21 +580,21 @@ class AvrcpControllerStateMachine extends StateMachine {
         }
 
         private void fetchContents(BrowseTree.BrowseNode target) {
+            int start = target.getChildrenCount();
+            int end = Math.min(target.getExpectedChildren(), target.getChildrenCount()
+                            + GET_FOLDER_ITEMS_PAGINATION_SIZE) - 1;
             switch (target.getScope()) {
                 case AvrcpControllerService.BROWSE_SCOPE_PLAYER_LIST:
                     AvrcpControllerService.getPlayerListNative(mRemoteDevice.getBluetoothAddress(),
-                            0, 255);
+                            start, end);
                     break;
                 case AvrcpControllerService.BROWSE_SCOPE_NOW_PLAYING:
                     AvrcpControllerService.getNowPlayingListNative(
-                            mRemoteDevice.getBluetoothAddress(), target.getChildrenCount(),
-                            Math.min(target.getExpectedChildren(), target.getChildrenCount()
-                            + GET_FOLDER_ITEMS_PAGINATION_SIZE - 1));
+                            mRemoteDevice.getBluetoothAddress(), start, end);
                     break;
                 case AvrcpControllerService.BROWSE_SCOPE_VFS:
                     AvrcpControllerService.getFolderListNative(mRemoteDevice.getBluetoothAddress(),
-                            target.getChildrenCount(), Math.min(target.getExpectedChildren(),
-                                target.getChildrenCount() + GET_FOLDER_ITEMS_PAGINATION_SIZE - 1));
+                            start, end);
                     break;
                 default:
                     Log.e(STATE_TAG, "Scope " + target.getScope() + " cannot be handled here.");

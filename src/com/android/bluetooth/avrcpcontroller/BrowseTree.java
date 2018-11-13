@@ -63,6 +63,7 @@ public class BrowseTree {
         mRootNode = new BrowseNode(new MediaItem(new MediaDescription.Builder().setExtras(mdBundle)
               .setMediaId(ROOT).setTitle(ROOT).build(), MediaItem.FLAG_BROWSABLE));
         mRootNode.mBrowseScope = AvrcpControllerService.BROWSE_SCOPE_PLAYER_LIST;
+        mRootNode.setExpectedChildren(255);
 
         Bundle upnodeBundle = new Bundle();
         upnodeBundle.putString(AvrcpControllerService.MEDIA_ITEM_UID_KEY, UP);
@@ -78,7 +79,6 @@ public class BrowseTree {
         mNowPlayingNode.mBrowseScope = AvrcpControllerService.BROWSE_SCOPE_NOW_PLAYING;
         mNowPlayingNode.setExpectedChildren(255);
         mBrowseMap.put(ROOT, mRootNode);
-        mRootNode.mChildren.add(mNowPlayingNode);
         mBrowseMap.put(NOW_PLAYING_PREFIX, mNowPlayingNode);
 
         mCurrentBrowseNode = mRootNode;
@@ -208,11 +208,6 @@ public class BrowseTree {
                     mBrowseMap.remove(child.getID());
                 }
                 mChildren.clear();
-                if (this == mRootNode) {
-                    mNowPlayingNode.setCached(false);
-                    mRootNode.mChildren.add(mNowPlayingNode);
-                    mBrowseMap.put(NOW_PLAYING_PREFIX, mNowPlayingNode);
-                }
             }
         }
 

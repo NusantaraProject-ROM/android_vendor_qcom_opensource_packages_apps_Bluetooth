@@ -628,7 +628,7 @@ final class RemoteDevices {
                         case AbstractionLayer.BT_PROPERTY_BDNAME:
                             final String newName = new String(val);
                             if (newName.equals(device.mName)) {
-                                Log.w(TAG, "Skip name update for " + bdDevice);
+                                debugLog("Skip name update for " + bdDevice);
                                 break;
                             }
                             device.mName = newName;
@@ -650,7 +650,7 @@ final class RemoteDevices {
                         case AbstractionLayer.BT_PROPERTY_CLASS_OF_DEVICE:
                             final int newClass = Utils.byteArrayToInt(val);
                             if (newClass == device.mBluetoothClass) {
-                                Log.w(TAG, "Skip class update for " + bdDevice);
+                                debugLog("Skip class update for " + bdDevice);
                                 break;
                             }
                             device.mBluetoothClass = Utils.byteArrayToInt(val);
@@ -666,7 +666,7 @@ final class RemoteDevices {
                             int numUuids = val.length / AbstractionLayer.BT_UUID_SIZE;
                             final ParcelUuid[] newUuids = Utils.byteArrayToUuid(val);
                             if (areUuidsEqual(newUuids, device.mUuids)) {
-                                Log.w(TAG, "Skip uuids update for " + bdDevice.getAddress());
+                                debugLog( "Skip uuids update for " + bdDevice.getAddress());
                                 break;
                             }
                             device.mUuids = newUuids;

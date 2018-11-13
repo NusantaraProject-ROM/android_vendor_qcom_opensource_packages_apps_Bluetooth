@@ -39,7 +39,7 @@ import java.util.Objects;
  * with that.
  */
 class MediaPlayerWrapper {
-    private static final String TAG = "NewAvrcpMediaPlayerWrapper";
+    private static final String TAG = "AvrcpMediaPlayerWrapper";
     private static final boolean DEBUG = true;
     static boolean sTesting = false;
 
@@ -53,7 +53,6 @@ class MediaPlayerWrapper {
     private MediaControllerListener mControllerCallbacks = null;
     private final Object mCallbackLock = new Object();
     private Callback mRegisteredCallback = null;
-
 
     protected MediaPlayerWrapper() {
         mCurrentData = new MediaData(null, null, null);
@@ -123,16 +122,6 @@ class MediaPlayerWrapper {
     }
 
     Metadata getCurrentMetadata() {
-        // Try to use the now playing list if the information exists.
-        if (getActiveQueueID() != -1) {
-            for (Metadata data : getCurrentQueue()) {
-                if (data.mediaId.equals(Util.NOW_PLAYING_PREFIX + getActiveQueueID())) {
-                    d("getCurrentMetadata: Using playlist data: " + data.toString());
-                    return data.clone();
-                }
-            }
-        }
-
         return Util.toMetadata(getMetadata());
     }
 
