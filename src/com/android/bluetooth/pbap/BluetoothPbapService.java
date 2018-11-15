@@ -131,9 +131,11 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
     static final int CHECK_SECONDARY_VERSION_COUNTER = 6;
     static final int ROLLOVER_COUNTERS = 7;
     static final int GET_LOCAL_TELEPHONY_DETAILS = 8;
+    static final int CLEANUP_HANDLER_TASKS = 9;
 
     static final int USER_CONFIRM_TIMEOUT_VALUE = 30000;
     static final int RELEASE_WAKE_LOCK_DELAY = 10000;
+    static final int CLEANUP_HANDLER_DELAY = 50;
 
     private PowerManager.WakeLock mWakeLock;
 
@@ -324,6 +326,16 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         if (mSessionStatusHandler != null) {
             mSessionStatusHandler.removeCallbacksAndMessages(null);
         }
+
+        mSessionStatusHandler.sendMessageDelayed(
+            mSessionStatusHandler.obtainMessage(CLEANUP_HANDLER_TASKS), CLEANUP_HANDLER_DELAY);
+    }
+
+    private void cleanUpHandlerTasks() {
+        Log.d(TAG, "quitHandlerThread");
+        if (mHandlerThread != null) {
+            mHandlerThread.quitSafely();
+        }
     }
 
     private void cleanUpServerSocket() {
@@ -451,6 +463,10 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
                     break;
                 case GET_LOCAL_TELEPHONY_DETAILS:
                     getLocalTelephonyDetails();
+                    break;
+                case CLEANUP_HANDLER_TASKS:
+                    cleanUpHandlerTasks();
+                    break;
                 default:
                     break;
             }
@@ -570,9 +586,6 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         setBluetoothPbapService(null);
         if (mSessionStatusHandler != null) {
             mSessionStatusHandler.obtainMessage(SHUTDOWN).sendToTarget();
-        }
-        if (mHandlerThread != null) {
-            mHandlerThread.quitSafely();
         }
         mContactsLoaded = false;
         if (mContactChangeObserver == null) {
