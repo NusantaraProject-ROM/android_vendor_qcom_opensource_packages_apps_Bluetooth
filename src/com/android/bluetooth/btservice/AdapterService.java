@@ -118,6 +118,7 @@ import android.net.wifi.WifiManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 
+import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.io.FileDescriptor;
@@ -3520,15 +3521,10 @@ public class AdapterService extends Service {
      *  Obfuscate Bluetooth MAC address into a PII free ID string
      *
      *  @param device Bluetooth device whose MAC address will be obfuscated
-     *  @return a byte array that is unique to this MAC address on this device,
-     *          or empty byte array when either device is null or obfuscateAddressNative fails
+     *  @return a {@link ByteString} that is unique to this MAC address on this device
      */
-    public byte[] obfuscateAddress(BluetoothDevice device) {
-        // TODO(b/121280692): Uncomment the following lines to use obfuscateAddressNative.
-        // if (device == null) {
-            return new byte[0];
-        // }
-        // return obfuscateAddressNative(Utils.getByteAddress(device));
+    public ByteString obfuscateAddress(BluetoothDevice device) {
+        return ByteString.copyFrom(obfuscateAddressNative(Utils.getByteAddress(device)));
     }
 
     static native void classInitNative();
@@ -3613,6 +3609,8 @@ public class AdapterService extends Service {
     private native void interopDatabaseClearNative();
 
     private native void interopDatabaseAddNative(int feature, byte[] address, int length);
+
+    private native byte[] obfuscateAddressNative(byte[] address);
 
     // Returns if this is a mock object. This is currently used in testing so that we may not call
     // System.exit() while finalizing the object. Otherwise GC of mock objects unfortunately ends up
