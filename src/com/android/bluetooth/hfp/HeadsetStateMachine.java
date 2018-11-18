@@ -2170,8 +2170,11 @@ public class HeadsetStateMachine extends StateMachine {
         Log.d(TAG, "Enter processIntentA2dpPlayStateChanged(): a2dp state "+
                   a2dpState);
         if (mHeadsetService.isVRStarted()) {
-            Log.d(TAG, "VR is in started state, creating SCO");
-            mNativeInterface.connectAudio(mDevice);
+            Log.d(TAG, "VR is in started state");
+            if (mDevice.equals(mHeadsetService.getActiveDevice())) {
+               Log.d(TAG, "creating SCO for " + mDevice);
+               mNativeInterface.connectAudio(mDevice);
+            }
         } else if (mSystemInterface.isInCall() || mHeadsetService.isVirtualCallStarted()){
             //send incoming phone status to remote device
             Log.d(TAG, "A2dp is suspended, updating phone states");
