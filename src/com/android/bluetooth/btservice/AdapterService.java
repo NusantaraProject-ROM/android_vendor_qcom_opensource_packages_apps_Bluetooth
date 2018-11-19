@@ -1950,6 +1950,14 @@ public class AdapterService extends Service {
         return false;
     }
 
+    void updateHostFeatureSupport(byte[] val) {
+        mAdapterProperties.updateHostFeatureSupport(val);
+    }
+
+    void updateSocFeatureSupport(byte[] val) {
+        mAdapterProperties.updateSocFeatureSupport(val);
+    }
+
     int getScanMode() {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
 
@@ -2505,6 +2513,297 @@ public class AdapterService extends Service {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         return mAdapterProperties.isA2dpOffloadEnabled();
     }
+
+    /**
+     * Check whether Wipower Fastboot enabled.
+     *
+     * @return true if Wipower fastboot is enabled
+     */
+    public boolean isWipowerFastbootEnabled() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isWipowerFastbootEnabled();
+    }
+
+    /**
+     * Check whether Split A2DP Scramble Data Required
+     *
+     * @return true if Split A2DP Scramble Data Required is enabled
+     */
+    public boolean isSplitA2DPScrambleDataRequired() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DPScrambleDataRequired();
+    }
+
+    /**
+     * Check whether Split A2DP 44.1Khz Sample Freq enabled.
+     *
+     * @return true if Split A2DP 44.1Khz Sample Freq is enabled
+     */
+    public boolean isSplitA2DP44p1KhzSampleFreq() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DP44p1KhzSampleFreq();
+    }
+
+    /**
+     * Check whether Split A2DP 48Khz Sample Freq enabled.
+     *
+     * @return true if  Split A2DP 48Khz Sample Freq is enabled
+     */
+    public boolean isSplitA2DP48KhzSampleFreq() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DP48KhzSampleFreq();
+    }
+
+    /**
+     * Check whether Split A2DP Single VS Command Support enabled.
+     *
+     * @return true if Split A2DP Single VSCommand Support is enabled
+     */
+    public boolean isSplitA2DPSingleVSCommandSupport() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DPSingleVSCommandSupport();
+    }
+
+    /**
+     * Check whether Split A2DP Source SBC Encoding enabled.
+     *
+     * @return true if Split A2DP Source SBC Encoding is enabled
+     */
+    public boolean isSplitA2DPSourceSBCEncoding() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DPSourceSBCEncoding();
+    }
+
+    /**
+     * Check whether Split A2DP Source SBC  enabled.
+     *
+     * @return true if Split A2DP Source SBC  is enabled
+     */
+    public boolean isSplitA2DPSourceSBC() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DPSourceSBC();
+    }
+
+    /**
+     * Check whether Split A2DP Source MP3  enabled.
+     *
+     * @return true if Split A2DP Source MP3  is enabled
+     */
+    public boolean isSplitA2DPSourceMP3() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DPSourceMP3();
+    }
+
+    /**
+     * Check whether Split A2DP Source AAC  enabled.
+     *
+     * @return true if Split A2DP Source AAC  is enabled
+     */
+    public boolean isSplitA2DPSourceAAC() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DPSourceAAC();
+    }
+
+    /**
+     * Check whether Split A2DP Source LDAC  enabled.
+     *
+     * @return true if Split A2DP Source LDAC  is enabled
+     */
+    public boolean isSplitA2DPSourceLDAC() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DPSourceLDAC();
+    }
+
+    /**
+     * Check whether Split A2DP Source APTX  enabled.
+     *
+     * @return true if Split A2DP Source APTX  is enabled
+     */
+    public boolean isSplitA2DPSourceAPTX() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DPSourceAPTX();
+    }
+
+    /**
+     * Check whether Split A2DP Source APTX HD  enabled.
+     *
+     * @return true if Split A2DP Source APTX HD  is enabled
+     */
+    public boolean isSplitA2DPSourceAPTXHD() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DPSourceAPTXHD();
+    }
+
+    /**
+     * Check whether Split A2DP Source APTX ADAPTIVE  enabled.
+     *
+     * @return true if Split A2DP Source APTX ADAPTIVE  is enabled
+     */
+    public boolean isSplitA2DPSourceAPTXADAPTIVE() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DPSourceAPTXADAPTIVE();
+    }
+
+    /**
+     * Check whether Split A2DP Source APTX TWS+  enabled.
+     *
+     * @return true if Split A2DP Source APTX TWS+  is enabled
+     */
+    public boolean isSplitA2DPSourceAPTXTWSPLUS() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DPSourceAPTXTWSPLUS();
+    }
+
+    /**
+     * Check whether Split A2DP Sink SBC  enabled.
+     *
+     * @return true if Split A2DP Sink SBC  is enabled
+     */
+    public boolean isSplitA2DPSinkSBC() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DPSinkSBC();
+    }
+
+    /**
+     * Check whether Split A2DP Sink MP3  enabled.
+     *
+     * @return true if Split A2DP Sink MP3  is enabled
+     */
+    public boolean isSplitA2DPSinkMP3() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DPSinkMP3();
+    }
+
+    /**
+     * Check whether Split A2DP Sink AAC  enabled.
+     *
+     * @return true if Split A2DP Sink AAC  is enabled
+     */
+    public boolean isSplitA2DPSinkAAC() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DPSinkAAC();
+    }
+
+    /**
+     * Check whether Split A2DP Sink LDAC  enabled.
+     *
+     * @return true if Split A2DP Sink LDAC  is enabled
+     */
+    public boolean isSplitA2DPSinkLDAC() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DPSinkLDAC();
+    }
+
+    /**
+     * Check whether Split A2DP Sink APTX  enabled.
+     *
+     * @return true if Split A2DP Sink APTX  is enabled
+     */
+    public boolean isSplitA2DPSinkAPTX() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DPSinkAPTX();
+    }
+
+    /**
+     * Check whether Split A2DP Sink APTX HD  enabled.
+     *
+     * @return true if Split A2DP Sink APTX HD  is enabled
+     */
+    public boolean isSplitA2DPSinkAPTXHD() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DPSinkAPTXHD();
+    }
+
+    /**
+     * Check whether Split A2DP Sink APTX ADAPTIVE  enabled.
+     *
+     * @return true if Split A2DP Sink APTX ADAPTIVE  is enabled
+     */
+    public boolean isSplitA2DPSinkAPTXADAPTIVE() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DPSinkAPTXADAPTIVE();
+    }
+
+    /**
+     * Check whether Split A2DP Sink APTX TWS+  enabled.
+     *
+     * @return true if Split A2DP Sink APTX TWS+  is enabled
+     */
+    public boolean isSplitA2DPSinkAPTXTWSPLUS() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSplitA2DPSinkAPTXTWSPLUS();
+    }
+
+    /**
+     * Check whether Voice Dual SCO  enabled.
+     *
+     * @return true if Voice Dual SCO is enabled
+     */
+    public boolean isVoiceDualSCO() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isVoiceDualSCO();
+    }
+
+    /**
+     * Check whether Voice TWS+ eSCO AG enabled.
+     *
+     * @return true if Voice TWS+ eSCO AG  is enabled
+     */
+    public boolean isVoiceTWSPLUSeSCOAG() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isVoiceTWSPLUSeSCOAG();
+    }
+
+    /**
+     * Check whether SWB Voice with Aptx Adaptive AG  enabled.
+     *
+     * @return true if SWB Voice with Aptx Adaptive AG  is enabled
+     */
+    public boolean isSWBVoicewithAptxAdaptiveAG() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isSWBVoicewithAptxAdaptiveAG();
+    }
+
+    /**
+     * Check whether Broadcast Audio Tx with EC-2:5 enabled.
+     *
+     * @return true if Broadcast Audio Tx with EC-2:5 is enabled
+     */
+    public boolean isBroadcastAudioTxwithEC_2_5() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isBroadcastAudioTxwithEC_2_5();
+    }
+
+    /**
+     * Check whether Broadcast Audio Tx with EC_3:9 enabled.
+     *
+     * @return true if Broadcast Audio Tx with EC_3:9 is enabled
+     */
+    public boolean isBroadcastAudioTxwithEC_3_9() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isBroadcastAudioTxwithEC_3_9();
+    }
+
+    /**
+     * Check whether Broadcast Audio Rx with EC_2:5 enabled.
+     *
+     * @return true if Broadcast Audio Rx with EC_2:5 is enabled
+     */
+    public boolean isBroadcastAudioRxwithEC_2_5() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isBroadcastAudioRxwithEC_2_5();
+    }
+
+    /**
+     * Check whether Broadcast Audio Rx with EC_3:9 enabled.
+     *
+     * @return true if Broadcast Audio Rx with EC_3:9 is enabled
+     */
+    public boolean isBroadcastAudioRxwithEC_3_9() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isBroadcastAudioRxwithEC_3_9();
+    }
+
 
     private BluetoothActivityEnergyInfo reportActivityInfo() {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED, "Need BLUETOOTH permission");
