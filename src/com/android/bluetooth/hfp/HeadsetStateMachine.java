@@ -2123,8 +2123,8 @@ public class HeadsetStateMachine extends StateMachine {
        callstate is idle and there are no active or held calls. */
 
     private void processA2dpState(HeadsetCallState callState) {
-        Log.d(TAG, "processA2dpState: isA2dpPlaying() " +
-            mHeadsetService.getHfpA2DPSyncInterface().isA2dpPlaying());
+        int a2dpState = mHeadsetService.getHfpA2DPSyncInterface().isA2dpPlaying();
+        Log.d(TAG, "processA2dpState: isA2dpPlaying() " + a2dpState);
 
         if ((mSystemInterface.isInCall() || mSystemInterface.isRinging()) &&
               getConnectionState() == BluetoothHeadset.STATE_CONNECTED) {
@@ -2139,7 +2139,15 @@ public class HeadsetStateMachine extends StateMachine {
         }
 
         if (getCurrentHeadsetStateMachineState() != mDisconnected) {
-            log("No A2dp playing to suspend, mIsCallIndDelay" + mIsCallIndDelay);
+            log("No A2dp playing to suspend, mIsCallIndDelay: " + mIsCallIndDelay +
+                " mPendingCallStates.size(): " + mPendingCallStates.size());
+            //When MO call creation and disconnection done back to back, Make sure to send
+            //the call indicators in a sequential way to remote
+            if (mPendingCallStates.size() != 0) {
+                Log.d(TAG, "Cache the call state, PendingCallStates list is not empty");
+                mPendingCallStates.add(callState);
+                return;
+            }
             if (mIsCallIndDelay) {
                 mIsCallIndDelay = false;
                 sendMessageDelayed(SEND_INCOMING_CALL_IND, INCOMING_CALL_IND_DELAY);
@@ -2188,9 +2196,18 @@ public class HeadsetStateMachine extends StateMachine {
             }
         } else {
             Log.d(TAG, "A2DP suspended when there is no CS/VOIP calls or VR, resuming A2DP");
+            //When A2DP is suspended and the call is terminated,
+            //clean up the PendingCallStates list
+            Iterator<HeadsetCallState> it = mPendingCallStates.iterator();
+            if (it != null) {
+               while (it.hasNext()) {
+                  HeadsetCallState callState = it.next();
+                  mNativeInterface.phoneStateChange(mDevice, callState);
+                  it.remove();
+               }
+            }
             mHeadsetService.getHfpA2DPSyncInterface().releaseA2DP(mDevice);
         }
-
         Log.d(TAG, "Exit processIntentA2dpPlayStateChanged()");
     }
 
