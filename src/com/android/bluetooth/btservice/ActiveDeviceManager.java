@@ -295,10 +295,15 @@ class ActiveDeviceManager {
                                     "handleMessage(MESSAGE_HFP_ACTION_CONNECTION_STATE_CHANGED): "
                                     + "device " + device + " disconnected");
                         }
+                        final HeadsetService hfpService = mFactory.getHeadsetService();
+
                         mHfpConnectedDevices.remove(device);
                         if (Objects.equals(mHfpActiveDevice, device)) {
                             if (!mHfpConnectedDevices.isEmpty() &&
-                               mAdapterService.isTwsPlusDevice(mHfpConnectedDevices.get(0))) {
+                               mAdapterService.isTwsPlusDevice(mHfpConnectedDevices.get(0)) &&
+                               (hfpService != null) &&
+                                (hfpService.getConnectionState(mHfpConnectedDevices.get(0)) ==
+                                         BluetoothProfile.STATE_CONNECTED)) {
                                setHfpActiveDevice(mHfpConnectedDevices.get(0));
                                Log.d(TAG, "calling set Active dev: " + mHfpConnectedDevices.get(0));
                             } else {
