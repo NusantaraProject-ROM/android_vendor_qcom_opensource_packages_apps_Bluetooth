@@ -754,7 +754,8 @@ public class A2dpService extends ProfileService {
             if (previousActiveDevice != null) {
                 if (!mAudioManager.isStreamMute(AudioManager.STREAM_MUSIC)) {
                    mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
-                                                 AudioManager.ADJUST_MUTE, 0);
+                                                 AudioManager.ADJUST_MUTE,
+                                                 mAudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
                    wasMuted = true;
                 }
                 if (mDummyDevice != null &&
