@@ -1,0 +1,6 @@
+# List of unresolved conflicts
+# Generated with `git ls-files --unmerged`
+
+100644 2ccc1e4864144573a4aad8316f661d447c1f011a 1	src/com/android/bluetooth/hfp/HeadsetService.java
+100644 52f50fbb30fc230b6eea132b762e2bffa6821e14 2	src/com/android/bluetooth/hfp/HeadsetService.java
+100644 6a7d249a7ce771ba6439611037ccb0f347c5d024 3	src/com/android/bluetooth/hfp/HeadsetService.java
