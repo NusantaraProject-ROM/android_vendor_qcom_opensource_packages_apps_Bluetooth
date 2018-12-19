@@ -35,6 +35,9 @@ import android.support.annotation.GuardedBy;
 import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 import android.os.SystemProperties;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.avrcp.Avrcp;
@@ -102,11 +105,31 @@ public class A2dpService extends ProfileService {
     private BroadcastReceiver mBondStateChangedReceiver;
     private BroadcastReceiver mConnectionStateChangedReceiver;
     private boolean mIsTwsPlusEnabled = false;
+    private boolean mIsTwsPlusMonoSupported = false;
+    private String  mTwsPlusChannelMode = "dual-mono";
     private BluetoothDevice mDummyDevice = null;
 
     private static final long AptxBLEScanMask = 0x3000;
     private static final long Aptx_BLEScanEnable = 0x1000;
     private static final long Aptx_BLEScanDisable = 0x2000;
+    private static final int SET_EBMONO_CFG = 1;
+    private static final int MonoCfg_Timeout = 5000;
+
+    private Handler mHandler = new Handler() {
+        @Override
+       public void handleMessage(Message msg)
+       {
+           switch (msg.what) {
+               case SET_EBMONO_CFG:
+                   Log.d(TAG, "setparameters to Mono");
+                   mAudioManager.setParameters("TwsChannelConfig=mono");
+                   mTwsPlusChannelMode = "mono";
+                   break;
+              default:
+                   break;
+           }
+       }
+    };
 
     @Override
     protected IProfileServiceBinder initBinder() {
@@ -152,6 +175,15 @@ public class A2dpService extends ProfileService {
                 mMaxConnectedAudioDevices = 2;
                 mSetMaxConnectedAudioDevices = mMaxConnectedAudioDevices;
             }
+            String twsPlusMonoEnabled = SystemProperties.get("persist.vendor.btstack.twsplus.monosupport");
+            if (!twsPlusMonoEnabled.isEmpty() && "true".equals(twsPlusMonoEnabled)) {
+                mIsTwsPlusMonoSupported = true;
+            }
+            String TwsPlusChannelMode = SystemProperties.get("persist.vendor.btstack.twsplus.defaultchannelmode");
+            if (!TwsPlusChannelMode.isEmpty() && "mono".equals(TwsPlusChannelMode)) {
+                mTwsPlusChannelMode = "mono";
+            }
+            Log.d(TAG, "Default TwsPlus ChannelMode: " + mTwsPlusChannelMode);
         }
         Log.i(TAG, "Max connected audio devices set to " + mMaxConnectedAudioDevices);
 
@@ -1112,7 +1144,38 @@ public class A2dpService extends ProfileService {
             mAudioManager.handleBluetoothA2dpDeviceConfigChange(device);
         }
     }
-
+    void updateTwsChannelMode(int state, BluetoothDevice device) {
+       if (mIsTwsPlusMonoSupported) {
+         BluetoothDevice peerTwsDevice = mAdapterService.getTwsPlusPeerDevice(device);
+         Log.d(TAG, "TwsChannelMode: " + mTwsPlusChannelMode);
+         if ((state == BluetoothA2dp.STATE_PLAYING) && ("mono".equals(mTwsPlusChannelMode))) {
+             if ((peerTwsDevice!= null) && peerTwsDevice.isConnected() && isA2dpPlaying(peerTwsDevice)) {
+                 Log.d(TAG, "setparameters to Dual-Mono");
+                 mAudioManager.setParameters("TwsChannelConfig=dual-mono");
+                mTwsPlusChannelMode = "dual-mono";
+             }
+         } else if ("dual-mono".equals(mTwsPlusChannelMode)) {
+            if ((state == BluetoothA2dp.STATE_PLAYING) && (getConnectionState(peerTwsDevice) != BluetoothProfile.STATE_CONNECTED)) {
+               Log.d(TAG, "updateTwsChannelMode: send delay message ");
+               Message msg = mHandler.obtainMessage(SET_EBMONO_CFG);
+               mHandler.sendMessageDelayed(msg, MonoCfg_Timeout);
+            }
+            if ((state == BluetoothA2dp.STATE_PLAYING) && isA2dpPlaying(peerTwsDevice)) {
+               if (mHandler.hasMessages(SET_EBMONO_CFG)) {
+                 Log.d(TAG, "updateTwsChannelMode: remove delay message ");
+                 mHandler.removeMessages(SET_EBMONO_CFG);
+               }
+            }
+         }
+         if ((state == BluetoothA2dp.STATE_NOT_PLAYING) && isA2dpPlaying(peerTwsDevice)) {
+            Log.d(TAG, "setparameters to Mono");
+            mAudioManager.setParameters("TwsChannelConfig=mono");
+            mTwsPlusChannelMode = "mono";
+         }
+       } else {
+           Log.d(TAG,"TWS+ L/R to M feature not supported");
+       }
+    }
 
     public void broadcastReconfigureA2dp() {
         Log.w(TAG, "broadcastReconfigureA2dp(): set rcfg true to AudioManager");
