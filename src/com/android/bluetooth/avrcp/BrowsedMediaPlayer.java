@@ -49,7 +49,7 @@ class BrowsedMediaPlayer {
     private static final int SUSPENDED = 2;
 
     private static final int BROWSED_ITEM_ID_INDEX = 2;
-
+    private static final int BROWSED_FOLDER_ID_INDEX = 4;
     private static final String[] ROOT_FOLDER = {"root"};
 
     /*  package and service name of target Media Player which is set for browsing */
@@ -59,6 +59,9 @@ class BrowsedMediaPlayer {
     private Context mContext;
     private AvrcpMediaRspInterface mMediaInterface;
     private byte[] mBDAddr;
+
+    private String mCurrentBrowsePackage;
+    private String mCurrentBrowseClass;
 
     /* Object used to connect to MediaBrowseService of Media Player */
     private MediaBrowser mMediaBrowser = null;
@@ -71,7 +74,7 @@ class BrowsedMediaPlayer {
 
     /* stores the path trail during changePath */
     private Stack<String> mPathStack = null;
-
+    private Stack<String> mLocalPathCache = null;
     /* Number of items in current folder */
     private int mCurrFolderNumItems = 0;
 
@@ -151,6 +154,7 @@ class BrowsedMediaPlayer {
                         if (DEBUG) {
                             Log.d(TAG, "sending setbrowsed player rsp");
                         }
+                        Log.w(TAG, "sending setbrowsed player rsp");
                         mFolderItems = children;
                         mMediaInterface.setBrowsedPlayerRsp(mBDAddr, AvrcpConstants.RSP_NO_ERROR,
                                 (byte) 0x00, children.size(), ROOT_FOLDER);
@@ -333,7 +337,18 @@ class BrowsedMediaPlayer {
                     mRootFolderUid = mMediaId;
                     /* store root folder uid to stack */
                     mPathStack.push(mMediaId);
+                    String [] ExternalPath = mMediaId.split("/");
+                    if (ExternalPath != null) {
+                        Log.d(TAG,"external path length: " + ExternalPath.length);
+                        if (ExternalPath.length == 1) {
+                            mLocalPathCache.push(mMediaId);
+                        } else {
+                            //to trim the root in GMP which comes as "com.google.android.music.generic/root"
+                            mLocalPathCache.push(ExternalPath[ExternalPath.length - 1]);
+                        }
+                    }
                     /* get root folder items */
+                    Log.e(TAG, "onBrowseConnect: subscribe event for FolderCb");
                     mMediaBrowser.subscribe(mRootFolderUid, mFolderItemsCb);
                 }
 
@@ -367,6 +382,7 @@ class BrowsedMediaPlayer {
             * will be required while navigating up the folder
             */
            mPathStack = new Stack<String>();
+           mLocalPathCache = new Stack<String>();
            /* Bind to MediaBrowseService of MediaPlayer */
            MediaConnectionCallback callback = new MediaConnectionCallback(packageName);
            MediaBrowser tempBrowser = new MediaBrowser(
@@ -386,13 +402,28 @@ class BrowsedMediaPlayer {
                     String path = mPathStack.peek();
                     mPathStack.push(top);
                     String [] ExternalPath = path.split("/");
-                    String [] folderPath = new String[ExternalPath.length - 1];
-                    for (int i = 0; i < (ExternalPath.length - 1); i++) {
-                        folderPath[i] = ExternalPath[i + 1];
-                        Log.d(TAG,"folderPath[" + i + "] = " + folderPath[i]);
-                    }
-                    mMediaInterface.setBrowsedPlayerRsp(mBDAddr, rsp_status,
+                    if(ExternalPath != null && ExternalPath.length > 1) {
+                       Log.d(TAG,"external path length: " + ExternalPath.length);
+                       String [] folderPath = new String[ExternalPath.length - 1];
+                       for (int i = 0; i < (ExternalPath.length - 1); i++) {
+                            folderPath[i] = ExternalPath[i + 1];
+                            Log.d(TAG,"folderPath[" + i + "] = " + folderPath[i]);
+                        }
+                        mMediaInterface.setBrowsedPlayerRsp(mBDAddr, rsp_status,
                             (byte)folder_depth, mFolderItems.size(), folderPath);
+                    } else if (mLocalPathCache.size() > 1 && ExternalPath.length == 1) {
+                        String [] folderPath = new String[mLocalPathCache.size() - 1];
+                        folderPath = mLocalPathCache.toArray(folderPath);
+                        for (int i = 0; i < mLocalPathCache.size() - 1; i++) {
+                             Log.d(TAG,"folderPath[" + i + "] = " + folderPath[i]);
+                        }
+                        mMediaInterface.setBrowsedPlayerRsp(mBDAddr, rsp_status,
+                            (byte)folder_depth, mFolderItems.size(), folderPath);
+                    } else {
+                        Log.e(TAG, "sending internal error !!!");
+                        rsp_status = AvrcpConstants.RSP_INTERNAL_ERR;
+                        mMediaInterface.setBrowsedPlayerRsp(mBDAddr, rsp_status, (byte)0x00, 0, null);
+                    }
                 } else if (mPathStack.size() == 1) {
                     Log.d(TAG, "On root send SetBrowse response with root properties");
                     mMediaInterface.setBrowsedPlayerRsp(mBDAddr, rsp_status, (byte)folder_depth,
@@ -405,6 +436,35 @@ class BrowsedMediaPlayer {
             }
             Log.d(TAG, "send setbrowse rsp status=" + rsp_status + " folder_depth=" + folder_depth);
         }
+    }
+
+    public void TryReconnectBrowse(String packageName, String cls) {
+        Log.w(TAG, "Try reconnection with Browser service for package = " + packageName);
+        mConnectingPackageName = packageName;
+        mPackageName = packageName;
+        mClassName = cls;
+
+        /* cleanup variables from previous browsed calls */
+        mFolderItems = null;
+        mMediaId = null;
+        mRootFolderUid = null;
+
+        if (mPathStack != null)
+            mPathStack = null;
+        mPathStack = new Stack<String>();
+
+        MediaConnectionCallback callback = new MediaConnectionCallback(packageName);
+        MediaBrowser tempBrowser = new MediaBrowser(
+                mContext, new ComponentName(packageName, cls), callback, null);
+        callback.setBrowser(tempBrowser);
+        tempBrowser.connect();
+        Log.w(TAG, "Reconnected with Browser service");
+    }
+
+    public void setCurrentPackage(String packageName, String cls) {
+        Log.w(TAG, "Set current Browse based on Addr Player as " + packageName);
+        mCurrentBrowsePackage = packageName;
+        mCurrentBrowseClass = cls;
     }
 
     /* called when connection to media player is closed */
@@ -422,6 +482,7 @@ class BrowsedMediaPlayer {
         mMediaController = null;
         mMediaBrowser = null;
         mPathStack = null;
+        mLocalPathCache = null;
     }
 
     public boolean isPlayerConnected() {
@@ -469,6 +530,26 @@ class BrowsedMediaPlayer {
                 mMediaInterface.changePathRsp(mBDAddr, AvrcpConstants.RSP_INV_DIRN, 0);
             } else {
                 mMediaBrowser.subscribe(newPath, mFolderItemsCb);
+                String [] ExternalPath = newPath.split("/");
+                if (ExternalPath != null) {
+                    Log.d(TAG,"external path length: " + ExternalPath.length);
+                    if (ExternalPath.length == 1) {
+                        //when external path length is 1 then extract the folder name from index 4
+                        String folder_name = parseQueueId(newPath, BROWSED_FOLDER_ID_INDEX);
+                        Log.d(TAG,"folder path: " + folder_name);
+                        if (folder_name != null) {
+                            mLocalPathCache.push(folder_name);
+                        } else {
+                            mLocalPathCache.push(newPath);
+                        }
+                    } else {
+                        String folderPath = ExternalPath[ExternalPath.length - 1];
+                        if (folderPath != null) {
+                            Log.d(TAG,"folder path: " + folderPath);
+                            mLocalPathCache.push(folderPath);
+                        }
+                    }
+                }
                 /* assume that call is success and update stack with new folder path */
                 mPathStack.push(newPath);
             }
@@ -482,6 +563,7 @@ class BrowsedMediaPlayer {
             } else {
                 /* move folder up */
                 mPathStack.pop();
+                mLocalPathCache.pop();
                 newPath = mPathStack.peek();
                 mMediaBrowser.subscribe(newPath, mFolderItemsCb);
             }
@@ -545,17 +627,16 @@ class BrowsedMediaPlayer {
     }
 
     public void getFolderItemsVFS(AvrcpCmd.FolderItemsCmd reqObj) {
-        if (!isPlayerConnected()) {
-            Log.e(TAG, "unable to connect to media player, sending internal error");
-            /* unable to connect to media player. Send error response to remote device */
-            mMediaInterface.folderItemsRsp(mBDAddr, AvrcpConstants.RSP_INTERNAL_ERR, null);
-            return;
-        }
-
         if (DEBUG) {
             Log.d(TAG, "getFolderItemsVFS");
         }
         mFolderItemsReqObj = reqObj;
+
+        if ((mCurrentBrowsePackage != null) && (!mCurrentBrowsePackage.equals(mPackageName))) {
+            Log.w(TAG, "Try reconnection with Browser service as addressed pkg is changed = "
+                    + mCurrentBrowsePackage + "from " + mPackageName);
+            TryReconnectBrowse(mCurrentBrowsePackage, mCurrentBrowseClass);
+        }
 
         if (mFolderItems == null) {
             /* Failed to fetch folder items from media player. Send error to remote device */
@@ -687,7 +768,7 @@ class BrowsedMediaPlayer {
             /* set uid for current item */
             byte[] uid;
             if (folderDataNative.mItemTypes[itemIndex] == AvrcpConstants.BTRC_ITEM_MEDIA)
-                uid = stringToByteMedia(item.getDescription().getMediaId());
+                uid = stringToByteMedia(item.getDescription().getMediaId(), BROWSED_ITEM_ID_INDEX);
             else
                 uid = stringToByteFolder(item.getDescription().getMediaId());
 
@@ -839,15 +920,15 @@ class BrowsedMediaPlayer {
         return true;
     }
 
-    private String parseQueueId(String mediaId) {
+    private String parseQueueId(String mediaId, int mId) {
         if (isNumeric(mediaId)) {
             Log.d(TAG, "Get queue id: " + mediaId);
             return mediaId.trim();
         } else {
             String[] mediaIdItems = mediaId.split(",");
-            if (mediaIdItems != null && mediaIdItems.length > BROWSED_ITEM_ID_INDEX) {
-                Log.d(TAG, "Get queue id: " + mediaIdItems[BROWSED_ITEM_ID_INDEX]);
-                return mediaIdItems[BROWSED_ITEM_ID_INDEX].trim();
+            if (mediaIdItems != null && mediaIdItems.length > mId) {
+                Log.d(TAG, "Get queue id: " + mediaIdItems[mId]);
+                return mediaIdItems[mId].trim();
             }
         }
 
@@ -870,11 +951,11 @@ class BrowsedMediaPlayer {
     }
 
     /* convert mediaId to uid for Media item*/
-    private byte[] stringToByteMedia(String mediaId) {
+    private byte[] stringToByteMedia(String mediaId, int id) {
         /* check if this mediaId already exists in hashmap */
         if (!mMediaHmap.containsValue(mediaId)) { /* add to hashmap */
             int uid;
-            String queueId = parseQueueId(mediaId);
+            String queueId = parseQueueId(mediaId, id);
             if (queueId == null) {
                 uid = mMediaHmap.size() + 1;
             } else {
@@ -919,7 +1000,7 @@ class BrowsedMediaPlayer {
                 Log.d(TAG, "Folder item, no need refresh hashmap from mediaId to uid");
             } else {
                 Log.d(TAG, "Media item, refresh haspmap from mediaId to uid");
-                stringToByteMedia(item.getDescription().getMediaId());
+                stringToByteMedia(item.getDescription().getMediaId(), BROWSED_ITEM_ID_INDEX);
             }
         }
     }

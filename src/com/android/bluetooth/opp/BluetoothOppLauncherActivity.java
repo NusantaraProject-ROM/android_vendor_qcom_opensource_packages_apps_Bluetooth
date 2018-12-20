@@ -99,6 +99,11 @@ public class BluetoothOppLauncherActivity extends Activity {
                 return;
             }
 
+            if (!BluetoothOppManager.isReadyForFileSharing) {
+                Log.i(TAG, " File share already in process, retrun with out any action ");
+                finish();
+                return;
+            }
             /*
              * SECURITY_EXCEPTION Google Photo grant-uri-permission
              */
@@ -176,6 +181,7 @@ public class BluetoothOppLauncherActivity extends Activity {
                         @Override
                         public void run() {
                             try {
+                                BluetoothOppManager.isReadyForFileSharing = false;
                                 BluetoothOppManager.getInstance(BluetoothOppLauncherActivity.this)
                                         .saveSendingFileInfo(mimeType, uris, false /* isHandover */,
                                                 true /* fromExternal */);
@@ -185,6 +191,7 @@ public class BluetoothOppLauncherActivity extends Activity {
                                 finish();
                             } catch (IllegalArgumentException exception) {
                                 Log.e(TAG, "SEND_MULTIPLE :" +exception.getMessage());
+                                BluetoothOppManager.isReadyForFileSharing = true;
                                 finish();
                             }
                         }
@@ -246,6 +253,7 @@ public class BluetoothOppLauncherActivity extends Activity {
                 Log.d(TAG, "Launching " + BluetoothDevicePicker.ACTION_LAUNCH);
             }
             startActivity(in1);
+            BluetoothOppManager.isReadyForFileSharing = true;
         }
     }
 
@@ -420,12 +428,14 @@ public class BluetoothOppLauncherActivity extends Activity {
             boolean fromExternal) {
         BluetoothOppManager manager = BluetoothOppManager.getInstance(getApplicationContext());
         try {
+            BluetoothOppManager.isReadyForFileSharing = false;
             manager.saveSendingFileInfo(mimeType, uriString, isHandover, fromExternal);
             launchDevicePicker();
             finish();
         } catch (IllegalArgumentException exception) {
             Log.e(TAG, "sendFileInfo :" + exception.getMessage());
             finish();
+            BluetoothOppManager.isReadyForFileSharing = true;
         }
     }
 

@@ -402,6 +402,7 @@ public class HeadsetPhoneState {
         public synchronized void onServiceStateChanged(ServiceState serviceState) {
             Log.d(TAG, "Enter onServiceStateChanged");
             mServiceState = serviceState;
+            int prevService = mCindService;
             int cindService = (serviceState.getState() == ServiceState.STATE_IN_SERVICE)
                     ? HeadsetHalConstants.NETWORK_STATE_AVAILABLE
                     : HeadsetHalConstants.NETWORK_STATE_NOT_AVAILABLE;
@@ -420,6 +421,18 @@ public class HeadsetPhoneState {
             if (cindService == HeadsetHalConstants.NETWORK_STATE_NOT_AVAILABLE) {
                 sendDeviceStateChanged();
             }
+
+            //Update the signal strength when the service state changes
+            if (prevService == HeadsetHalConstants.NETWORK_STATE_NOT_AVAILABLE &&
+                cindService == HeadsetHalConstants.NETWORK_STATE_AVAILABLE &&
+                mCindSignal == 0) {
+                Log.d(TAG, "Service is available and signal strength was zero, updating the "+
+                           "current signal strength");
+                mCindSignal = mTelephonyManager.getSignalStrength().getLevel() + 1;
+                // +CIND "signal" indicator is always between 0 to 5
+                mCindSignal = Integer.max(Integer.min(mCindSignal, 5), 0);
+                sendDeviceStateChanged();
+            }
             Log.d(TAG, "Exit onServiceStateChanged");
         }
 
@@ -427,6 +440,7 @@ public class HeadsetPhoneState {
         public void onSignalStrengthsChanged(SignalStrength signalStrength) {
             int prevSignal = mCindSignal;
             if (mCindService == HeadsetHalConstants.NETWORK_STATE_NOT_AVAILABLE) {
+                Log.d(TAG, "Service is not available, signal strength is set to zero");
                 mCindSignal = 0;
             } else {
                 mCindSignal = signalStrength.getLevel() + 1;
@@ -435,6 +449,7 @@ public class HeadsetPhoneState {
             mCindSignal = Integer.max(Integer.min(mCindSignal, 5), 0);
             // This results in a lot of duplicate messages, hence this check
             if (prevSignal != mCindSignal) {
+                Log.d(TAG, "Updating the signal strength change to the apps");
                 sendDeviceStateChanged();
             }
         }

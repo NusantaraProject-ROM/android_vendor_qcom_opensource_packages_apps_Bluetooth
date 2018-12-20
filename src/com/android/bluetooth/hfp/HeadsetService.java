@@ -1867,6 +1867,15 @@ public class HeadsetService extends ProfileService {
                 }
             }
         }
+
+        // if active device is null, SLC connected, make this device as active.
+        if (fromState == BluetoothProfile.STATE_CONNECTING &&
+             toState == BluetoothProfile.STATE_CONNECTED &&
+             mActiveDevice == null) {
+             Log.i(TAG, "onConnectionStateChangedFromStateMachine: SLC connected, no active"
+                              + " is present. Setting active device to " + device);
+             setActiveDevice(device);
+        }
     }
 
     public HeadsetA2dpSync getHfpA2DPSyncInterface(){
