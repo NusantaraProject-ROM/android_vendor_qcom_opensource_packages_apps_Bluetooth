@@ -34,7 +34,6 @@ class A2dpCodecConfig {
     private Context mContext;
     private A2dpNativeInterface mA2dpNativeInterface;
 
-    private static String BT_SOC;
     private BluetoothCodecConfig[] mCodecConfigPriorities;
     private int mA2dpSourceCodecPrioritySbc = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
     private int mA2dpSourceCodecPriorityAac = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
@@ -102,8 +101,8 @@ class A2dpCodecConfig {
             return null;
         }
 
-        BT_SOC = SystemProperties.get("vendor.bluetooth.soc");
         int value;
+        AdapterService mAdapterService = AdapterService.getAdapterService();
         try {
             value = resources.getInteger(R.integer.a2dp_source_codec_priority_sbc);
         } catch (NotFoundException e) {
@@ -133,17 +132,21 @@ class A2dpCodecConfig {
                 < BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST)) {
             mA2dpSourceCodecPriorityAptx = value;
         }
-        try {
-            value = resources.getInteger(R.integer.a2dp_source_codec_priority_aptx_adaptive);
-        } catch (NotFoundException e) {
-            value = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
-        }
-        if ((value >= BluetoothCodecConfig.CODEC_PRIORITY_DISABLED) && (value
-                < BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST)) {
-            mA2dpSourceCodecPriorityAptxAdaptive = value;
+        if(mAdapterService.isSplitA2DPSourceAPTXADAPTIVE()) {
+            try {
+                value = resources.getInteger(R.integer.a2dp_source_codec_priority_aptx_adaptive);
+            } catch (NotFoundException e) {
+                value = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
+            }
+            if ((value >= BluetoothCodecConfig.CODEC_PRIORITY_DISABLED) && (value
+                    < BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST)) {
+                mA2dpSourceCodecPriorityAptxAdaptive = value;
+            }
+        } else {
+            mA2dpSourceCodecPriorityAptxAdaptive = BluetoothCodecConfig.CODEC_PRIORITY_DISABLED;
         }
 
-        if(BT_SOC.equals("cherokee")) {
+        if(mAdapterService.isSplitA2DPSourceAPTXHD()) {
             try {
                 value = resources.getInteger(R.integer.a2dp_source_codec_priority_aptx_hd);
             } catch (NotFoundException e) {
@@ -158,7 +161,7 @@ class A2dpCodecConfig {
         }
 
 
-        if(BT_SOC.equals("cherokee")) {
+        if(mAdapterService.isSplitA2DPSourceLDAC()) {
             try {
                 value = resources.getInteger(R.integer.a2dp_source_codec_priority_ldac);
             } catch (NotFoundException e) {
@@ -171,7 +174,6 @@ class A2dpCodecConfig {
         } else {
             mA2dpSourceCodecPriorityLdac = BluetoothCodecConfig.CODEC_PRIORITY_DISABLED;
         }
-        AdapterService mAdapterService = AdapterService.getAdapterService();
         if (mAdapterService.isVendorIntfEnabled()) {
             try {
                 value = resources.getInteger(R.integer.a2dp_source_codec_priority_aptx_tws);

@@ -2622,8 +2622,10 @@ public class AdapterService extends Service {
      * @return true if Split A2DP Source LDAC  is enabled
      */
     public boolean isSplitA2DPSourceLDAC() {
+        String BT_SOC = SystemProperties.get("vendor.bluetooth.soc");
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
-        return mAdapterProperties.isSplitA2DPSourceLDAC();
+        return (!mAdapterProperties.isAddonFeaturesCmdSupported() && BT_SOC.equals("cherokee")) ||
+            mAdapterProperties.isSplitA2DPSourceLDAC();
     }
 
     /**
@@ -2642,8 +2644,10 @@ public class AdapterService extends Service {
      * @return true if Split A2DP Source APTX HD  is enabled
      */
     public boolean isSplitA2DPSourceAPTXHD() {
+        String BT_SOC = SystemProperties.get("vendor.bluetooth.soc");
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
-        return mAdapterProperties.isSplitA2DPSourceAPTXHD();
+        return (!mAdapterProperties.isAddonFeaturesCmdSupported() && BT_SOC.equals("cherokee")) ||
+            mAdapterProperties.isSplitA2DPSourceAPTXHD();
     }
 
     /**
@@ -2652,8 +2656,10 @@ public class AdapterService extends Service {
      * @return true if Split A2DP Source APTX ADAPTIVE  is enabled
      */
     public boolean isSplitA2DPSourceAPTXADAPTIVE() {
+        String BT_SOC = SystemProperties.get("vendor.bluetooth.soc");
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
-        return mAdapterProperties.isSplitA2DPSourceAPTXADAPTIVE();
+        return (!mAdapterProperties.isAddonFeaturesCmdSupported() && BT_SOC.equals("cherokee")) ||
+            mAdapterProperties.isSplitA2DPSourceAPTXADAPTIVE();
     }
 
     /**
