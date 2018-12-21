@@ -1303,11 +1303,14 @@ public class HeadsetService extends ProfileService {
                 }
                 broadcastActiveDevice(mActiveDevice);
             } else if (shouldPersistAudio()) {
-                if (!connectAudio(mActiveDevice)) {
-                    Log.e(TAG, "setActiveDevice: fail to connectAudio to " + mActiveDevice);
-                    mActiveDevice = previousActiveDevice;
-                    mNativeInterface.setActiveDevice(previousActiveDevice);
-                    return false;
+                boolean isPts = SystemProperties.getBoolean("vendor.bt.pts.certification", false);
+                if (!isPts) {
+                    if (!connectAudio(mActiveDevice)) {
+                        Log.e(TAG, "setActiveDevice: fail to connectAudio to " + mActiveDevice);
+                        mActiveDevice = previousActiveDevice;
+                        mNativeInterface.setActiveDevice(previousActiveDevice);
+                        return false;
+                    }
                 }
                 broadcastActiveDevice(mActiveDevice);
             } else {
