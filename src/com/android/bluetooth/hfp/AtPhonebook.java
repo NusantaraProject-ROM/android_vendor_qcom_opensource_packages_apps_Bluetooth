@@ -137,27 +137,32 @@ public class AtPhonebook {
     /** Returns the last dialled number, or null if no numbers have been called */
     public String getLastDialledNumber() {
         String[] projection = {Calls.NUMBER};
-        Cursor cursor = mContentResolver.query(Calls.CONTENT_URI, projection,
-                Calls.TYPE + " = " + Calls.OUTGOING_TYPE + " OR " + Calls.TYPE +
-                " = " + OUTGOING_IMS_TYPE + " OR " + Calls.TYPE + " = " +
-                OUTGOING_WIFI_TYPE, null, Calls.DEFAULT_SORT_ORDER +
-                " LIMIT 1");
-        log("Queried the last dialled number for CS, IMS, WIFI calls");
-        if (cursor == null) {
-            Log.w(TAG, "getLastDialledNumber, cursor is null");
-            return null;
-        }
+        try {
+            Cursor cursor = mContentResolver.query(Calls.CONTENT_URI, projection,
+                    Calls.TYPE + " = " + Calls.OUTGOING_TYPE + " OR " + Calls.TYPE +
+                    " = " + OUTGOING_IMS_TYPE + " OR " + Calls.TYPE + " = " +
+                    OUTGOING_WIFI_TYPE, null, Calls.DEFAULT_SORT_ORDER +
+                    " LIMIT 1");
+            log("Queried the last dialled number for CS, IMS, WIFI calls");
+            if (cursor == null) {
+                Log.w(TAG, "getLastDialledNumber, cursor is null");
+                return null;
+            }
 
-        if (cursor.getCount() < 1) {
+            if (cursor.getCount() < 1) {
+                cursor.close();
+                Log.w(TAG, "getLastDialledNumber, cursor.getCount is 0");
+                return null;
+            }
+            cursor.moveToNext();
+            int column = cursor.getColumnIndexOrThrow(Calls.NUMBER);
+            String number = cursor.getString(column);
             cursor.close();
-            Log.w(TAG, "getLastDialledNumber, cursor.getCount is 0");
-            return null;
+            return number;
+        } catch (Exception e) {
+            Log.e(TAG, "Exception while querying last dialled number", e);
         }
-        cursor.moveToNext();
-        int column = cursor.getColumnIndexOrThrow(Calls.NUMBER);
-        String number = cursor.getString(column);
-        cursor.close();
-        return number;
+        return null;
     }
 
     public boolean getCheckingAccessPermission() {
@@ -445,9 +450,14 @@ public class AtPhonebook {
         }
 
         if (ancillaryPhonebook) {
-            pbr.cursor = mContentResolver.query(Calls.CONTENT_URI, CALLS_PROJECTION, where, null,
-                    Calls.DEFAULT_SORT_ORDER + " LIMIT " + MAX_PHONEBOOK_SIZE);
-            if (pbr.cursor == null) {
+            try {
+                pbr.cursor = mContentResolver.query(Calls.CONTENT_URI, CALLS_PROJECTION, where,
+                          null, Calls.DEFAULT_SORT_ORDER + " LIMIT " + MAX_PHONEBOOK_SIZE);
+                if (pbr.cursor == null) {
+                    return false;
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Exception while querying the call log database", e);
                 return false;
             }
 
@@ -460,11 +470,16 @@ public class AtPhonebook {
             Log.i(TAG, "simPhonebook " + simPhonebook);
             if (simPhonebook) {
                 final Uri mysimUri = Uri.parse(SIM_URI);
-                pbr.cursor = mContentResolver.query(mysimUri, SIM_PROJECTION,
-                        where, null, null);
-                Log.i(TAG, "querySIMcontactbook where " + where + " uri :" + mysimUri);
-                if (pbr.cursor == null) {
-                    Log.i(TAG, "querying phone contacts on sim returned null.");
+                try {
+                    pbr.cursor = mContentResolver.query(mysimUri, SIM_PROJECTION,
+                            where, null, null);
+                    Log.i(TAG, "querySIMcontactbook where " + where + " uri :" + mysimUri);
+                    if (pbr.cursor == null) {
+                        Log.i(TAG, "querying phone contacts on sim returned null.");
+                        return false;
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Exception while querying sim contact book database", e);
                     return false;
                 }
 
@@ -478,11 +493,16 @@ public class AtPhonebook {
                            " pbr.nameColumn: " + pbr.nameColumn);
             } else {
                 final Uri phoneContentUri = DevicePolicyUtils.getEnterprisePhoneUri(mContext);
-                pbr.cursor = mContentResolver.query(phoneContentUri, PHONES_PROJECTION,
-                        where, null, Phone.NUMBER + " LIMIT " + MAX_PHONEBOOK_SIZE);
-                Log.i(TAG, "queryPhonebook where " + where + " uri :" + phoneContentUri);
-                if (pbr.cursor == null) {
-                    Log.i(TAG, "querying phone contacts on memory returned null.");
+                try {
+                    pbr.cursor = mContentResolver.query(phoneContentUri, PHONES_PROJECTION,
+                            where, null, Phone.NUMBER + " LIMIT " + MAX_PHONEBOOK_SIZE);
+                    Log.i(TAG, "queryPhonebook where " + where + " uri :" + phoneContentUri);
+                    if (pbr.cursor == null) {
+                        Log.i(TAG, "querying phone contacts on memory returned null.");
+                        return false;
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Exception while querying phone contacts on memory", e);
                     return false;
                 }
 
@@ -576,18 +596,24 @@ public class AtPhonebook {
                 // try caller id lookup
                 // TODO: This code is horribly inefficient. I saw it
                 // take 7 seconds to process 100 missed calls.
-                Cursor c = mContentResolver.query(
-                        Uri.withAppendedPath(PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI, number),
-                        new String[]{
+                try {
+                    Cursor c = mContentResolver.query(
+                            Uri.withAppendedPath(PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI,
+                            number), new String[]{
                                 PhoneLookup.DISPLAY_NAME, PhoneLookup.TYPE
-                        }, null, null, null);
-                if (c != null) {
-                    if (c.moveToFirst()) {
-                        name = c.getString(0);
-                        type = c.getInt(1);
+                            }, null, null, null);
+                    if (c != null) {
+                        if (c.moveToFirst()) {
+                            name = c.getString(0);
+                            type = c.getInt(1);
+                        }
+                        c.close();
                     }
-                    c.close();
+                } catch (Exception e) {
+                    Log.e(TAG, "Exception while querying phonebook database", e);
+                    return HeadsetHalConstants.AT_RESPONSE_ERROR;
                 }
+
                 if (DBG && name == null) {
                     log("Caller ID lookup failed for " + number);
                 }

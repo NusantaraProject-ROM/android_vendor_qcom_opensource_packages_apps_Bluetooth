@@ -106,7 +106,9 @@ public class BluetoothOppBtEnableActivity extends AlertActivity
         super.onPause();
 
         if (!mOppManager.mSendingFlag) {
+            BluetoothOppManager.isReadyForFileSharing = false;
             mOppManager.cleanUpSendingFileInfo();
+            BluetoothOppManager.isReadyForFileSharing = true;
         }
     }
 }

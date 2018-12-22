@@ -137,6 +137,8 @@ public final class AbstractionLayer {
     static final int BT_VENDOR_PROPERTY_TWS_PLUS_DEVICE_TYPE = 0x01;
     static final int BT_VENDOR_PROPERTY_TWS_PLUS_PEER_ADDR = 0x02;
     static final int BT_VENDOR_PROPERTY_TWS_PLUS_AUTO_CONNECT = 0x03;
+    static final int BT_VENDOR_PROPERTY_HOST_ADD_ON_FEATURES = 0x04;
+    static final int BT_VENDOR_PROPERTY_SOC_ADD_ON_FEATURES = 0x05;
     static final int TWS_PLUS_DEV_TYPE_NONE = 0x00;
     static final int TWS_PLUS_DEV_TYPE_PRIMARY = 0x01;
     static final int TWS_PLUS_DEV_TYPE_SECONDARY = 0x02;

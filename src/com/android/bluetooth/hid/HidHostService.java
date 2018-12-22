@@ -46,7 +46,7 @@ import java.util.Map;
  * @hide
  */
 public class HidHostService extends ProfileService {
-    private static final boolean DBG = false;
+    private static final boolean DBG = true;
     private static final String TAG = "BluetoothHidHostService";
 
     private Map<BluetoothDevice, Integer> mInputDevices;
