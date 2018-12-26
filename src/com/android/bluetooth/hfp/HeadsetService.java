@@ -1748,14 +1748,13 @@ public class HeadsetService extends ProfileService {
             mSystemInterface.getHeadsetPhoneState().setNumHeldCall(numHeld);
             mSystemInterface.getHeadsetPhoneState().setCallState(callState);
         });
-<<<<<<< HEAD
         List<BluetoothDevice> availableDevices =
                     getDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES);
         if(availableDevices.size() > 0) {
             Log.i(TAG, "Update the phoneStateChanged status to connecting and connected devices");
             doForEachConnectedConnectingStateMachine(
                      stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.CALL_STATE_CHANGED,
-                             new HeadsetCallState(numActive, numHeld, callState, number, type)));
+                             new HeadsetCallState(numActive, numHeld, callState, number, type, name)));
             mStateMachinesThread.getThreadHandler().post(() -> {
                 if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging())) {
                     Log.i(TAG, "no call, sending resume A2DP message to state machines");
@@ -1774,19 +1773,6 @@ public class HeadsetService extends ProfileService {
                 }
             });
         }
-=======
-        doForEachConnectedStateMachine(
-                stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.CALL_STATE_CHANGED,
-                        new HeadsetCallState(numActive, numHeld, callState, number, type, name)));
-        mStateMachinesThread.getThreadHandler().post(() -> {
-            if (callState == HeadsetHalConstants.CALL_STATE_IDLE
-                    && mSystemInterface.isCallIdle() && !isAudioOn()) {
-                // Resume A2DP when call ended and SCO is not connected
-                mSystemInterface.getAudioManager().setParameters("A2dpSuspended=false");
-            }
-        });
-
->>>>>>> 9e12d508cb6417c0b8175ad482e328efb53b55a4
     }
 
     private void clccResponse(int index, int direction, int status, int mode, boolean mpty,
