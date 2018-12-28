@@ -247,9 +247,18 @@ public class HeadsetPhoneState {
             if (TelephonyIntents.ACTION_SIM_STATE_CHANGED.equals(intent.getAction())) {
                 // This is a sticky broadcast, so if it's already been loaded,
                 // this'll execute immediately.
+
+                // TODO (b/122116049) during platform update, a case emerged for an incoming
+                // slotId value of -1; it would likely be beneficial to code defensively
+                // because of this case's possibility from the caller, but the current root
+                // cause is as of yet unidentified
                 if (IccCardConstants.INTENT_VALUE_ICC_LOADED.equals(stateExtra)) {
                     final int slotId = intent.getIntExtra(PhoneConstants.SLOT_KEY,
                                        SubscriptionManager.getDefaultVoicePhoneId());
+                    if (slotId == -1) {
+                        Log.d(TAG, "Received invalid value (-1) for slotId for SIM loaded, no action");
+                        return;
+                    }
                     Log.d(TAG, "SIM loaded, making mIsSimStateLoaded to true for slotId = "
                                + slotId);
                     mSimStatus[slotId] = SIM_PRESENT;
@@ -260,6 +269,10 @@ public class HeadsetPhoneState {
                            || IccCardConstants.INTENT_VALUE_ICC_CARD_IO_ERROR.equals(stateExtra)) {
                     final int slotId = intent.getIntExtra(PhoneConstants.SLOT_KEY,
                                        SubscriptionManager.getDefaultVoicePhoneId());
+                    if (slotId == -1) {
+                        Log.d(TAG, "Received invalid value (-1) for slotId for SIM unloaded, no action");
+                        return;
+                    }
                     Log.d(TAG, "SIM unloaded, making mIsSimStateLoaded to false for slotId = "
                                + slotId);
                     mSimStatus[slotId] = SIM_ABSENT;
