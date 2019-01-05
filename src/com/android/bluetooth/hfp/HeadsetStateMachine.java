@@ -78,6 +78,8 @@ import android.telecom.TelecomManager;
 public class HeadsetStateMachine extends StateMachine {
     private static final String TAG = "HeadsetStateMachine";
     private static final boolean DBG = true;
+    // TODO(b/122040733) variable created as a placeholder to make build green after merge conflict; re-address
+    private static final String MERGE_PLACEHOLDER = "";
 
     private static final String HEADSET_NAME = "bt_headset_name";
     private static final String HEADSET_NREC = "bt_headset_nrec";
@@ -161,7 +163,7 @@ public class HeadsetStateMachine extends StateMachine {
 
     // maintain call states in state machine as well
     private final HeadsetCallState mStateMachineCallState =
-                 new HeadsetCallState(0, 0, 0, "", 0);
+                 new HeadsetCallState(0, 0, 0, "", 0, "");
 
     // State machine states
     private final Disconnected mDisconnected = new Disconnected();
@@ -1148,7 +1150,8 @@ public class HeadsetStateMachine extends StateMachine {
                     HeadsetCallState callState =
                         new HeadsetCallState(0, 0, HeadsetHalConstants.CALL_STATE_INCOMING,
                                  mSystemInterface.getHeadsetPhoneState().getNumber(),
-                                 mSystemInterface.getHeadsetPhoneState().getType());
+                                 mSystemInterface.getHeadsetPhoneState().getType(),
+                                 MERGE_PLACEHOLDER);
                     mNativeInterface.phoneStateChange(mDevice, callState);
                     break;
                 case QUERY_PHONE_STATE_AT_SLC:
@@ -2072,13 +2075,13 @@ public class HeadsetStateMachine extends StateMachine {
 
                 log("Send Idle call indicators once Active call disconnected.");
                 // TODO: cross check this
-                mStateMachineCallState.mCallState = 
+                mStateMachineCallState.mCallState =
                                                HeadsetHalConstants.CALL_STATE_IDLE;
                 HeadsetCallState updateCallState = new HeadsetCallState(callState.mNumActive,
                                  callState.mNumHeld,
                                  HeadsetHalConstants.CALL_STATE_IDLE,
                                  callState.mNumber,
-                                 callState.mType);
+                                 callState.mType, MERGE_PLACEHOLDER);
                 mNativeInterface.phoneStateChange(mDevice, updateCallState);
                 mIsCallIndDelay = true;
             }
@@ -2255,7 +2258,7 @@ public class HeadsetStateMachine extends StateMachine {
 
     private void processAtCind(BluetoothDevice device) {
         int call, callSetup, call_state, service, signal;
-         // get the top of the Q 
+         // get the top of the Q
         HeadsetCallState tempCallState = mDelayedCSCallStates.peek();
         final HeadsetPhoneState phoneState = mSystemInterface.getHeadsetPhoneState();
 
