@@ -35,12 +35,11 @@ import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
 
-import androidx.annotation.VisibleForTesting;
-
 import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.ba.BATService;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.LinkedList;
 import java.util.List;

@@ -32,13 +32,12 @@ import android.os.HandlerThread;
 import android.provider.Settings;
 import android.util.Log;
 
-import androidx.annotation.GuardedBy;
-import androidx.annotation.VisibleForTesting;
-import android.os.SystemProperties;
 import android.os.Handler;
-import android.os.Looper;
 import android.os.Message;
+import android.os.SystemClock;
+import android.os.SystemProperties;
 
+import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.avrcp.Avrcp;
 import com.android.bluetooth.avrcp.Avrcp_ext;
@@ -46,8 +45,9 @@ import com.android.bluetooth.avrcp.AvrcpTargetService;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.ba.BATService;
-import android.os.SystemClock;
 import com.android.bluetooth.gatt.GattService;
+import com.android.internal.annotations.GuardedBy;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -513,7 +513,7 @@ public class A2dpService extends ProfileService {
      * request, otherwise is for incoming connection request
      * @return true if connection is allowed, otherwise false
      */
-    @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
     public boolean okToConnect(BluetoothDevice device, boolean isOutgoingRequest) {
         Log.i(TAG, "okToConnect: device " + device + " isOutgoingRequest: " + isOutgoingRequest);
         // Check if this is an incoming connection in Quiet mode.
@@ -614,11 +614,9 @@ public class A2dpService extends ProfileService {
     private void removeActiveDevice(boolean forceStopPlayingAudio) {
         BluetoothDevice previousActiveDevice = mActiveDevice;
         synchronized (mStateMachines) {
-            // Clear the active device
-            mActiveDevice = null;
             // This needs to happen before we inform the audio manager that the device
-            // disconnected. Please see comment in broadcastActiveDevice() for why.
-            broadcastActiveDevice(null);
+            // disconnected. Please see comment in updateAndBroadcastActiveDevice() for why.
+            updateAndBroadcastActiveDevice(null);
 
             if (previousActiveDevice == null) {
                 return;
@@ -730,10 +728,9 @@ public class A2dpService extends ProfileService {
                 return false;
             }
             codecStatus = sm.getCodecStatus();
-            mActiveDevice = device;
             // This needs to happen before we inform the audio manager that the device
-            // disconnected. Please see comment in broadcastActiveDevice() for why.
-            broadcastActiveDevice(mActiveDevice);
+            // disconnected. Please see comment in updateAndBroadcastActiveDevice() for why.
+            updateAndBroadcastActiveDevice(device);
             Log.w(TAG, "setActiveDevice coming out of mutex lock");
         }
         if (deviceChanged &&
@@ -1238,9 +1235,24 @@ public class A2dpService extends ProfileService {
         }
     }
 
-    private void broadcastActiveDevice(BluetoothDevice device) {
+    // This needs to run before any of the Audio Manager connection functions since
+    // AVRCP needs to be aware that the audio device is changed before the Audio Manager
+    // changes the volume of the output devices.
+    private void updateAndBroadcastActiveDevice(BluetoothDevice device) {
         if (DBG) {
-            Log.d(TAG, "broadcastActiveDevice(" + device + ")");
+            Log.d(TAG, "updateAndBroadcastActiveDevice(" + device + ")");
+        }
+
+        synchronized (mStateMachines) {
+            if (AvrcpTargetService.get() != null) {
+                if (mActiveDevice != null) {
+                    AvrcpTargetService.get().storeVolumeForDevice(mActiveDevice);
+                }
+
+                AvrcpTargetService.get().volumeDeviceSwitched(device);
+            }
+
+            mActiveDevice = device;
         }
 
         Intent intent = new Intent(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);

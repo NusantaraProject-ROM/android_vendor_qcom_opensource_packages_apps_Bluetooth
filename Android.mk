@@ -33,7 +33,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
         libprotobuf-java-lite \
         bluetooth-protos-lite
 
-LOCAL_STATIC_ANDROID_LIBRARIES := androidx.legacy_legacy-support-v4
+LOCAL_STATIC_ANDROID_LIBRARIES := androidx.core_core
 LOCAL_STATIC_JAVA_LIBRARIES += com.android.emailcommon
 LOCAL_PROTOC_OPTIMIZE_TYPE := micro
 
