@@ -1964,12 +1964,20 @@ public class HeadsetService extends ProfileService {
                         }
                     }
                 }
-                if (mVirtualCallStarted) {
-                    if (!stopScoUsingVirtualVoiceCall()) {
-                        Log.w(TAG, "onAudioStateChangedFromStateMachine: failed to stop virtual "
-                                + "voice call");
+
+                if (mAdapterService.isTwsPlusDevice(device) &&
+                    isAudioConnected(getTwsPlusConnectedPeer(device))) {
+                    Log.w(TAG, "Ignore stop virtuall voice call if the other TWS+ device is "
+                            + "audio connected");
+                } else {
+                    if (mVirtualCallStarted) {
+                        if (!stopScoUsingVirtualVoiceCall()) {
+                            Log.w(TAG, "onAudioStateChangedFromStateMachine: failed to stop "
+                                    + "virtual voice call");
+                        }
                     }
                 }
+
                 //Transfer SCO is not needed for TWS+ devices
                 if (!mAdapterService.isTwsPlusDevice(device)) {
                     // trigger SCO after SCO disconnected with previous active
