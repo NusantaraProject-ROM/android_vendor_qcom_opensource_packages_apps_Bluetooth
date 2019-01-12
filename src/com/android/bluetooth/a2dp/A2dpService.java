@@ -1166,11 +1166,11 @@ public class A2dpService extends ProfileService {
                  mHandler.removeMessages(SET_EBMONO_CFG);
                }
             }
-         }
-         if ((state == BluetoothA2dp.STATE_NOT_PLAYING) && isA2dpPlaying(peerTwsDevice)) {
-            Log.d(TAG, "setparameters to Mono");
-            mAudioManager.setParameters("TwsChannelConfig=mono");
-            mTwsPlusChannelMode = "mono";
+            if ((state == BluetoothA2dp.STATE_NOT_PLAYING) && isA2dpPlaying(peerTwsDevice)) {
+               Log.d(TAG, "setparameters to Mono");
+               mAudioManager.setParameters("TwsChannelConfig=mono");
+               mTwsPlusChannelMode = "mono";
+            }
          }
        } else {
            Log.d(TAG,"TWS+ L/R to M feature not supported");
