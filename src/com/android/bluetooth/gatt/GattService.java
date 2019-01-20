@@ -50,8 +50,8 @@ import android.os.IBinder;
 import android.os.ParcelUuid;
 import android.os.RemoteException;
 import android.os.SystemClock;
+import android.os.UserHandle;
 import android.os.WorkSource;
-import android.provider.Settings;
 import android.util.Log;
 
 import com.android.bluetooth.BluetoothMetricsProto;
@@ -104,6 +104,9 @@ public class GattService extends ProfileService {
             UUID.fromString("00002A4C-0000-1000-8000-00805F9B34FB"),
             UUID.fromString("00002A4D-0000-1000-8000-00805F9B34FB")
     };
+
+    private static final UUID ANDROID_TV_REMOTE_SERVICE_UUID =
+            UUID.fromString("AB5E0001-5A21-4F05-BC7D-AF01F617B664");
 
     private static final UUID[] FIDO_UUIDS = {
             UUID.fromString("0000FFFD-0000-1000-8000-00805F9B34FB") // U2F
@@ -1012,8 +1015,7 @@ public class GattService extends ProfileService {
                             txPower, rssi, periodicAdvInt,
                             ScanRecord.parseFromBytes(scanRecordData),
                             SystemClock.elapsedRealtimeNanos());
-            // Do no report if location mode is OFF or the client has no location permission
-            // PEERS_MAC_ADDRESS permission holders always get results
+            // Do not report if location mode is OFF or the client has no location permission
             if (!hasScanResultPermission(client) || !matchesFilters(client, result)) {
                 continue;
             }
@@ -1100,15 +1102,7 @@ public class GattService extends ProfileService {
 
     /** Determines if the given scan client has the appropriate permissions to receive callbacks. */
     private boolean hasScanResultPermission(final ScanClient client) {
-        final boolean requiresLocationEnabled =
-                getResources().getBoolean(R.bool.strict_location_check);
-        final boolean locationEnabledSetting =
-                Settings.Secure.getInt(getContentResolver(), Settings.Secure.LOCATION_MODE,
-                        Settings.Secure.LOCATION_MODE_OFF) != Settings.Secure.LOCATION_MODE_OFF;
-        final boolean locationEnabled =
-                !requiresLocationEnabled || locationEnabledSetting || client.legacyForegroundApp;
-        return (client.hasPeersMacAddressPermission || (client.hasLocationPermission
-                && locationEnabled));
+        return client.hasLocationPermission && !Utils.blockedByLocationOff(this, client.userHandle);
     }
 
     // Check if a scan record matches a specific filters.
@@ -1929,16 +1923,16 @@ public class GattService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "start scan with filters");
         }
+        UserHandle callingUser = UserHandle.of(UserHandle.getCallingUserId());
         enforceAdminPermission();
         if (needsPrivilegedPermissionForScan(settings)) {
             enforcePrivilegedPermission();
         }
         final ScanClient scanClient = new ScanClient(scannerId, settings, filters, storages);
+        scanClient.userHandle = UserHandle.of(UserHandle.getCallingUserId());
         scanClient.hasLocationPermission =
-                Utils.checkCallerHasLocationPermission(this, mAppOps, callingPackage);
-        scanClient.hasPeersMacAddressPermission =
-                Utils.checkCallerHasPeersMacAddressPermission(this);
-        scanClient.legacyForegroundApp = Utils.isLegacyForegroundApp(this, callingPackage);
+                Utils.checkCallerHasLocationPermission(
+                        this, mAppOps, callingPackage, scanClient.userHandle);
 
         AppScanStats app = mScannerMap.getAppScanStatsById(scannerId);
         if (app != null) {
@@ -1970,18 +1964,14 @@ public class GattService extends ProfileService {
         piInfo.filters = filters;
         piInfo.callingPackage = callingPackage;
         ScannerMap.App app = mScannerMap.add(uuid, null, null, piInfo, this);
+        app.mUserHandle = UserHandle.of(UserHandle.getCallingUserId());
         try {
             app.hasLocationPermisson =
-                    Utils.checkCallerHasLocationPermission(this, mAppOps, callingPackage);
+                    Utils.checkCallerHasLocationPermission(
+                            this, mAppOps, callingPackage, app.mUserHandle);
         } catch (SecurityException se) {
             // No need to throw here. Just mark as not granted.
             app.hasLocationPermisson = false;
-        }
-        try {
-            app.hasPeersMacAddressPermission = Utils.checkCallerHasPeersMacAddressPermission(this);
-        } catch (SecurityException se) {
-            // No need to throw here. Just mark as not granted.
-            app.hasPeersMacAddressPermission = false;
         }
         mScanManager.registerScanner(uuid);
     }
@@ -1991,8 +1981,7 @@ public class GattService extends ProfileService {
         final ScanClient scanClient =
                 new ScanClient(scannerId, piInfo.settings, piInfo.filters, null);
         scanClient.hasLocationPermission = app.hasLocationPermisson;
-        scanClient.hasPeersMacAddressPermission = app.hasPeersMacAddressPermission;
-        scanClient.legacyForegroundApp = Utils.isLegacyForegroundApp(this, piInfo.callingPackage);
+        scanClient.userHandle = app.mUserHandle;
 
         AppScanStats scanStats = mScannerMap.getAppScanStatsById(scannerId);
         if (scanStats != null) {
@@ -3029,7 +3018,7 @@ public class GattService extends ProfileService {
     }
 
     private boolean isRestrictedSrvcUuid(final UUID srvcUuid) {
-        return isFidoUUID(srvcUuid);
+        return isFidoUUID(srvcUuid) || isAndroidTvRemoteSrvcUUID(srvcUuid);
     }
 
     private boolean isHidUuid(final UUID uuid) {
@@ -3039,6 +3028,10 @@ public class GattService extends ProfileService {
             }
         }
         return false;
+    }
+
+    private boolean isAndroidTvRemoteSrvcUUID(final UUID uuid) {
+        return ANDROID_TV_REMOTE_SERVICE_UUID.equals(uuid);
     }
 
     private boolean isFidoUUID(final UUID uuid) {
