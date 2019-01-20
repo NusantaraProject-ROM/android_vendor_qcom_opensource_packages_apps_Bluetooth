@@ -269,7 +269,9 @@ public class HeadsetService extends ProfileService {
         mStateMachinesThread.quitSafely();
         mStateMachinesThread = null;
         // Step 1: Clear
-        mAdapterService = null;
+        synchronized (mStateMachines) {
+            mAdapterService = null;
+        }
         return true;
     }
 
@@ -989,14 +991,14 @@ public class HeadsetService extends ProfileService {
     public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         ArrayList<BluetoothDevice> devices = new ArrayList<>();
-        if (states == null) {
-            return devices;
-        }
-        final BluetoothDevice[] bondedDevices = mAdapterService.getBondedDevices();
-        if (bondedDevices == null) {
-            return devices;
-        }
         synchronized (mStateMachines) {
+            if (states == null || mAdapterService == null) {
+                return devices;
+            }
+            final BluetoothDevice[] bondedDevices = mAdapterService.getBondedDevices();
+            if (bondedDevices == null) {
+                return devices;
+            }
             for (BluetoothDevice device : bondedDevices) {
 
                 int connectionState = getConnectionState(device);
