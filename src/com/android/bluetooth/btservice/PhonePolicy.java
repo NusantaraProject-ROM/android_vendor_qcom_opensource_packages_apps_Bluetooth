@@ -359,6 +359,9 @@ class PhonePolicy {
                 debugLog("processProfileStateChanged, device=" + device + ", a2dpDisconnected="
                         + a2dpDisconnected + ", hsDisconnected=" + hsDisconnected);
                 if (hsDisconnected && a2dpDisconnected) {
+                    //remove a2dp and headset retry set.
+                    mA2dpRetrySet.remove(device);
+                    mHeadsetRetrySet.remove(device);
                     removeAutoConnectFromA2dpSink(device);
                     removeAutoConnectFromHeadset(device);
                 }
