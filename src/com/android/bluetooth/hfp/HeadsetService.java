@@ -143,8 +143,9 @@ public class HeadsetService extends ProfileService {
     @Override
     protected boolean start() {
         Log.i(TAG, "start()");
-        if (mStarted) {
-            throw new IllegalStateException("start() called twice");
+        if (sHeadsetService != null) {
+            Log.w(TAG, "HeadsetService is already running");
+            return true;
         }
         // Step 1: Get adapter service, should never be null
         mAdapterService = Objects.requireNonNull(AdapterService.getAdapterService(),

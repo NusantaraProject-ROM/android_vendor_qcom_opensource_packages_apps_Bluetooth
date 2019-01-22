@@ -145,7 +145,8 @@ public class A2dpService extends ProfileService {
     protected boolean start() {
         Log.i(TAG, "start()");
         if (sA2dpService != null) {
-            throw new IllegalStateException("start() called twice");
+            Log.w(TAG, "A2dpService is already running");
+            return true;
         }
 
         // Step 1: Get BluetoothAdapter, AdapterService, A2dpNativeInterface, AudioManager.
