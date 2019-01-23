@@ -208,6 +208,7 @@ final class AdapterState extends StateMachine {
         public boolean processMessage(Message msg) {
             switch (msg.what) {
                 case USER_TURN_ON:
+                    mAdapterService.startBrEdrStartup();
                     transitionTo(mTurningOnState);
                     break;
 

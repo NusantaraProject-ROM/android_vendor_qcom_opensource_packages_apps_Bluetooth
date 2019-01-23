@@ -697,6 +697,12 @@ public class AdapterService extends Service {
         }
     }
 
+    void startBrEdrStartup(){
+        if (isVendorIntfEnabled()) {
+            mVendor.bredrStartup();
+        }
+    }
+
     void startBrEdrCleanup(){
         mAdapterProperties.onBluetoothDisable();
         if (isVendorIntfEnabled()) {
