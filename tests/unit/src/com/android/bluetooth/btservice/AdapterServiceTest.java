@@ -45,6 +45,8 @@ import android.support.test.runner.AndroidJUnit4;
 import android.test.mock.MockContentResolver;
 
 import com.android.bluetooth.R;
+import com.android.bluetooth.TestUtils;
+import com.android.bluetooth.Utils;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -424,17 +426,17 @@ public class AdapterServiceTest {
     @Test
     public void testSnoopLoggingChange() {
         String snoopSetting =
-                SystemProperties.get(AdapterService.BLUETOOTH_BTSNOOP_ENABLE_PROPERTY, "");
-        SystemProperties.set(AdapterService.BLUETOOTH_BTSNOOP_ENABLE_PROPERTY, "false");
+                SystemProperties.get(AdapterService.BLUETOOTH_BTSNOOP_LOG_MODE_PROPERTY, "");
+        SystemProperties.set(AdapterService.BLUETOOTH_BTSNOOP_LOG_MODE_PROPERTY, "false");
         doEnable(0, false);
 
         Assert.assertTrue(mAdapterService.isEnabled());
 
         Assert.assertFalse(
-                SystemProperties.getBoolean(AdapterService.BLUETOOTH_BTSNOOP_ENABLE_PROPERTY,
-                        true));
+                SystemProperties.get(AdapterService.BLUETOOTH_BTSNOOP_LOG_MODE_PROPERTY,
+                        "true").equals("true"));
 
-        SystemProperties.set(AdapterService.BLUETOOTH_BTSNOOP_ENABLE_PROPERTY, "true");
+        SystemProperties.set(AdapterService.BLUETOOTH_BTSNOOP_LOG_MODE_PROPERTY, "true");
 
         mAdapterService.disable();
 
@@ -464,6 +466,220 @@ public class AdapterServiceTest {
         Assert.assertFalse(mAdapterService.isEnabled());
 
         // Restore earlier setting
-        SystemProperties.set(AdapterService.BLUETOOTH_BTSNOOP_ENABLE_PROPERTY, snoopSetting);
+        SystemProperties.set(AdapterService.BLUETOOTH_BTSNOOP_LOG_MODE_PROPERTY, snoopSetting);
+    }
+
+
+    /**
+     * Test: Obfuscate a null Bluetooth
+     * Check if returned value from {@link AdapterService#obfuscateAddress(BluetoothDevice)} is
+     * an empty array when device address is null
+     */
+    @Test
+    public void testObfuscateBluetoothAddress_NullAddress() {
+        Assert.assertArrayEquals(mAdapterService.obfuscateAddress(null), new byte[0]);
+    }
+
+    /**
+     * Test: Obfuscate Bluetooth address when Bluetooth is disabled
+     * Check whether the returned value meets expectation
+     */
+    @Test
+    public void testObfuscateBluetoothAddress_BluetoothDisabled() {
+        Assert.assertFalse(mAdapterService.isEnabled());
+        byte[] metricsSalt = getMetricsSalt(mAdapterConfig);
+        Assert.assertNotNull(metricsSalt);
+        BluetoothDevice device = TestUtils.getTestDevice(BluetoothAdapter.getDefaultAdapter(), 0);
+        byte[] obfuscatedAddress = mAdapterService.obfuscateAddress(device);
+        Assert.assertTrue(obfuscatedAddress.length > 0);
+        Assert.assertFalse(isByteArrayAllZero(obfuscatedAddress));
+        Assert.assertArrayEquals(obfuscateInJava(metricsSalt, device), obfuscatedAddress);
+    }
+
+    /**
+     * Test: Obfuscate Bluetooth address when Bluetooth is enabled
+     * Check whether the returned value meets expectation
+     */
+    @Test
+    public void testObfuscateBluetoothAddress_BluetoothEnabled() {
+        Assert.assertFalse(mAdapterService.isEnabled());
+        doEnable(0, false);
+        Assert.assertTrue(mAdapterService.isEnabled());
+        byte[] metricsSalt = getMetricsSalt(mAdapterConfig);
+        Assert.assertNotNull(metricsSalt);
+        BluetoothDevice device = TestUtils.getTestDevice(BluetoothAdapter.getDefaultAdapter(), 0);
+        byte[] obfuscatedAddress = mAdapterService.obfuscateAddress(device);
+        Assert.assertTrue(obfuscatedAddress.length > 0);
+        Assert.assertFalse(isByteArrayAllZero(obfuscatedAddress));
+        Assert.assertArrayEquals(obfuscateInJava(metricsSalt, device), obfuscatedAddress);
+    }
+
+    /**
+     * Test: Check if obfuscated Bluetooth address stays the same after toggling Bluetooth
+     */
+    @Test
+    public void testObfuscateBluetoothAddress_PersistentBetweenToggle() {
+        Assert.assertFalse(mAdapterService.isEnabled());
+        byte[] metricsSalt = getMetricsSalt(mAdapterConfig);
+        Assert.assertNotNull(metricsSalt);
+        BluetoothDevice device = TestUtils.getTestDevice(BluetoothAdapter.getDefaultAdapter(), 0);
+        byte[] obfuscatedAddress1 = mAdapterService.obfuscateAddress(device);
+        Assert.assertTrue(obfuscatedAddress1.length > 0);
+        Assert.assertFalse(isByteArrayAllZero(obfuscatedAddress1));
+        Assert.assertArrayEquals(obfuscateInJava(metricsSalt, device),
+                obfuscatedAddress1);
+        // Enable
+        doEnable(0, false);
+        Assert.assertTrue(mAdapterService.isEnabled());
+        byte[] obfuscatedAddress3 = mAdapterService.obfuscateAddress(device);
+        Assert.assertTrue(obfuscatedAddress3.length > 0);
+        Assert.assertFalse(isByteArrayAllZero(obfuscatedAddress3));
+        Assert.assertArrayEquals(obfuscatedAddress3,
+                obfuscatedAddress1);
+        // Disable
+        doDisable(0, false);
+        Assert.assertFalse(mAdapterService.isEnabled());
+        byte[] obfuscatedAddress4 = mAdapterService.obfuscateAddress(device);
+        Assert.assertTrue(obfuscatedAddress4.length > 0);
+        Assert.assertFalse(isByteArrayAllZero(obfuscatedAddress4));
+        Assert.assertArrayEquals(obfuscatedAddress4,
+                obfuscatedAddress1);
+    }
+
+    /**
+     * Test: Check if obfuscated Bluetooth address stays the same after re-initializing
+     *       {@link AdapterService}
+     */
+    @Test
+    public void testObfuscateBluetoothAddress_PersistentBetweenAdapterServiceInitialization() throws
+            PackageManager.NameNotFoundException {
+        byte[] metricsSalt = getMetricsSalt(mAdapterConfig);
+        Assert.assertNotNull(metricsSalt);
+        Assert.assertFalse(mAdapterService.isEnabled());
+        BluetoothDevice device = TestUtils.getTestDevice(BluetoothAdapter.getDefaultAdapter(), 0);
+        byte[] obfuscatedAddress1 = mAdapterService.obfuscateAddress(device);
+        Assert.assertTrue(obfuscatedAddress1.length > 0);
+        Assert.assertFalse(isByteArrayAllZero(obfuscatedAddress1));
+        Assert.assertArrayEquals(obfuscateInJava(metricsSalt, device),
+                obfuscatedAddress1);
+        tearDown();
+        setUp();
+        Assert.assertFalse(mAdapterService.isEnabled());
+        byte[] obfuscatedAddress2 = mAdapterService.obfuscateAddress(device);
+        Assert.assertTrue(obfuscatedAddress2.length > 0);
+        Assert.assertFalse(isByteArrayAllZero(obfuscatedAddress2));
+        Assert.assertArrayEquals(obfuscatedAddress2,
+                obfuscatedAddress1);
+    }
+
+    /**
+     * Test: Verify that obfuscated Bluetooth address changes after factory reset
+     *
+     * There are 4 types of factory reset that we are talking about:
+     * 1. Factory reset all user data from Settings -> Will restart phone
+     * 2. Factory reset WiFi and Bluetooth from Settings -> Will only restart WiFi and BT
+     * 3. Call BluetoothAdapter.factoryReset() -> Will disable Bluetooth and reset config in
+     * memory and disk
+     * 4. Call AdapterService.factoryReset() -> Will only reset config in memory
+     *
+     * We can only use No. 4 here
+     */
+    @Ignore("AdapterService.factoryReset() does not reload config into memory and hence old salt"
+            + " is still used until next time Bluetooth library is initialized. However Bluetooth"
+            + " cannot be used until Bluetooth process restart any way. Thus it is almost"
+            + " guaranteed that user has to re-enable Bluetooth and hence re-generate new salt"
+            + " after factory reset")
+    @Test
+    public void testObfuscateBluetoothAddress_FactoryReset() {
+        Assert.assertFalse(mAdapterService.isEnabled());
+        BluetoothDevice device = TestUtils.getTestDevice(BluetoothAdapter.getDefaultAdapter(), 0);
+        byte[] obfuscatedAddress1 = mAdapterService.obfuscateAddress(device);
+        Assert.assertTrue(obfuscatedAddress1.length > 0);
+        Assert.assertFalse(isByteArrayAllZero(obfuscatedAddress1));
+        mAdapterService.factoryReset();
+        byte[] obfuscatedAddress2 = mAdapterService.obfuscateAddress(device);
+        Assert.assertTrue(obfuscatedAddress2.length > 0);
+        Assert.assertFalse(isByteArrayAllZero(obfuscatedAddress2));
+        Assert.assertFalse(Arrays.equals(obfuscatedAddress2,
+                obfuscatedAddress1));
+        doEnable(0, false);
+        byte[] obfuscatedAddress3 = mAdapterService.obfuscateAddress(device);
+        Assert.assertTrue(obfuscatedAddress3.length > 0);
+        Assert.assertFalse(isByteArrayAllZero(obfuscatedAddress3));
+        Assert.assertArrayEquals(obfuscatedAddress3,
+                obfuscatedAddress2);
+        mAdapterService.factoryReset();
+        byte[] obfuscatedAddress4 = mAdapterService.obfuscateAddress(device);
+        Assert.assertTrue(obfuscatedAddress4.length > 0);
+        Assert.assertFalse(isByteArrayAllZero(obfuscatedAddress4));
+        Assert.assertFalse(Arrays.equals(obfuscatedAddress4,
+                obfuscatedAddress3));
+    }
+
+    /**
+     * Test: Verify that obfuscated Bluetooth address changes after factory reset and reloading
+     *       native layer
+     */
+    @Test
+    public void testObfuscateBluetoothAddress_FactoryResetAndReloadNativeLayer() throws
+            PackageManager.NameNotFoundException {
+        byte[] metricsSalt1 = getMetricsSalt(mAdapterConfig);
+        Assert.assertNotNull(metricsSalt1);
+        Assert.assertFalse(mAdapterService.isEnabled());
+        BluetoothDevice device = TestUtils.getTestDevice(BluetoothAdapter.getDefaultAdapter(), 0);
+        byte[] obfuscatedAddress1 = mAdapterService.obfuscateAddress(device);
+        Assert.assertTrue(obfuscatedAddress1.length > 0);
+        Assert.assertFalse(isByteArrayAllZero(obfuscatedAddress1));
+        Assert.assertArrayEquals(obfuscateInJava(metricsSalt1, device),
+                obfuscatedAddress1);
+        mAdapterService.factoryReset();
+        tearDown();
+        setUp();
+        // Cannot verify metrics salt since it is not written to disk until native cleanup
+        byte[] obfuscatedAddress2 = mAdapterService.obfuscateAddress(device);
+        Assert.assertTrue(obfuscatedAddress2.length > 0);
+        Assert.assertFalse(isByteArrayAllZero(obfuscatedAddress2));
+        Assert.assertFalse(Arrays.equals(obfuscatedAddress2,
+                obfuscatedAddress1));
+    }
+
+    private static byte[] getMetricsSalt(HashMap<String, HashMap<String, String>> adapterConfig) {
+        HashMap<String, String> metricsSection = adapterConfig.get("Metrics");
+        if (metricsSection == null) {
+            Log.e(TAG, "Metrics section is null: " + adapterConfig.toString());
+            return null;
+        }
+        String saltString = metricsSection.get("Salt256Bit");
+        if (saltString == null) {
+            Log.e(TAG, "Salt256Bit is null: " + metricsSection.toString());
+            return null;
+        }
+        byte[] metricsSalt = ByteStringUtils.fromHexToByteArray(saltString);
+        if (metricsSalt.length != 32) {
+            Log.e(TAG, "Salt length is not 32 bit, but is " + metricsSalt.length);
+            return null;
+        }
+        return metricsSalt;
+    }
+
+    private static byte[] obfuscateInJava(byte[] key, BluetoothDevice device) {
+        String algorithm = "HmacSHA256";
+        try {
+            Mac hmac256 = Mac.getInstance(algorithm);
+            hmac256.init(new SecretKeySpec(key, algorithm));
+            return hmac256.doFinal(Utils.getByteAddress(device));
+        } catch (NoSuchAlgorithmException | IllegalStateException | InvalidKeyException exp) {
+            exp.printStackTrace();
+            return null;
+        }
+    }
+
+    private static boolean isByteArrayAllZero(byte[] byteArray) {
+        for (byte i : byteArray) {
+            if (i != 0) {
+                return false;
+            }
+        }
+        return true;
     }
 }
