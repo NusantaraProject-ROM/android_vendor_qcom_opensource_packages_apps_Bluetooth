@@ -475,6 +475,8 @@ public class AddressedMediaPlayer {
                     } else {
                         attrValue = desc.getTitle().toString();
                     }
+                    if (attrValue == null)
+                        attrValue = "<Unknown Title>";
                     break;
 
                 case AvrcpConstants.ATTRID_ARTIST:

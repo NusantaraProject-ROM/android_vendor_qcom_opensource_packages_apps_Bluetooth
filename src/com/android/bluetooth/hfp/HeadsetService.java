@@ -66,7 +66,8 @@ import android.telecom.TelecomManager;
  * Provides Bluetooth Headset and Handsfree profile, as a service in the Bluetooth application.
  *
  * Three modes for SCO audio:
- * Mode 1: Telecom call through {@link #phoneStateChanged(int, int, int, String, int, boolean)}
+ * Mode 1: Telecom call through {@link #phoneStateChanged(int, int, int, String, int, String,
+ *         boolean)}
  * Mode 2: Virtual call through {@link #startScoUsingVirtualVoiceCall()}
  * Mode 3: Voice recognition through {@link #startVoiceRecognition(BluetoothDevice)}
  *
@@ -268,7 +269,9 @@ public class HeadsetService extends ProfileService {
         mStateMachinesThread.quitSafely();
         mStateMachinesThread = null;
         // Step 1: Clear
-        mAdapterService = null;
+        synchronized (mStateMachines) {
+            mAdapterService = null;
+        }
         return true;
     }
 
@@ -684,12 +687,12 @@ public class HeadsetService extends ProfileService {
 
         @Override
         public void phoneStateChanged(int numActive, int numHeld, int callState, String number,
-                int type) {
+                int type, String name) {
             HeadsetService service = getService();
             if (service == null) {
                 return;
             }
-            service.phoneStateChanged(numActive, numHeld, callState, number, type, false);
+            service.phoneStateChanged(numActive, numHeld, callState, number, type, name, false);
         }
 
         @Override
@@ -988,14 +991,14 @@ public class HeadsetService extends ProfileService {
     public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         ArrayList<BluetoothDevice> devices = new ArrayList<>();
-        if (states == null) {
-            return devices;
-        }
-        final BluetoothDevice[] bondedDevices = mAdapterService.getBondedDevices();
-        if (bondedDevices == null) {
-            return devices;
-        }
         synchronized (mStateMachines) {
+            if (states == null || mAdapterService == null) {
+                return devices;
+            }
+            final BluetoothDevice[] bondedDevices = mAdapterService.getBondedDevices();
+            if (bondedDevices == null) {
+                return devices;
+            }
             for (BluetoothDevice device : bondedDevices) {
 
                 int connectionState = getConnectionState(device);
@@ -1303,11 +1306,14 @@ public class HeadsetService extends ProfileService {
                 }
                 broadcastActiveDevice(mActiveDevice);
             } else if (shouldPersistAudio()) {
-                if (!connectAudio(mActiveDevice)) {
-                    Log.e(TAG, "setActiveDevice: fail to connectAudio to " + mActiveDevice);
-                    mActiveDevice = previousActiveDevice;
-                    mNativeInterface.setActiveDevice(previousActiveDevice);
-                    return false;
+                boolean isPts = SystemProperties.getBoolean("vendor.bt.pts.certification", false);
+                if (!isPts) {
+                    if (!connectAudio(mActiveDevice)) {
+                        Log.e(TAG, "setActiveDevice: fail to connectAudio to " + mActiveDevice);
+                        mActiveDevice = previousActiveDevice;
+                        mNativeInterface.setActiveDevice(previousActiveDevice);
+                        return false;
+                    }
                 }
                 broadcastActiveDevice(mActiveDevice);
             } else {
@@ -1471,9 +1477,9 @@ public class HeadsetService extends ProfileService {
             mVirtualCallStarted = true;
             mSystemInterface.getHeadsetPhoneState().setIsCsCall(false);
             // Send virtual phone state changed to initialize SCO
-            phoneStateChanged(0, 0, HeadsetHalConstants.CALL_STATE_DIALING, "", 0, true);
-            phoneStateChanged(0, 0, HeadsetHalConstants.CALL_STATE_ALERTING, "", 0, true);
-            phoneStateChanged(1, 0, HeadsetHalConstants.CALL_STATE_IDLE, "", 0, true);
+            phoneStateChanged(0, 0, HeadsetHalConstants.CALL_STATE_DIALING, "", 0, "", true);
+            phoneStateChanged(0, 0, HeadsetHalConstants.CALL_STATE_ALERTING, "", 0, "", true);
+            phoneStateChanged(1, 0, HeadsetHalConstants.CALL_STATE_IDLE, "", 0, "", true);
             return true;
         }
     }
@@ -1489,7 +1495,7 @@ public class HeadsetService extends ProfileService {
             }
             mVirtualCallStarted = false;
             // 2. Send virtual phone state changed to close SCO
-            phoneStateChanged(0, 0, HeadsetHalConstants.CALL_STATE_IDLE, "", 0, true);
+            phoneStateChanged(0, 0, HeadsetHalConstants.CALL_STATE_IDLE, "", 0, "", true);
         }
         return true;
     }
@@ -1703,7 +1709,7 @@ public class HeadsetService extends ProfileService {
     }
 
     private void phoneStateChanged(int numActive, int numHeld, int callState, String number,
-            int type, boolean isVirtualCall) {
+            int type, String name, boolean isVirtualCall) {
         enforceCallingOrSelfPermission(MODIFY_PHONE_STATE, "Need MODIFY_PHONE_STATE permission");
         synchronized (mStateMachines) {
             // Should stop all other audio mode in this case
@@ -1753,7 +1759,7 @@ public class HeadsetService extends ProfileService {
             Log.i(TAG, "Update the phoneStateChanged status to connecting and connected devices");
             doForEachConnectedConnectingStateMachine(
                      stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.CALL_STATE_CHANGED,
-                             new HeadsetCallState(numActive, numHeld, callState, number, type)));
+                             new HeadsetCallState(numActive, numHeld, callState, number, type, name)));
             mStateMachinesThread.getThreadHandler().post(() -> {
                 if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging())) {
                     Log.i(TAG, "no call, sending resume A2DP message to state machines");
@@ -1867,6 +1873,15 @@ public class HeadsetService extends ProfileService {
                 }
             }
         }
+
+        // if active device is null, SLC connected, make this device as active.
+        if (fromState == BluetoothProfile.STATE_CONNECTING &&
+             toState == BluetoothProfile.STATE_CONNECTED &&
+             mActiveDevice == null) {
+             Log.i(TAG, "onConnectionStateChangedFromStateMachine: SLC connected, no active"
+                              + " is present. Setting active device to " + device);
+             setActiveDevice(device);
+        }
     }
 
     public HeadsetA2dpSync getHfpA2DPSyncInterface(){
@@ -1943,14 +1958,29 @@ public class HeadsetService extends ProfileService {
                     if (!stopVoiceRecognitionByHeadset(device)) {
                         Log.w(TAG, "onAudioStateChangedFromStateMachine: failed to stop voice "
                                 + "recognition");
+                    } else {
+                        final HeadsetStateMachine stateMachine = mStateMachines.get(device);
+                        if (stateMachine != null) {
+                            Log.d(TAG, "onAudioStateChangedFromStateMachine: send +bvra:0");
+                            stateMachine.sendMessage(HeadsetStateMachine.VOICE_RECOGNITION_STOP,
+                                    device);
+                        }
                     }
                 }
-                if (mVirtualCallStarted) {
-                    if (!stopScoUsingVirtualVoiceCall()) {
-                        Log.w(TAG, "onAudioStateChangedFromStateMachine: failed to stop virtual "
-                                + "voice call");
+
+                if (mAdapterService.isTwsPlusDevice(device) &&
+                    isAudioConnected(getTwsPlusConnectedPeer(device))) {
+                    Log.w(TAG, "Ignore stop virtuall voice call if the other TWS+ device is "
+                            + "audio connected");
+                } else {
+                    if (mVirtualCallStarted) {
+                        if (!stopScoUsingVirtualVoiceCall()) {
+                            Log.w(TAG, "onAudioStateChangedFromStateMachine: failed to stop "
+                                    + "virtual voice call");
+                        }
                     }
                 }
+
                 //Transfer SCO is not needed for TWS+ devices
                 if (!mAdapterService.isTwsPlusDevice(device)) {
                     // trigger SCO after SCO disconnected with previous active

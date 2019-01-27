@@ -55,8 +55,6 @@ import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
 
-import androidx.annotation.VisibleForTesting;
-
 import com.android.bluetooth.IObexConnectionHandler;
 import com.android.bluetooth.ObexServerSockets;
 import com.android.bluetooth.R;
@@ -64,6 +62,7 @@ import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.sdp.SdpManager;
 import com.android.bluetooth.util.DevicePolicyUtils;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -132,9 +131,11 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
     static final int CHECK_SECONDARY_VERSION_COUNTER = 6;
     static final int ROLLOVER_COUNTERS = 7;
     static final int GET_LOCAL_TELEPHONY_DETAILS = 8;
+    static final int CLEANUP_HANDLER_TASKS = 9;
 
     static final int USER_CONFIRM_TIMEOUT_VALUE = 30000;
     static final int RELEASE_WAKE_LOCK_DELAY = 10000;
+    static final int CLEANUP_HANDLER_DELAY = 50;
 
     private PowerManager.WakeLock mWakeLock;
 
@@ -325,6 +326,16 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         if (mSessionStatusHandler != null) {
             mSessionStatusHandler.removeCallbacksAndMessages(null);
         }
+
+        mSessionStatusHandler.sendMessageDelayed(
+            mSessionStatusHandler.obtainMessage(CLEANUP_HANDLER_TASKS), CLEANUP_HANDLER_DELAY);
+    }
+
+    private void cleanUpHandlerTasks() {
+        Log.d(TAG, "quitHandlerThread");
+        if (mHandlerThread != null) {
+            mHandlerThread.quitSafely();
+        }
     }
 
     private void cleanUpServerSocket() {
@@ -452,6 +463,10 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
                     break;
                 case GET_LOCAL_TELEPHONY_DETAILS:
                     getLocalTelephonyDetails();
+                    break;
+                case CLEANUP_HANDLER_TASKS:
+                    cleanUpHandlerTasks();
+                    break;
                 default:
                     break;
             }
@@ -572,9 +587,6 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         setBluetoothPbapService(null);
         if (mSessionStatusHandler != null) {
             mSessionStatusHandler.obtainMessage(SHUTDOWN).sendToTarget();
-        }
-        if (mHandlerThread != null) {
-            mHandlerThread.quitSafely();
         }
         mContactsLoaded = false;
         if (mContactChangeObserver == null) {
@@ -731,7 +743,7 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
      * Send the result to the state machine.
      * @param stateMachine PbapStateMachine which sends the request
      */
-    @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
     public void checkOrGetPhonebookPermission(PbapStateMachine stateMachine) {
         BluetoothDevice device = stateMachine.getRemoteDevice();
         int permission = device.getPhonebookAccessPermission();

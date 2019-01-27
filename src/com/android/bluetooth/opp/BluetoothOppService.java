@@ -54,13 +54,12 @@ import android.os.Message;
 import android.os.Process;
 import android.util.Log;
 
-import androidx.annotation.VisibleForTesting;
-
 import com.android.bluetooth.BluetoothObexTransport;
 import com.android.bluetooth.IObexConnectionHandler;
 import com.android.bluetooth.ObexServerSockets;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.sdp.SdpManager;
+import com.android.internal.annotations.VisibleForTesting;
 
 import com.google.android.collect.Lists;
 
@@ -363,7 +362,9 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                         mShares.clear();
                     }
 
-                    mNotifier.cancelNotifications();
+                    if (mNotifier != null) {
+                        mNotifier.cancelNotifications();
+                    }
                     break;
                 case START_LISTENER:
                     if (mAdapter.isEnabled()) {

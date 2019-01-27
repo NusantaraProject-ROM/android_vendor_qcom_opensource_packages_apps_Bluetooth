@@ -35,8 +35,6 @@ import android.os.ParcelUuid;
 import android.os.Parcelable;
 import android.util.Log;
 
-import androidx.annotation.VisibleForTesting;
-
 import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
 import com.android.bluetooth.hearingaid.HearingAidService;
@@ -45,6 +43,7 @@ import com.android.bluetooth.hid.HidHostService;
 import com.android.bluetooth.pan.PanService;
 import com.android.bluetooth.ba.BATService;
 import com.android.internal.R;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.HashSet;
 import java.util.List;
@@ -88,7 +87,12 @@ class PhonePolicy {
     // Timeouts
     private static final int AUTO_CONNECT_PROFILES_TIMEOUT= 500;
     @VisibleForTesting static int sConnectOtherProfilesTimeoutMillis = 6000; // 6s
+    private static final int CONNECT_OTHER_PROFILES_TIMEOUT_DELAYED = 10000; //10s
+    private static final int CONNECT_OTHER_PROFILES_REDUCED_TIMEOUT_DELAYED = 2000; //2s
+
     private static final int MESSAGE_PROFILE_ACTIVE_DEVICE_CHANGED = 5;
+    private static final String delayConnectTimeoutDevice[] = {"00:23:3D"}; // volkswagen carkit
+    private static final String delayReducedConnectTimeoutDevice[] = {"10:4F:A8"}; //h.ear (MDR-EX750BT)
 
     private final AdapterService mAdapterService;
     private final ServiceFactory mFactory;
@@ -501,6 +505,28 @@ class PhonePolicy {
         }
     }
 
+    private boolean isConnectTimeoutDelayApplicable(BluetoothDevice device){
+        boolean isConnectionTimeoutDelayed = false;
+        String deviceAddress = device.getAddress();
+        for (int i = 0; i < delayConnectTimeoutDevice.length;i++) {
+            if (deviceAddress.indexOf(delayConnectTimeoutDevice[i]) == 0) {
+                isConnectionTimeoutDelayed = true;
+            }
+        }
+        return isConnectionTimeoutDelayed;
+    }
+
+    private boolean isConnectReducedTimeoutDelayApplicable(BluetoothDevice device){
+        boolean isConnectionReducedTimeoutDelayed = false;
+        String deviceAddress = device.getAddress();
+        for (int i = 0; i < delayReducedConnectTimeoutDevice.length;i++) {
+            if (deviceAddress.indexOf(delayReducedConnectTimeoutDevice[i]) == 0) {
+                isConnectionReducedTimeoutDelayed = true;
+            }
+        }
+        return isConnectionReducedTimeoutDelayed;
+    }
+
     private void connectOtherProfile(BluetoothDevice device) {
         if (mAdapterService.isQuietModeEnabled()) {
             debugLog("connectOtherProfile: in quiet mode, skip connect other profile " + device);
@@ -513,7 +539,12 @@ class PhonePolicy {
         mConnectOtherProfilesDeviceSet.add(device);
         Message m = mHandler.obtainMessage(MESSAGE_CONNECT_OTHER_PROFILES);
         m.obj = device;
-        mHandler.sendMessageDelayed(m, sConnectOtherProfilesTimeoutMillis);
+        if (isConnectTimeoutDelayApplicable(device))
+            mHandler.sendMessageDelayed(m,CONNECT_OTHER_PROFILES_TIMEOUT_DELAYED);
+        else if (isConnectReducedTimeoutDelayApplicable(device))
+            mHandler.sendMessageDelayed(m,CONNECT_OTHER_PROFILES_REDUCED_TIMEOUT_DELAYED);
+        else
+            mHandler.sendMessageDelayed(m, sConnectOtherProfilesTimeoutMillis);
     }
 
     // This function is called whenever a profile is connected.  This allows any other bluetooth
@@ -638,7 +669,8 @@ class PhonePolicy {
         if (a2dpService != null) {
             if ((a2dpConnDevList.isEmpty() || !(a2dpConnDevList.contains(device)))
                     && (!mA2dpRetrySet.contains(device))
-                    && (a2dpService.getPriority(device) >= BluetoothProfile.PRIORITY_ON)
+                    && (a2dpService.getPriority(device) >= BluetoothProfile.PRIORITY_ON ||
+                        mAdapterService.isTwsPlusDevice(device))
                     && (a2dpService.getConnectionState(device)
                                == BluetoothProfile.STATE_DISCONNECTED)
                     && (hsConnected || (hsService != null &&

@@ -30,8 +30,7 @@ import android.telephony.SubscriptionManager.OnSubscriptionsChangedListener;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
-import androidx.annotation.VisibleForTesting;
-
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.IccCardConstants;
 import com.android.internal.telephony.TelephonyIntents;
 import com.android.internal.telephony.PhoneConstants;
@@ -247,9 +246,18 @@ public class HeadsetPhoneState {
             if (TelephonyIntents.ACTION_SIM_STATE_CHANGED.equals(intent.getAction())) {
                 // This is a sticky broadcast, so if it's already been loaded,
                 // this'll execute immediately.
+
+                // TODO (b/122116049) during platform update, a case emerged for an incoming
+                // slotId value of -1; it would likely be beneficial to code defensively
+                // because of this case's possibility from the caller, but the current root
+                // cause is as of yet unidentified
                 if (IccCardConstants.INTENT_VALUE_ICC_LOADED.equals(stateExtra)) {
                     final int slotId = intent.getIntExtra(PhoneConstants.SLOT_KEY,
                                        SubscriptionManager.getDefaultVoicePhoneId());
+                    if (slotId == -1) {
+                        Log.d(TAG, "Received invalid value (-1) for slotId for SIM loaded, no action");
+                        return;
+                    }
                     Log.d(TAG, "SIM loaded, making mIsSimStateLoaded to true for slotId = "
                                + slotId);
                     mSimStatus[slotId] = SIM_PRESENT;
@@ -260,6 +268,10 @@ public class HeadsetPhoneState {
                            || IccCardConstants.INTENT_VALUE_ICC_CARD_IO_ERROR.equals(stateExtra)) {
                     final int slotId = intent.getIntExtra(PhoneConstants.SLOT_KEY,
                                        SubscriptionManager.getDefaultVoicePhoneId());
+                    if (slotId == -1) {
+                        Log.d(TAG, "Received invalid value (-1) for slotId for SIM unloaded, no action");
+                        return;
+                    }
                     Log.d(TAG, "SIM unloaded, making mIsSimStateLoaded to false for slotId = "
                                + slotId);
                     mSimStatus[slotId] = SIM_ABSENT;
@@ -286,7 +298,7 @@ public class HeadsetPhoneState {
         return mNumActive;
     }
 
-    @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
     public void setNumActiveCall(int numActive) {
         mNumActive = numActive;
     }
@@ -305,7 +317,7 @@ public class HeadsetPhoneState {
         return mCallState;
     }
 
-    @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
     public void setCallState(int callState) {
         mCallState = callState;
     }
@@ -314,7 +326,7 @@ public class HeadsetPhoneState {
         return mNumHeld;
     }
 
-    @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
     public void setNumHeldCall(int numHeldCall) {
         mNumHeld = numHeldCall;
     }
@@ -348,7 +360,7 @@ public class HeadsetPhoneState {
      *
      * @param batteryLevel battery level value
      */
-    @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
+    @VisibleForTesting(visibility = VisibleForTesting.Visibility.PACKAGE)
     public void setCindBatteryCharge(int batteryLevel) {
         if (mCindBatteryCharge != batteryLevel) {
             mCindBatteryCharge = batteryLevel;
@@ -402,6 +414,7 @@ public class HeadsetPhoneState {
         public synchronized void onServiceStateChanged(ServiceState serviceState) {
             Log.d(TAG, "Enter onServiceStateChanged");
             mServiceState = serviceState;
+            int prevService = mCindService;
             int cindService = (serviceState.getState() == ServiceState.STATE_IN_SERVICE)
                     ? HeadsetHalConstants.NETWORK_STATE_AVAILABLE
                     : HeadsetHalConstants.NETWORK_STATE_NOT_AVAILABLE;
@@ -420,6 +433,18 @@ public class HeadsetPhoneState {
             if (cindService == HeadsetHalConstants.NETWORK_STATE_NOT_AVAILABLE) {
                 sendDeviceStateChanged();
             }
+
+            //Update the signal strength when the service state changes
+            if (prevService == HeadsetHalConstants.NETWORK_STATE_NOT_AVAILABLE &&
+                cindService == HeadsetHalConstants.NETWORK_STATE_AVAILABLE &&
+                mCindSignal == 0) {
+                Log.d(TAG, "Service is available and signal strength was zero, updating the "+
+                           "current signal strength");
+                mCindSignal = mTelephonyManager.getSignalStrength().getLevel() + 1;
+                // +CIND "signal" indicator is always between 0 to 5
+                mCindSignal = Integer.max(Integer.min(mCindSignal, 5), 0);
+                sendDeviceStateChanged();
+            }
             Log.d(TAG, "Exit onServiceStateChanged");
         }
 
@@ -427,6 +452,7 @@ public class HeadsetPhoneState {
         public void onSignalStrengthsChanged(SignalStrength signalStrength) {
             int prevSignal = mCindSignal;
             if (mCindService == HeadsetHalConstants.NETWORK_STATE_NOT_AVAILABLE) {
+                Log.d(TAG, "Service is not available, signal strength is set to zero");
                 mCindSignal = 0;
             } else {
                 mCindSignal = signalStrength.getLevel() + 1;
@@ -435,6 +461,7 @@ public class HeadsetPhoneState {
             mCindSignal = Integer.max(Integer.min(mCindSignal, 5), 0);
             // This results in a lot of duplicate messages, hence this check
             if (prevSignal != mCindSignal) {
+                Log.d(TAG, "Updating the signal strength change to the apps");
                 sendDeviceStateChanged();
             }
         }

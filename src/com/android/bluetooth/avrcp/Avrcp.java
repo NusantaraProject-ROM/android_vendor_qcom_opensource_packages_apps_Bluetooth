@@ -3139,7 +3139,7 @@ public final class Avrcp {
         }
 
         KeyEvent event = new KeyEvent(action, code);
-        if (!KeyEvent.isMediaKey(code)) {
+        if (!KeyEvent.isMediaSessionKey(code)) {
             Log.w(TAG, "Passthrough non-media key " + op + " (code " + code + ") state " + state);
         } else {
             if (code == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD) {
