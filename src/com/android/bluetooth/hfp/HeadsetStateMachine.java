@@ -1516,12 +1516,9 @@ public class HeadsetStateMachine extends StateMachine {
             }
             // If current device is TWSPLUS device and peer TWSPLUS device is already
             // has SCO, dont need to update teh Audio Manager
-            if (mAdapterService.isTwsPlusDevice(mDevice) &&
-               mHeadsetService.isAudioConnected(mHeadsetService.getTwsPlusConnectedPeer(mDevice))) {
-               stateLogW("Dont update Audio as this TWS peer eSCO");
-            } else {
-               setAudioParameters();
-            }
+
+            setAudioParameters();
+
             broadcastStateTransitions();
         }
 
@@ -1913,8 +1910,7 @@ public class HeadsetStateMachine extends StateMachine {
 
     private void processVolumeEvent(int volumeType, int volume) {
         // Only current active device can change SCO volume
-        AdapterService adapterService = AdapterService.getAdapterService();
-        if (!adapterService.isTwsPlusDevice(mDevice) &&
+        if (!mHeadsetService.isTwsPlusActive(mDevice) &&
             !mDevice.equals(mHeadsetService.getActiveDevice())) {
             Log.w(TAG, "processVolumeEvent, ignored because " + mDevice + " is not active");
             return;
