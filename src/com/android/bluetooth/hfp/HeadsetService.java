@@ -791,13 +791,31 @@ public class HeadsetService extends ProfileService {
         return null;
     }
 
+    private BluetoothDevice getConnectedTwspDevice() {
+        List<BluetoothDevice> connDevices = getConnectedDevices();
+        int size = connDevices.size();
+        for(int i = 0; i < size; i++) {
+            BluetoothDevice ConnectedDevice = connDevices.get(i);
+            if (mAdapterService.isTwsPlusDevice(ConnectedDevice)) {
+                logD("getConnectedTwspDevice: found" + ConnectedDevice);
+                return ConnectedDevice;
+            }
+        }
+        return null;
+    }
 
     /*
      * This function determines possible connections allowed with both Legacy
      * TWS+ earbuds.
+     * N is the maximum audio connections set (defaults to 5)
      * In TWS+ connections
-     *    -There can be 3 connections in Maximum.2 connections for a TWS+ earbud
-     * set and 1 Connection for a Legacy(non-TWS+) device
+     *    - There can be only ONE set of TWS+ earbud connected at any point
+     *      of time
+     *    - Once one of the TWS+ earbud is connected, another slot will be
+     *      reserved for the TWS+ peer earbud. Hence there can be maximum
+     *      of N-2 legacy device connections when an earbud is connected.
+     *    - If user wants to connect to another TWS+ earbud set. Existing TWS+
+     *      connection need to be removed explicitly
      * In Legacy(Non-TWS+) Connections
      *    -Maximum allowed connections N set by user is used to determine number
      * of Legacy connections
@@ -807,6 +825,7 @@ public class HeadsetService extends ProfileService {
                                            ) {
         AdapterService adapterService = AdapterService.getAdapterService();
         boolean allowSecondHfConnection = false;
+        int reservedSlotForTwspPeer = 0;
 
         if (!mIsTwsPlusEnabled && adapterService.isTwsPlusDevice(device)) {
            logD("No TWSPLUS connections as It is not Enabled");
@@ -816,54 +835,51 @@ public class HeadsetService extends ProfileService {
         if (connDevices.size() == 0) {
             allowSecondHfConnection = true;
         } else {
-            BluetoothDevice connectedDev = connDevices.get(0);
-            if (adapterService.isTwsPlusDevice(connectedDev)) {
-                //If connected device is TWSPlus device
+            BluetoothDevice connectedTwspDev = getConnectedTwspDevice();
+            if (connectedTwspDev != null) {
+                // There is TWSP connected earbud
                 if (adapterService.isTwsPlusDevice(device)) {
-                   if (adapterService.getTwsPlusPeerAddress(device).equals(connectedDev.getAddress())) {
-                       //Allow connection only if the outgoing is peer of TWS connected earbud
+                   if (adapterService.getTwsPlusPeerAddress
+                           (device).equals(connectedTwspDev.getAddress())) {
+                       //Allow connection only if the outgoing
+                       //is peer of TWS connected earbud
                        allowSecondHfConnection = true;
                    } else {
                        allowSecondHfConnection = false;
                    }
                 } else {
-                   if (connDevices.size() == 1
-                           || (connDevices.size() == 2
-                           && adapterService.isTwsPlusDevice(connDevices.get(1)))) {
-                       if (mIsTwsPlusShoEnabled) {
-                           allowSecondHfConnection = true;
-                       } else {
+                   reservedSlotForTwspPeer = 0;
+                   if (getTwsPlusConnectedPeer(connectedTwspDev) == null) {
+                       //Peer of Connected Tws+ device is not Connected
+                       //yet, reserve one slot
+                       reservedSlotForTwspPeer = 1;
+                   }
+                   if (connDevices.size() <
+                          (mMaxHeadsetConnections - reservedSlotForTwspPeer)
+                          && mIsTwsPlusShoEnabled) {
+                       allowSecondHfConnection = true;
+                   } else {
                            allowSecondHfConnection = false;
-                           logD("Not Allowed as TWS+ SHO is not enabled");
-                       }
-                   } else if (connDevices.size() == 3) {
-                       //mDisconnectAll = true;
-                       allowSecondHfConnection = false;
+                           if (!mIsTwsPlusShoEnabled) {
+                               logD("Not Allowed as TWS+ SHO is not enabled");
+                           } else {
+                               logD("Max Connections have reached");
+                           }
                    }
                 }
             } else {
-                //if Connected device is not TWS
+                //There is no TWSP connected device
                 if (adapterService.isTwsPlusDevice(device)) {
                     if (mIsTwsPlusShoEnabled) {
                         //outgoing connection is TWSP
-                        //allowSecondHfConnection = false;
-                        if (connDevices.size() == 1) {
-                            //only if connected devices is 1
-                            //disconnect it and override it with tws+
+                        if ((mMaxHeadsetConnections-connDevices.size()) >= 2) {
                             allowSecondHfConnection = true;
-                            //mDisconnectAll = true;
-                        } else if (connDevices.size() == 2) {
-                            if (getTwsPlusConnectedPeer(device) != null) {
-                                //If there are 2 devices connected
-                                //allow this TWS+ only PEER of this device is connected
-                                allowSecondHfConnection = true;
-                            }
                         } else {
                             allowSecondHfConnection = false;
+                            logD("Not enough available slots for TWSP");
                         }
                     } else {
                         allowSecondHfConnection = false;
-                        logD("Not Allowed as TWS+ SHO is not enabled");
                     }
                 } else {
                     //Outgoing connection is legacy device
@@ -879,7 +895,11 @@ public class HeadsetService extends ProfileService {
                      "is"+ adapterService.isTwsPlusDevice(device));
             Log.v(TAG, "TWS Peer Addr: " +
                       adapterService.getTwsPlusPeerAddress(device));
-            Log.v(TAG, "Connected device" + connectedDev.getAddress());
+            if (connectedTwspDev != null) {
+                Log.v(TAG, "Connected device" + connectedTwspDev.getAddress());
+            } else {
+                Log.v(TAG, "No Connected TWSP devices");
+            }
         }
 
         Log.v(TAG, "allowSecondHfConnection: " + allowSecondHfConnection);
@@ -2093,6 +2113,17 @@ public class HeadsetService extends ProfileService {
                                                    && isAudioOn()) {
                            Log.d(TAG, "TWS: Wait for both eSCO closed");
                        } else {
+                           if (mAdapterService.isTwsPlusDevice(device) &&
+                               isTwsPlusActive(mActiveDevice)) {
+                               /* If the device for which SCO got disconnected
+                                  is a TwsPlus device and TWS+ set is active
+                                  device. This should be the case where User
+                                  transferred from BT to Phone Speaker from
+                                  Call UI*/
+                                  Log.d(TAG,"don't transfer SCO. It is an" +
+                                             "explicit voice transfer from UI");
+                                  return;
+                           }
                            Log.d(TAG, "onAudioStateChangedFromStateMachine:"
                               + " triggering SCO with device "
                               + mActiveDevice);
