@@ -59,7 +59,9 @@ public abstract class BluetoothMapbMessage {
 
     private ArrayList<VCard> mOriginator = null;
     private ArrayList<VCard> mRecipient = null;
-
+    private ArrayList<String> mRecipientTo = null;
+    private ArrayList<String> mRecipientCc = null;
+    private ArrayList<String> mRecipientBCc = null;
 
     public static class VCard {
         /* VCARD attributes */
@@ -1075,5 +1077,27 @@ public abstract class BluetoothMapbMessage {
             Log.w(TAG, e);
             return null;
         }
+    }
+    public ArrayList<String> getmRecipientTo() {
+        return mRecipientTo;
+    }
+
+    public void setmRecipientTo(ArrayList<String> mRecipientTo) {
+        this.mRecipientTo = mRecipientTo;
+    }
+    public ArrayList<String> getmRecipientCc() {
+        return mRecipientCc;
+    }
+
+    public void setmRecipientCc(ArrayList<String> mRecipientCc) {
+        this.mRecipientCc = mRecipientCc;
+    }
+
+    public ArrayList<String> getmRecipientBCc() {
+        return mRecipientBCc;
+    }
+
+    public void setmRecipientBCc(ArrayList<String> mRecipientBCc) {
+        this.mRecipientBCc = mRecipientBCc;
     }
 }
