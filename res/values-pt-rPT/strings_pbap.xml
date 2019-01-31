@@ -13,4 +13,9 @@
     <string name="localPhoneName" msgid="2349001318925409159">"O meu nome"</string>
     <string name="defaultnumber" msgid="8520116145890867338">"000000"</string>
     <string name="pbap_notification_group" msgid="8487669554703627168">"Partilha de contactos por Bluetooth"</string>
+    <string name="remote_pbap_version_change">Alteração remota da versão do perfil da lista telefônica</string>
+    <string name="phonebook_advance_feature_support">Recurso Avançado da Lista Telefônica Suportado</string>
+    <string name="remote_phonebook_feature_downgrade">Downgrade do Recurso da Lista Telefônica Remota</string>
+    <string name="repair_for_adv_phonebook_feature">Re-par para Recurso Avançado Agenda</string>
+    <string name="repair_for_phonebook_access_version_comp">Re-par para compatibilidade de versão de acesso à lista telefônica</string>
 </resources>
