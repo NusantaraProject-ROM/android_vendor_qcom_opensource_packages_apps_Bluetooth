@@ -156,9 +156,9 @@ public class SapService extends ProfileService {
                 // It is mandatory for MSE to support initiation of bonding and encryption.
                 // TODO: Consider reusing the mServerSocket - it is indented to be reused
                 //       for multiple connections.
+                removeSdpRecord();
                 mServerSocket = mAdapter.listenUsingRfcommOn(
                         SdpManager.SAP_RFCOMM_CHANNEL, true, true);
-                removeSdpRecord();
                 mSdpHandle = SdpManager.getDefaultManager()
                         .createSapsRecord(SDP_SAP_SERVICE_NAME, mServerSocket.getChannel(),
                                 SDP_SAP_VERSION);
@@ -434,9 +434,7 @@ public class SapService extends ProfileService {
 
             switch (msg.what) {
                 case START_LISTENER:
-                    if (mAdapter.isEnabled()) {
-                        startRfcommSocketListener();
-                    }
+                    startRfcommSocketListener();
                     break;
                 case USER_TIMEOUT:
                     if (mIsWaitingAuthorization) {
@@ -622,7 +620,6 @@ public class SapService extends ProfileService {
         Log.v(TAG, "start()");
         IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothDevice.ACTION_CONNECTION_ACCESS_REPLY);
-        filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
         filter.addAction(USER_CONFIRM_TIMEOUT_ACTION);
 
@@ -764,25 +761,6 @@ public class SapService extends ProfileService {
                 Log.v(TAG, "onReceive");
             }
             String action = intent.getAction();
-            if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
-                int state =
-                        intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
-                if (state == BluetoothAdapter.STATE_TURNING_OFF) {
-                    if (DEBUG) {
-                        Log.d(TAG, "STATE_TURNING_OFF");
-                    }
-                    sendShutdownMessage();
-                } else if (state == BluetoothAdapter.STATE_ON) {
-                    if (DEBUG) {
-                        Log.d(TAG, "STATE_ON");
-                    }
-                    // start RFCOMM listener
-                    mSessionStatusHandler.sendMessage(
-                            mSessionStatusHandler.obtainMessage(START_LISTENER));
-                }
-                return;
-            }
-
             if (action.equals(BluetoothDevice.ACTION_CONNECTION_ACCESS_REPLY)) {
                 Log.v(TAG, " - Received BluetoothDevice.ACTION_CONNECTION_ACCESS_REPLY");
                 if (!mIsWaitingAuthorization) {
