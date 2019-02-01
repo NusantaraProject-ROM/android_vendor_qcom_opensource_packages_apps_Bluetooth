@@ -145,6 +145,7 @@ public class HeadsetStateMachine extends StateMachine {
                                                                 "30:53:00", /* BIAC series */
                                                                 "00:17:53", /* ADAYO Carkit */
                                                                 "40:ef:4c", /* Road Rover Carkit */
+                                                                "00:07:04", /* Tiguan RNS315 */
                                                                };
     private static final String [] BlacklistDeviceForSendingVOIPCallIndsBackToBack =
                                                                {"f4:15:fd"}; /* Rongwei 360 Car */
