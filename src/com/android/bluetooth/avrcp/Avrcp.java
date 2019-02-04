@@ -72,7 +72,6 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import com.android.bluetooth.hfp.HeadsetService;
 
-import android.os.SystemProperties;
 import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
 
@@ -212,8 +211,6 @@ public final class Avrcp {
     /* Manage browsed players */
     private AvrcpBrowseManager mAvrcpBrowseManager;
 
-    /* BIP Responder */
-    static private AvrcpBipRsp mAvrcpBipRsp;
     /* Broadcast receiver for device connections intent broadcasts */
     private final BroadcastReceiver mAvrcpReceiver = new AvrcpServiceBroadcastReceiver();
     private final BroadcastReceiver mBootReceiver = new AvrcpServiceBootReceiver();
@@ -308,7 +305,6 @@ public final class Avrcp {
         mContext = context;
         mLastUsedPlayerID = 0;
         mAddressedMediaPlayer = null;
-        mAvrcpBipRsp = null;
         initNative();
 
         mMediaSessionManager =
@@ -380,27 +376,6 @@ public final class Avrcp {
         }
         mPackageManager = mContext.getApplicationContext().getPackageManager();
 
-        boolean isCoverArtSupported = false;
-        AdapterService adapterService = AdapterService.getAdapterService();
-        if ((adapterService != null) && (adapterService.isVendorIntfEnabled())) {
-            if (adapterService.getProfileInfo(AbstractionLayer.AVRCP, AbstractionLayer.AVRCP_0103_SUPPORT))
-            {
-                isCoverArtSupported = false;
-            } else if(adapterService.getProfileInfo(AbstractionLayer.AVRCP, AbstractionLayer.AVRCP_COVERART_SUPPORT)){
-                isCoverArtSupported = true;
-            }
-        }
-        String avrcpVersion = SystemProperties.get(AVRCP_VERSION_PROPERTY, AVRCP_1_4_STRING);
-        if (DEBUG) Log.d(TAG, "avrcpVersion: " + avrcpVersion
-                + " isCoverArtSupported :"+isCoverArtSupported);
-        /* Enable Cover Art support is version is 1.6 and flag is set in config */
-        if (isCoverArtSupported && avrcpVersion != null &&
-            avrcpVersion.equals(AVRCP_1_6_STRING)) {
-            mAvrcpBipRsp = new AvrcpBipRsp(mContext);
-            mAvrcpBipRsp.start();
-            if (DEBUG) Log.d(TAG, "Starting AVRCP BIP Responder Service");
-        }
-
         /* create object to communicate with addressed player */
         mAddressedMediaPlayer = new AddressedMediaPlayer(mAvrcpMediaRsp);
 
@@ -452,10 +427,6 @@ public final class Avrcp {
         mHandler = null;
         if (looper != null) {
             looper.quitSafely();
-        }
-        if (mAvrcpBipRsp != null) {
-            mAvrcpBipRsp.stop();
-            mAvrcpBipRsp = null;
         }
         mAudioManagerPlaybackHandler = null;
         mContext.unregisterReceiver(mAvrcpReceiver);
@@ -1036,11 +1007,7 @@ public final class Avrcp {
                     longStringOrBlank(data.getLong(MediaMetadata.METADATA_KEY_NUM_TRACKS));
             mGenre = stringOrBlank(data.getString(MediaMetadata.METADATA_KEY_GENRE));
             mPlayingTimeMs = data.getLong(MediaMetadata.METADATA_KEY_DURATION);
-            if (mAvrcpBipRsp != null) {
-                coverArt = stringOrBlank(mAvrcpBipRsp.getImgHandle(mAlbumName));
-            } else {
-                coverArt = stringOrBlank(null);
-            }
+            coverArt = stringOrBlank(null);
 
             // Try harder for the title.
             mTitle = data.getString(MediaMetadata.METADATA_KEY_TITLE);
@@ -1113,14 +1080,7 @@ public final class Avrcp {
                 case ATTR_PLAYING_TIME_MS:
                     return Long.toString(mPlayingTimeMs);
                 case ATTR_COVER_ART:
-                    if (mAvrcpBipRsp != null) {
-                        /* Fetch coverArt Handle now in case OBEX channel is established just
-                        * before retrieving get element attribute. */
-                        coverArt = stringOrBlank(mAvrcpBipRsp.getImgHandle(mAlbumName));
-                    } else {
-                        coverArt = stringOrBlank(null);
-                    }
-                    return coverArt;
+                    return stringOrBlank(null);
                 default:
                     return new String();
             }
@@ -2390,8 +2350,6 @@ public final class Avrcp {
             featureBitsList.add(AvrcpConstants.AVRC_PF_UID_UNIQUE_BIT_NO);
             featureBitsList.add(AvrcpConstants.AVRC_PF_NOW_PLAY_BIT_NO);
             featureBitsList.add(AvrcpConstants.AVRC_PF_GET_NUM_OF_ITEMS_BIT_NO);
-            if (mAvrcpBipRsp != null)
-                featureBitsList.add(AvrcpConstants.AVRC_PF_COVER_ART_BIT_NO);
         }
 
         // converting arraylist to array for response
