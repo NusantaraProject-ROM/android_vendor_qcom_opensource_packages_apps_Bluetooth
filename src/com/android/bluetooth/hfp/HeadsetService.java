@@ -42,9 +42,10 @@ import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.SystemProperties;
 import android.os.UserHandle;
-import android.provider.Settings;
 import android.telecom.PhoneAccount;
+import android.util.EventLog;
 import android.util.Log;
+import android.util.StatsLog;
 
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.Utils;
@@ -1074,18 +1075,17 @@ public class HeadsetService extends ProfileService {
 
     public boolean setPriority(BluetoothDevice device, int priority) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
-        Settings.Global.putInt(getContentResolver(),
-                Settings.Global.getBluetoothHeadsetPriorityKey(device.getAddress()), priority);
         Log.i(TAG, "setPriority: device=" + device + ", priority=" + priority + ", "
                 + Utils.getUidPidString());
+        mAdapterService.getDatabase()
+                .setProfilePriority(device, BluetoothProfile.HEADSET, priority);
         return true;
     }
 
     public int getPriority(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
-        return Settings.Global.getInt(getContentResolver(),
-                Settings.Global.getBluetoothHeadsetPriorityKey(device.getAddress()),
-                BluetoothProfile.PRIORITY_UNDEFINED);
+        return mAdapterService.getDatabase()
+                .getProfilePriority(device, BluetoothProfile.HEADSET);
     }
 
     boolean startVoiceRecognition(BluetoothDevice device) {
@@ -1283,6 +1283,36 @@ public class HeadsetService extends ProfileService {
             return stateMachines.get(0).getDevice();
         }
         return null;
+    }
+
+    /**
+     * Process a change in the silence mode for a {@link BluetoothDevice}.
+     *
+     * @param device the device to change silence mode
+     * @param silence true to enable silence mode, false to disable.
+     * @return true on success, false on error
+     */
+    @VisibleForTesting
+    public boolean setSilenceMode(BluetoothDevice device, boolean silence) {
+        Log.d(TAG, "setSilenceMode(" + device + "): " + silence);
+
+        if (silence && Objects.equals(mActiveDevice, device)) {
+            setActiveDevice(null);
+        } else if (!silence && mActiveDevice == null) {
+            // Set the device as the active device if currently no active device.
+            setActiveDevice(device);
+        }
+        synchronized (mStateMachines) {
+            final HeadsetStateMachine stateMachine = mStateMachines.get(device);
+            if (stateMachine == null) {
+                Log.w(TAG, "setSilenceMode: device " + device
+                        + " was never connected/connecting");
+                return false;
+            }
+            stateMachine.setSilenceDevice(silence);
+        }
+
+        return true;
     }
 
     /**
@@ -2113,6 +2143,8 @@ public class HeadsetService extends ProfileService {
 
     private void broadcastActiveDevice(BluetoothDevice device) {
         logD("broadcastActiveDevice: " + device);
+        StatsLog.write(StatsLog.BLUETOOTH_ACTIVE_DEVICE_CHANGED, BluetoothProfile.HEADSET,
+                mAdapterService.obfuscateAddress(device));
         Intent intent = new Intent(BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT
@@ -2135,24 +2167,21 @@ public class HeadsetService extends ProfileService {
         }
         if(!isPts) {
             // Check priority and accept or reject the connection.
-            // Note: Logic can be simplified, but keeping it this way for readability
             int priority = getPriority(device);
             int bondState = mAdapterService.getBondState(device);
-            // If priority is undefined, it is likely that service discovery has not completed and peer
-            // initiated the connection. Allow this connection only if the device is bonded or bonding
-            boolean serviceDiscoveryPending = (priority == BluetoothProfile.PRIORITY_UNDEFINED) && (
-                    bondState == BluetoothDevice.BOND_BONDING
-                        || bondState == BluetoothDevice.BOND_BONDED);
-            // Also allow connection when device is bonded/bonding and priority is ON/AUTO_CONNECT.
-            boolean isEnabled = (priority == BluetoothProfile.PRIORITY_ON
-                    || priority == BluetoothProfile.PRIORITY_AUTO_CONNECT) && (
-                    bondState == BluetoothDevice.BOND_BONDED
-                        || bondState == BluetoothDevice.BOND_BONDING);
-            if (!serviceDiscoveryPending && !isEnabled) {
-                // Otherwise, reject the connection if no service discovery is pending and priority is
-                // neither PRIORITY_ON nor PRIORITY_AUTO_CONNECT
-                Log.w(TAG, "okToConnect: return false, priority=" + priority + ", bondState="
-                        + bondState);
+            // Allow this connection only if the device is bonded. Any attempt to connect while
+            // bonding would potentially lead to an unauthorized connection.
+            if (bondState != BluetoothDevice.BOND_BONDED) {
+                Log.w(TAG, "okToAcceptConnection: return false, bondState=" + bondState);
+                if (bondState == BluetoothDevice.BOND_BONDING) {
+                    EventLog.writeEvent(0x534e4554, "79703832", -1, "");
+                }
+                return false;
+            } else if (priority != BluetoothProfile.PRIORITY_UNDEFINED
+                    && priority != BluetoothProfile.PRIORITY_ON
+                    && priority != BluetoothProfile.PRIORITY_AUTO_CONNECT) {
+                // Otherwise, reject the connection if priority is not valid.
+                Log.w(TAG, "okToAcceptConnection: return false, priority=" + priority);
                 return false;
             }
         }

@@ -271,6 +271,42 @@ public class TestUtils {
     }
 
     /**
+     * Read Bluetooth adapter configuration from the filesystem
+     *
+     * @return A {@link HashMap} of Bluetooth configs in the format:
+     *  section -> key1 -> value1
+     *          -> key2 -> value2
+     *  Assume no empty section name, no duplicate keys in the same section
+     */
+    public static HashMap<String, HashMap<String, String>> readAdapterConfig() {
+        HashMap<String, HashMap<String, String>> adapterConfig = new HashMap<>();
+        try (BufferedReader reader =
+                new BufferedReader(new FileReader("/data/misc/bluedroid/bt_config.conf"))) {
+            String section = "";
+            for (String line; (line = reader.readLine()) != null;) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#")) {
+                    continue;
+                }
+                if (line.startsWith("[")) {
+                    if (line.charAt(line.length() - 1) != ']') {
+                        return null;
+                    }
+                    section = line.substring(1, line.length() - 1);
+                    adapterConfig.put(section, new HashMap<>());
+                } else {
+                    String[] keyValue = line.split("=");
+                    adapterConfig.get(section).put(keyValue[0].trim(),
+                            keyValue.length == 1 ? "" : keyValue[1].trim());
+                }
+            }
+        } catch (IOException e) {
+            return null;
+        }
+        return adapterConfig;
+    }
+
+    /**
      * Helper class used to run synchronously a runnable action on a looper.
      */
     private static final class SyncRunnable implements Runnable {

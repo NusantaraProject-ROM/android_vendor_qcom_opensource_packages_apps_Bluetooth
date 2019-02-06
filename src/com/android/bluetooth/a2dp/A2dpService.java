@@ -29,8 +29,9 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.AudioManager;
 import android.os.HandlerThread;
-import android.provider.Settings;
+import android.util.EventLog;
 import android.util.Log;
+import android.util.StatsLog;
 
 import android.os.Handler;
 import android.os.Message;
@@ -530,24 +531,21 @@ public class A2dpService extends ProfileService {
         }
 
         // Check priority and accept or reject the connection.
-        // Note: Logic can be simplified, but keeping it this way for readability
         int priority = getPriority(device);
         int bondState = mAdapterService.getBondState(device);
-        // If priority is undefined, it is likely that service discovery has not completed and peer
-        // initiated the connection. Allow this connection only if the device is bonded or bonding
-        boolean serviceDiscoveryPending = (priority == BluetoothProfile.PRIORITY_UNDEFINED)
-                && (bondState == BluetoothDevice.BOND_BONDING
-                || bondState == BluetoothDevice.BOND_BONDED);
-        // Also allow connection when device is bonded/bonding and priority is ON/AUTO_CONNECT.
-        boolean isEnabled = (priority == BluetoothProfile.PRIORITY_ON
-                || priority == BluetoothProfile.PRIORITY_AUTO_CONNECT)
-                && (bondState == BluetoothDevice.BOND_BONDED
-                || bondState == BluetoothDevice.BOND_BONDING);
-        if (!serviceDiscoveryPending && !isEnabled) {
-            // Otherwise, reject the connection if no service discovery is pending and priority is
-            // neither PRIORITY_ON nor PRIORITY_AUTO_CONNECT
-            Log.w(TAG, "okToConnect: return false, priority=" + priority + ", bondState="
-                    + bondState);
+        // Allow this connection only if the device is bonded. Any attempt to connect while
+        // bonding would potentially lead to an unauthorized connection.
+        if (bondState != BluetoothDevice.BOND_BONDED) {
+            Log.w(TAG, "okToConnect: return false, bondState=" + bondState);
+            if (bondState == BluetoothDevice.BOND_BONDING) {
+                EventLog.writeEvent(0x534e4554, "79703832", -1, "");
+            }
+            return false;
+        } else if (priority != BluetoothProfile.PRIORITY_UNDEFINED
+                && priority != BluetoothProfile.PRIORITY_ON
+                && priority != BluetoothProfile.PRIORITY_AUTO_CONNECT) {
+            // Otherwise, reject the connection if priority is not valid.
+            Log.w(TAG, "okToConnect: return false, priority=" + priority);
             return false;
         }
         return true;
@@ -660,6 +658,34 @@ public class A2dpService extends ProfileService {
                         + "layer");
             }
         }
+    }
+
+    /**
+     * Process a change in the silence mode for a {@link BluetoothDevice}.
+     *
+     * @param device the device to change silence mode
+     * @param silence true to enable silence mode, false to disable.
+     * @return true on success, false on error
+     */
+    @VisibleForTesting
+    public boolean setSilenceMode(BluetoothDevice device, boolean silence) {
+        if (DBG) {
+            Log.d(TAG, "setSilenceMode(" + device + "): " + silence);
+        }
+        if (silence && Objects.equals(mActiveDevice, device)) {
+            if (mActiveDevice != null && AvrcpTargetService.get() != null) {
+                AvrcpTargetService.get().storeVolumeForDevice(mActiveDevice);
+            }
+            removeActiveDevice(true);
+        } else if (!silence && mActiveDevice == null) {
+            // Set the device as the active device if currently no active device.
+            setActiveDevice(device);
+        }
+        if (!mA2dpNativeInterface.setSilenceDevice(device, silence)) {
+            Log.e(TAG, "Cannot set " + device + " silence mode " + silence + " in native layer");
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -864,20 +890,18 @@ public class A2dpService extends ProfileService {
 
     public boolean setPriority(BluetoothDevice device, int priority) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
-        Settings.Global.putInt(getContentResolver(),
-                Settings.Global.getBluetoothA2dpSinkPriorityKey(device.getAddress()), priority);
         if (DBG) {
             Log.d(TAG, "Saved priority " + device + " = " + priority);
         }
+        mAdapterService.getDatabase()
+                .setProfilePriority(device, BluetoothProfile.A2DP, priority);
         return true;
     }
 
     public int getPriority(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
-        int priority = Settings.Global.getInt(getContentResolver(),
-                Settings.Global.getBluetoothA2dpSinkPriorityKey(device.getAddress()),
-                BluetoothProfile.PRIORITY_UNDEFINED);
-        return priority;
+        return mAdapterService.getDatabase()
+                .getProfilePriority(device, BluetoothProfile.A2DP);
     }
 
     /* Absolute volume implementation */
@@ -1065,26 +1089,19 @@ public class A2dpService extends ProfileService {
 
     public int getSupportsOptionalCodecs(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
-        int support = Settings.Global.getInt(getContentResolver(),
-                Settings.Global.getBluetoothA2dpSupportsOptionalCodecsKey(device.getAddress()),
-                BluetoothA2dp.OPTIONAL_CODECS_SUPPORT_UNKNOWN);
-        return support;
+        return mAdapterService.getDatabase().getA2dpSupportsOptionalCodecs(device);
     }
 
     public void setSupportsOptionalCodecs(BluetoothDevice device, boolean doesSupport) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         int value = doesSupport ? BluetoothA2dp.OPTIONAL_CODECS_SUPPORTED
                 : BluetoothA2dp.OPTIONAL_CODECS_NOT_SUPPORTED;
-        Settings.Global.putInt(getContentResolver(),
-                Settings.Global.getBluetoothA2dpSupportsOptionalCodecsKey(device.getAddress()),
-                value);
+        mAdapterService.getDatabase().setA2dpSupportsOptionalCodecs(device, value);
     }
 
     public int getOptionalCodecsEnabled(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
-        return Settings.Global.getInt(getContentResolver(),
-                Settings.Global.getBluetoothA2dpOptionalCodecsEnabledKey(device.getAddress()),
-                BluetoothA2dp.OPTIONAL_CODECS_PREF_UNKNOWN);
+        return mAdapterService.getDatabase().getA2dpOptionalCodecsEnabled(device);
     }
 
     public void setOptionalCodecsEnabled(BluetoothDevice device, int value) {
@@ -1095,9 +1112,7 @@ public class A2dpService extends ProfileService {
             Log.w(TAG, "Unexpected value passed to setOptionalCodecsEnabled:" + value);
             return;
         }
-        Settings.Global.putInt(getContentResolver(),
-                Settings.Global.getBluetoothA2dpOptionalCodecsEnabledKey(device.getAddress()),
-                value);
+        mAdapterService.getDatabase().setA2dpOptionalCodecsEnabled(device, value);
     }
 
     // Handle messages from native (JNI) to Java
@@ -1168,6 +1183,25 @@ public class A2dpService extends ProfileService {
                             boolean sameAudioFeedingParameters) {
         Log.w(TAG, "codecConfigUpdated for device:" + device +
                                 "sameAudioFeedingParameters: " + sameAudioFeedingParameters);
+
+        // Log codec config and capability metrics
+        BluetoothCodecConfig codecConfig = codecStatus.getCodecConfig();
+        StatsLog.write(StatsLog.BLUETOOTH_A2DP_CODEC_CONFIG_CHANGED,
+                mAdapterService.obfuscateAddress(device), codecConfig.getCodecType(),
+                codecConfig.getCodecPriority(), codecConfig.getSampleRate(),
+                codecConfig.getBitsPerSample(), codecConfig.getChannelMode(),
+                codecConfig.getCodecSpecific1(), codecConfig.getCodecSpecific2(),
+                codecConfig.getCodecSpecific3(), codecConfig.getCodecSpecific4());
+        BluetoothCodecConfig[] codecCapabilities = codecStatus.getCodecsSelectableCapabilities();
+        for (BluetoothCodecConfig codecCapability : codecCapabilities) {
+            StatsLog.write(StatsLog.BLUETOOTH_A2DP_CODEC_CAPABILITY_CHANGED,
+                    mAdapterService.obfuscateAddress(device), codecCapability.getCodecType(),
+                    codecCapability.getCodecPriority(), codecCapability.getSampleRate(),
+                    codecCapability.getBitsPerSample(), codecCapability.getChannelMode(),
+                    codecConfig.getCodecSpecific1(), codecConfig.getCodecSpecific2(),
+                    codecConfig.getCodecSpecific3(), codecConfig.getCodecSpecific4());
+        }
+
         broadcastCodecConfig(device, codecStatus);
 
         // Inform the Audio Service about the codec configuration change,
@@ -1270,6 +1304,8 @@ public class A2dpService extends ProfileService {
             mActiveDevice = device;
         }
 
+        StatsLog.write(StatsLog.BLUETOOTH_ACTIVE_DEVICE_CHANGED, BluetoothProfile.A2DP,
+                mAdapterService.obfuscateAddress(device));
         Intent intent = new Intent(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT
