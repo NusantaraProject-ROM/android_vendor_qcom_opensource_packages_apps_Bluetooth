@@ -3478,6 +3478,21 @@ public class AdapterService extends Service {
         }
     }
 
+    /**
+     *  Obfuscate Bluetooth MAC address into a PII free ID string
+     *
+     *  @param device Bluetooth device whose MAC address will be obfuscated
+     *  @return a byte array that is unique to this MAC address on this device,
+     *          or empty byte array when either device is null or obfuscateAddressNative fails
+     */
+    public byte[] obfuscateAddress(BluetoothDevice device) {
+        // TODO(b/121280692): Uncomment the following lines to use obfuscateAddressNative.
+        // if (device == null) {
+            return new byte[0];
+        // }
+        // return obfuscateAddressNative(Utils.getByteAddress(device));
+    }
+
     static native void classInitNative();
 
     native boolean initNative();
