@@ -106,6 +106,8 @@ public class A2dpService extends ProfileService {
     private boolean mIsTwsPlusMonoSupported = false;
     private String  mTwsPlusChannelMode = "dual-mono";
     private BluetoothDevice mDummyDevice = null;
+    private static final int max_tws_connection = 2;
+    private static final int min_tws_connection = 1;
 
     private static final long AptxBLEScanMask = 0x3000;
     private static final long Aptx_BLEScanEnable = 0x1000;
@@ -430,11 +432,9 @@ public class A2dpService extends ProfileService {
                   getDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES);
         BluetoothDevice mConnDev = null;
         if (mMaxConnectedAudioDevices > 2 && tws_connected > 0) {
-            for (A2dpStateMachine sm : mStateMachines.values()) {
-                if ((sm.getConnectionState() == BluetoothProfile.STATE_CONNECTING ||
-                    sm.getConnectionState() == BluetoothProfile.STATE_CONNECTED) &&
-                    mAdapterService.isTwsPlusDevice(sm.getDevice())) {
-                    mConnDev = sm.getDevice();//fetch TWS+ device if connected
+            for (BluetoothDevice connectingConnectedDevice : connectingConnectedDevices) {
+                if (mAdapterService.isTwsPlusDevice(connectingConnectedDevice)) {
+                    mConnDev = connectingConnectedDevice;
                     break;
                 }
             }
@@ -444,61 +444,37 @@ public class A2dpService extends ProfileService {
         if (mA2dpStackEvent == A2dpStackEvent.CONNECTION_STATE_CONNECTING ||
             mA2dpStackEvent == A2dpStackEvent.CONNECTION_STATE_CONNECTED) {
             //Handle incoming connection
-            if ((!mAdapterService.isTwsPlusDevice(device) && (tws_connected > 0 &&
-                 (((num_connected - tws_connected) > 0) || mMaxConnectedAudioDevices == 2))) ||
-                (mAdapterService.isTwsPlusDevice(device) && (tws_connected == 0) && mMaxConnectedAudioDevices == 2)) {
+            if (!mAdapterService.isTwsPlusDevice(device) &&
+                ((mMaxConnectedAudioDevices - max_tws_connection) - (num_connected - tws_connected)) < 1) {
                 Log.d(TAG,"isConnectionAllowed: incoming connection not allowed");
                 mA2dpStackEvent = EVENT_TYPE_NONE;
                 return false;
             }
         }
-        if (num_connected > 1 &&
-           (((tws_connected == 0) && mAdapterService.isTwsPlusDevice(device)) ||
-           ((tws_connected > 0 && ((num_connected - tws_connected) > 0)) &&
-            !mAdapterService.isTwsPlusDevice(device)))) {
-            //Number of connected devices is more than 1 and outgoing connection for TWS+ device
-            // or if one of the TWS+ pair or both EBs connected,and outgoing connection triggered for legacy
-            Log.d(TAG,"isConnectionAllowed: Max connections reached");
-            return false;
-        }
-        //Reached here, connection can still be processed.
-        if ((tws_connected == 0) && mAdapterService.isTwsPlusDevice(device)) {
-            //TWS+ connection in progress and only one leagcy HS is connected
-            if (mMaxConnectedAudioDevices > 2) {
-                Log.d(TAG,"isConnectionAllowed: one legacy HS connected allow TWS+ connection");
-                return true;
-            } else {
-                Log.d(TAG,"isConnectionAllowed: Disconnect legacy device for outgoing TWSP connection");
-                disconnectExisting = true;
+        if (mAdapterService.isTwsPlusDevice(device)) {
+            if (tws_connected == max_tws_connection) {
+                Log.d(TAG,"isConnectionAllowed:TWS+ pair connected, disallow other TWS+ connection");
                 return false;
             }
-        }
-        if ((tws_connected > 0) && mAdapterService.isTwsPlusDevice(device)) {
-            //if (num_connected == mMaxConnectedAudioDevices) {
-            /*if (num_connected > 1) {
-                Log.d(TAG,"isConnectionAllowed: Max TWS connected, disconnect first");
+            if ((tws_connected > 0 && (mMaxConnectedAudioDevices - num_connected) >= min_tws_connection) ||
+                (tws_connected == 0 && (mMaxConnectedAudioDevices - num_connected) >= max_tws_connection)){
+                if ((tws_connected == 0) || (tws_connected == min_tws_connection && mConnDev != null &&
+                    mAdapterService.getTwsPlusPeerAddress(mConnDev).equals(device.getAddress()))) {
+                    Log.d(TAG,"isConnectionAllowed: Allow TWS+ connection");
+                    return true;
+                }
+            } else {
+                Log.d(TAG,"isConnectionAllowed: Too many connections, TWS+ connection not allowed");
                 return false;
-            } else*/
-            //One TWS+ EB is connected, allow connection for pair EB only.
-            if(mConnDev != null &&
-               mAdapterService.getTwsPlusPeerAddress(mConnDev).equals(device.getAddress())) {
-                Log.d(TAG,"isConnectionAllowed: Peer earbud pair allow connection");
+            }
+        } else {
+            if ((tws_connected == max_tws_connection && (mMaxConnectedAudioDevices - num_connected) >= 1) ||
+                (tws_connected == min_tws_connection && (mMaxConnectedAudioDevices - num_connected) >= 2)) {
+                Log.d(TAG,"isConnectionAllowed: Allow legacy connection");
                 return true;
             } else {
-               Log.d(TAG,"Not a TWS+ pair, connection not allowed");
-               return false;
-            }
-        } else if ((tws_connected > 0) && !mAdapterService.isTwsPlusDevice(device)) { 
-            if (((num_connected - tws_connected) > 0) || mMaxConnectedAudioDevices == 2) {// mMaxConnectedAudioDevices > 2 {
-                //Log.d(TAG,"isConnectionAllowed: Disconnect tws device to connect to legacy headset");
-                // TWS+ connected, process connection for legacy device.
-                Log.d(TAG,"isConnectionAllowed: TWS+ and one legacy already connected");
-                Log.d(TAG,"isConnectionAllowed: No futher legacy connection allowed");
-                //disconnectExisting = true;
+                Log.d(TAG,"isConnectionAllowed: Too many connections, legacy connection not allowed");
                 return false;
-            } else if (mMaxConnectedAudioDevices > 2) {
-                Log.d(TAG,"isConnectionAllowed: SHO enabled, allow legacy headset");
-                return true;
             }
         }
         return false;
