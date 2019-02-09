@@ -22,6 +22,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.HandlerThread;
 import android.os.ParcelUuid;
+import android.os.PowerManager;
 import android.os.UserHandle;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.MediumTest;
@@ -75,7 +76,8 @@ public class BondStateMachineTest {
                 mTargetContext.getResources());
         mAdapterProperties = new AdapterProperties(mAdapterService);
         mAdapterProperties.init(mRemoteDevices);
-        mBondStateMachine = BondStateMachine.make(mAdapterService, mAdapterProperties,
+        PowerManager powerManager = (PowerManager) mTargetContext.getSystemService(Context.POWER_SERVICE);
+        mBondStateMachine = BondStateMachine.make(powerManager, mAdapterService, mAdapterProperties,
                 mRemoteDevices);
     }
 
