@@ -1239,6 +1239,7 @@ class AdapterProperties {
             Intent intent;
             if ((state == AbstractionLayer.BT_DISCOVERY_STOPPED) && mDiscovering) {
                 mDiscovering = false;
+                mService.clearDiscoveringPackages();
                 mDiscoveryEndMs = System.currentTimeMillis();
                 intent = new Intent(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
                 mService.sendBroadcast(intent, AdapterService.BLUETOOTH_PERM);
