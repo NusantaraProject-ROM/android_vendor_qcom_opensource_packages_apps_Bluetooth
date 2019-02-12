@@ -16,10 +16,12 @@
 
 package com.android.bluetooth.hfp;
 
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothAssignedNumbers;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.hfp.BluetoothHfpProtoEnums;
 import android.content.Intent;
 import android.media.AudioManager;
 import android.os.Looper;
@@ -29,10 +31,12 @@ import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.PhoneStateListener;
+import android.text.TextUtils;
 import android.util.Log;
 import android.os.SystemProperties;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.util.StatsLog;
 
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
@@ -189,6 +193,7 @@ public class HeadsetStateMachine extends StateMachine {
     // Runtime states
     private int mSpeakerVolume;
     private int mMicVolume;
+    private boolean mDeviceSilenced;
     private HeadsetAgIndicatorEnableState mAgIndicatorEnableState;
     private boolean mA2dpSuspend;
     private boolean mIsCsCall = true;
@@ -252,6 +257,7 @@ public class HeadsetStateMachine extends StateMachine {
         mSystemInterface =
                 Objects.requireNonNull(systemInterface, "systemInterface cannot be null");
         mAdapterService = Objects.requireNonNull(adapterService, "AdapterService cannot be null");
+        mDeviceSilenced = false;
         // Create phonebook helper
         mPhonebook = new AtPhonebook(mHeadsetService, mNativeInterface);
         mConnectivityManager = (ConnectivityManager)
@@ -417,6 +423,12 @@ public class HeadsetStateMachine extends StateMachine {
         // Should not be called from enter() method
         void broadcastAudioState(BluetoothDevice device, int fromState, int toState) {
             stateLogD("broadcastAudioState: " + device + ": " + fromState + "->" + toState);
+            StatsLog.write(StatsLog.BLUETOOTH_SCO_CONNECTION_STATE_CHANGED,
+                    mAdapterService.obfuscateAddress(device),
+                    getConnectionStateFromAudioState(toState),
+                    TextUtils.equals(mAudioParams.get(HEADSET_WBS), HEADSET_AUDIO_FEATURE_ON)
+                            ? BluetoothHfpProtoEnums.SCO_CODEC_MSBC
+                            : BluetoothHfpProtoEnums.SCO_CODEC_CVSD);
             mHeadsetService.onAudioStateChangedFromStateMachine(device, fromState, toState);
             Intent intent = new Intent(BluetoothHeadset.ACTION_AUDIO_STATE_CHANGED);
             intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, fromState);
@@ -1020,7 +1032,10 @@ public class HeadsetStateMachine extends StateMachine {
                     break;
                 }
                 case CALL_STATE_CHANGED: {
+                    if (mDeviceSilenced) break;
+
                     boolean isPts = SystemProperties.getBoolean("vendor.bt.pts.certification", false);
+
                     HeadsetCallState callState = (HeadsetCallState) message.obj;
                     // for PTS, send the indicators as is
                     if (isPts) {
@@ -1777,6 +1792,27 @@ public class HeadsetStateMachine extends StateMachine {
 
     public long getConnectingTimestampMs() {
         return mConnectingTimestampMs;
+    }
+
+    /**
+     * Set the silence mode status of this state machine
+     *
+     * @param silence true to enter silence mode, false on exit
+     * @return true on success, false on error
+     */
+    @VisibleForTesting
+    public boolean setSilenceDevice(boolean silence) {
+        if (silence == mDeviceSilenced) {
+            return false;
+        }
+        if (silence) {
+            mSystemInterface.getHeadsetPhoneState().listenForPhoneState(mDevice,
+                    PhoneStateListener.LISTEN_NONE);
+        } else {
+            updateAgIndicatorEnableState(mAgIndicatorEnableState);
+        }
+        mDeviceSilenced = silence;
+        return true;
     }
 
     /*
@@ -2663,7 +2699,8 @@ public class HeadsetStateMachine extends StateMachine {
 
     private void updateAgIndicatorEnableState(
             HeadsetAgIndicatorEnableState agIndicatorEnableState) {
-        if (Objects.equals(mAgIndicatorEnableState, agIndicatorEnableState)) {
+        if (!mDeviceSilenced
+                && Objects.equals(mAgIndicatorEnableState, agIndicatorEnableState)) {
             Log.i(TAG, "updateAgIndicatorEnableState, no change in indicator state "
                     + mAgIndicatorEnableState);
             return;
@@ -2767,6 +2804,18 @@ public class HeadsetStateMachine extends StateMachine {
             }
         }
         log("Exit handleAccessPermissionResult()");
+    }
+
+    private static int getConnectionStateFromAudioState(int audioState) {
+        switch (audioState) {
+            case BluetoothHeadset.STATE_AUDIO_CONNECTED:
+                return BluetoothAdapter.STATE_CONNECTED;
+            case BluetoothHeadset.STATE_AUDIO_CONNECTING:
+                return BluetoothAdapter.STATE_CONNECTING;
+            case BluetoothHeadset.STATE_AUDIO_DISCONNECTED:
+                return BluetoothAdapter.STATE_DISCONNECTED;
+        }
+        return BluetoothAdapter.STATE_DISCONNECTED;
     }
 
     private static String getMessageName(int what) {
