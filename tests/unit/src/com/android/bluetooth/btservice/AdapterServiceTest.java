@@ -18,6 +18,8 @@ package com.android.bluetooth.btservice;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Matchers.anyInt;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
@@ -108,6 +110,10 @@ public class AdapterServiceTest {
         when(mMockContext.getSystemService(Context.POWER_SERVICE)).thenReturn(mPowerManager);
         when(mMockContext.getSystemService(Context.ALARM_SERVICE)).thenReturn(mMockAlarmManager);
         when(mMockContext.getSystemService(Context.AUDIO_SERVICE)).thenReturn(mAudioManager);
+        doAnswer(invocation -> {
+            Object[] args = invocation.getArguments();
+            return InstrumentationRegistry.getTargetContext().getDatabasePath((String) args[0]);
+        }).when(mMockContext).getDatabasePath(anyString());
 
         when(mMockResources.getBoolean(R.bool.profile_supported_gatt)).thenReturn(true);
         when(mMockResources.getBoolean(R.bool.profile_supported_pbap)).thenReturn(true);

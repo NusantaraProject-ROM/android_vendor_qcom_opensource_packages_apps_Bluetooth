@@ -42,9 +42,10 @@ import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.SystemProperties;
 import android.os.UserHandle;
-import android.provider.Settings;
 import android.telecom.PhoneAccount;
+import android.util.EventLog;
 import android.util.Log;
+import android.util.StatsLog;
 
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.Utils;
@@ -818,13 +819,31 @@ public class HeadsetService extends ProfileService {
         return null;
     }
 
+    private BluetoothDevice getConnectedTwspDevice() {
+        List<BluetoothDevice> connDevices = getConnectedDevices();
+        int size = connDevices.size();
+        for(int i = 0; i < size; i++) {
+            BluetoothDevice ConnectedDevice = connDevices.get(i);
+            if (mAdapterService.isTwsPlusDevice(ConnectedDevice)) {
+                logD("getConnectedTwspDevice: found" + ConnectedDevice);
+                return ConnectedDevice;
+            }
+        }
+        return null;
+    }
 
     /*
      * This function determines possible connections allowed with both Legacy
      * TWS+ earbuds.
+     * N is the maximum audio connections set (defaults to 5)
      * In TWS+ connections
-     *    -There can be 3 connections in Maximum.2 connections for a TWS+ earbud
-     * set and 1 Connection for a Legacy(non-TWS+) device
+     *    - There can be only ONE set of TWS+ earbud connected at any point
+     *      of time
+     *    - Once one of the TWS+ earbud is connected, another slot will be
+     *      reserved for the TWS+ peer earbud. Hence there can be maximum
+     *      of N-2 legacy device connections when an earbud is connected.
+     *    - If user wants to connect to another TWS+ earbud set. Existing TWS+
+     *      connection need to be removed explicitly
      * In Legacy(Non-TWS+) Connections
      *    -Maximum allowed connections N set by user is used to determine number
      * of Legacy connections
@@ -834,6 +853,7 @@ public class HeadsetService extends ProfileService {
                                            ) {
         AdapterService adapterService = AdapterService.getAdapterService();
         boolean allowSecondHfConnection = false;
+        int reservedSlotForTwspPeer = 0;
 
         if (!mIsTwsPlusEnabled && adapterService.isTwsPlusDevice(device)) {
            logD("No TWSPLUS connections as It is not Enabled");
@@ -843,54 +863,51 @@ public class HeadsetService extends ProfileService {
         if (connDevices.size() == 0) {
             allowSecondHfConnection = true;
         } else {
-            BluetoothDevice connectedDev = connDevices.get(0);
-            if (adapterService.isTwsPlusDevice(connectedDev)) {
-                //If connected device is TWSPlus device
+            BluetoothDevice connectedTwspDev = getConnectedTwspDevice();
+            if (connectedTwspDev != null) {
+                // There is TWSP connected earbud
                 if (adapterService.isTwsPlusDevice(device)) {
-                   if (adapterService.getTwsPlusPeerAddress(device).equals(connectedDev.getAddress())) {
-                       //Allow connection only if the outgoing is peer of TWS connected earbud
+                   if (adapterService.getTwsPlusPeerAddress
+                           (device).equals(connectedTwspDev.getAddress())) {
+                       //Allow connection only if the outgoing
+                       //is peer of TWS connected earbud
                        allowSecondHfConnection = true;
                    } else {
                        allowSecondHfConnection = false;
                    }
                 } else {
-                   if (connDevices.size() == 1
-                           || (connDevices.size() == 2
-                           && adapterService.isTwsPlusDevice(connDevices.get(1)))) {
-                       if (mIsTwsPlusShoEnabled) {
-                           allowSecondHfConnection = true;
-                       } else {
+                   reservedSlotForTwspPeer = 0;
+                   if (getTwsPlusConnectedPeer(connectedTwspDev) == null) {
+                       //Peer of Connected Tws+ device is not Connected
+                       //yet, reserve one slot
+                       reservedSlotForTwspPeer = 1;
+                   }
+                   if (connDevices.size() <
+                          (mMaxHeadsetConnections - reservedSlotForTwspPeer)
+                          && mIsTwsPlusShoEnabled) {
+                       allowSecondHfConnection = true;
+                   } else {
                            allowSecondHfConnection = false;
-                           logD("Not Allowed as TWS+ SHO is not enabled");
-                       }
-                   } else if (connDevices.size() == 3) {
-                       //mDisconnectAll = true;
-                       allowSecondHfConnection = false;
+                           if (!mIsTwsPlusShoEnabled) {
+                               logD("Not Allowed as TWS+ SHO is not enabled");
+                           } else {
+                               logD("Max Connections have reached");
+                           }
                    }
                 }
             } else {
-                //if Connected device is not TWS
+                //There is no TWSP connected device
                 if (adapterService.isTwsPlusDevice(device)) {
                     if (mIsTwsPlusShoEnabled) {
                         //outgoing connection is TWSP
-                        //allowSecondHfConnection = false;
-                        if (connDevices.size() == 1) {
-                            //only if connected devices is 1
-                            //disconnect it and override it with tws+
+                        if ((mMaxHeadsetConnections-connDevices.size()) >= 2) {
                             allowSecondHfConnection = true;
-                            //mDisconnectAll = true;
-                        } else if (connDevices.size() == 2) {
-                            if (getTwsPlusConnectedPeer(device) != null) {
-                                //If there are 2 devices connected
-                                //allow this TWS+ only PEER of this device is connected
-                                allowSecondHfConnection = true;
-                            }
                         } else {
                             allowSecondHfConnection = false;
+                            logD("Not enough available slots for TWSP");
                         }
                     } else {
                         allowSecondHfConnection = false;
-                        logD("Not Allowed as TWS+ SHO is not enabled");
                     }
                 } else {
                     //Outgoing connection is legacy device
@@ -906,7 +923,11 @@ public class HeadsetService extends ProfileService {
                      "is"+ adapterService.isTwsPlusDevice(device));
             Log.v(TAG, "TWS Peer Addr: " +
                       adapterService.getTwsPlusPeerAddress(device));
-            Log.v(TAG, "Connected device" + connectedDev.getAddress());
+            if (connectedTwspDev != null) {
+                Log.v(TAG, "Connected device" + connectedTwspDev.getAddress());
+            } else {
+                Log.v(TAG, "No Connected TWSP devices");
+            }
         }
 
         Log.v(TAG, "allowSecondHfConnection: " + allowSecondHfConnection);
@@ -1105,18 +1126,17 @@ public class HeadsetService extends ProfileService {
 
     public boolean setPriority(BluetoothDevice device, int priority) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
-        Settings.Global.putInt(getContentResolver(),
-                Settings.Global.getBluetoothHeadsetPriorityKey(device.getAddress()), priority);
         Log.i(TAG, "setPriority: device=" + device + ", priority=" + priority + ", "
                 + Utils.getUidPidString());
+        mAdapterService.getDatabase()
+                .setProfilePriority(device, BluetoothProfile.HEADSET, priority);
         return true;
     }
 
     public int getPriority(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
-        return Settings.Global.getInt(getContentResolver(),
-                Settings.Global.getBluetoothHeadsetPriorityKey(device.getAddress()),
-                BluetoothProfile.PRIORITY_UNDEFINED);
+        return mAdapterService.getDatabase()
+                .getProfilePriority(device, BluetoothProfile.HEADSET);
     }
 
     boolean startVoiceRecognition(BluetoothDevice device) {
@@ -1318,6 +1338,36 @@ public class HeadsetService extends ProfileService {
             return stateMachines.get(0).getDevice();
         }
         return null;
+    }
+
+    /**
+     * Process a change in the silence mode for a {@link BluetoothDevice}.
+     *
+     * @param device the device to change silence mode
+     * @param silence true to enable silence mode, false to disable.
+     * @return true on success, false on error
+     */
+    @VisibleForTesting
+    public boolean setSilenceMode(BluetoothDevice device, boolean silence) {
+        Log.d(TAG, "setSilenceMode(" + device + "): " + silence);
+
+        if (silence && Objects.equals(mActiveDevice, device)) {
+            setActiveDevice(null);
+        } else if (!silence && mActiveDevice == null) {
+            // Set the device as the active device if currently no active device.
+            setActiveDevice(device);
+        }
+        synchronized (mStateMachines) {
+            final HeadsetStateMachine stateMachine = mStateMachines.get(device);
+            if (stateMachine == null) {
+                Log.w(TAG, "setSilenceMode: device " + device
+                        + " was never connected/connecting");
+                return false;
+            }
+            stateMachine.setSilenceDevice(silence);
+        }
+
+        return true;
     }
 
     /**
@@ -2153,6 +2203,17 @@ public class HeadsetService extends ProfileService {
                                                    && isAudioOn()) {
                            Log.d(TAG, "TWS: Wait for both eSCO closed");
                        } else {
+                           if (mAdapterService.isTwsPlusDevice(device) &&
+                               isTwsPlusActive(mActiveDevice)) {
+                               /* If the device for which SCO got disconnected
+                                  is a TwsPlus device and TWS+ set is active
+                                  device. This should be the case where User
+                                  transferred from BT to Phone Speaker from
+                                  Call UI*/
+                                  Log.d(TAG,"don't transfer SCO. It is an" +
+                                             "explicit voice transfer from UI");
+                                  return;
+                           }
                            Log.d(TAG, "onAudioStateChangedFromStateMachine:"
                               + " triggering SCO with device "
                               + mActiveDevice);
@@ -2173,6 +2234,8 @@ public class HeadsetService extends ProfileService {
 
     private void broadcastActiveDevice(BluetoothDevice device) {
         logD("broadcastActiveDevice: " + device);
+        StatsLog.write(StatsLog.BLUETOOTH_ACTIVE_DEVICE_CHANGED, BluetoothProfile.HEADSET,
+                mAdapterService.obfuscateAddress(device));
         Intent intent = new Intent(BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT
@@ -2195,24 +2258,21 @@ public class HeadsetService extends ProfileService {
         }
         if(!isPts) {
             // Check priority and accept or reject the connection.
-            // Note: Logic can be simplified, but keeping it this way for readability
             int priority = getPriority(device);
             int bondState = mAdapterService.getBondState(device);
-            // If priority is undefined, it is likely that service discovery has not completed and peer
-            // initiated the connection. Allow this connection only if the device is bonded or bonding
-            boolean serviceDiscoveryPending = (priority == BluetoothProfile.PRIORITY_UNDEFINED) && (
-                    bondState == BluetoothDevice.BOND_BONDING
-                        || bondState == BluetoothDevice.BOND_BONDED);
-            // Also allow connection when device is bonded/bonding and priority is ON/AUTO_CONNECT.
-            boolean isEnabled = (priority == BluetoothProfile.PRIORITY_ON
-                    || priority == BluetoothProfile.PRIORITY_AUTO_CONNECT) && (
-                    bondState == BluetoothDevice.BOND_BONDED
-                        || bondState == BluetoothDevice.BOND_BONDING);
-            if (!serviceDiscoveryPending && !isEnabled) {
-                // Otherwise, reject the connection if no service discovery is pending and priority is
-                // neither PRIORITY_ON nor PRIORITY_AUTO_CONNECT
-                Log.w(TAG, "okToConnect: return false, priority=" + priority + ", bondState="
-                        + bondState);
+            // Allow this connection only if the device is bonded. Any attempt to connect while
+            // bonding would potentially lead to an unauthorized connection.
+            if (bondState != BluetoothDevice.BOND_BONDED) {
+                Log.w(TAG, "okToAcceptConnection: return false, bondState=" + bondState);
+                if (bondState == BluetoothDevice.BOND_BONDING) {
+                    EventLog.writeEvent(0x534e4554, "79703832", -1, "");
+                }
+                return false;
+            } else if (priority != BluetoothProfile.PRIORITY_UNDEFINED
+                    && priority != BluetoothProfile.PRIORITY_ON
+                    && priority != BluetoothProfile.PRIORITY_AUTO_CONNECT) {
+                // Otherwise, reject the connection if priority is not valid.
+                Log.w(TAG, "okToAcceptConnection: return false, priority=" + priority);
                 return false;
             }
         }
