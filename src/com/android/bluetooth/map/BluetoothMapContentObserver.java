@@ -312,8 +312,7 @@ public class BluetoothMapContentObserver {
     }
 
     public void setObserverRemoteFeatureMask(int remoteSupportedFeatures) {
-        mMapSupportedFeatures =
-                remoteSupportedFeatures & BluetoothMapMasInstance.SDP_MAP_MAS_FEATURES;
+        mMapSupportedFeatures = remoteSupportedFeatures;
         if ((BluetoothMapUtils.MAP_FEATURE_EXTENDED_EVENT_REPORT_11_BIT & mMapSupportedFeatures)
                 != 0) {
             mMapEventReportVersion = BluetoothMapUtils.MAP_EVENT_REPORT_V11;
@@ -330,9 +329,9 @@ public class BluetoothMapContentObserver {
                     + " were set, mMapSupportedFeatures=" + mMapSupportedFeatures);
         }
         if (D) {
-            Log.d(TAG,
-                    "setObserverRemoteFeatureMask: mMapEventReportVersion=" + mMapEventReportVersion
-                            + " mMapSupportedFeatures=" + mMapSupportedFeatures);
+            Log.d(TAG, "setObserverRemoteFeatureMask: mMapEventReportVersion="
+                    + mMapEventReportVersion + " mMapSupportedFeatures="
+                    + Integer.toHexString(mMapSupportedFeatures));
         }
     }
 
@@ -1534,10 +1533,14 @@ public class BluetoothMapContentObserver {
                     c.close();
                 }
             }
-
+            String eventType = EVENT_TYPE_DELETE;
             for (Msg msg : getMsgListSms().values()) {
                 // "old_folder" used only for MessageShift event
-                Event evt = new Event(EVENT_TYPE_DELETE, msg.id, getSmsFolderName(msg.type), null,
+                if (mMapEventReportVersion >= BluetoothMapUtils.MAP_EVENT_REPORT_V12) {
+                    eventType = EVENT_TYPE_REMOVED;
+                    if (V) Log.v(TAG," sent EVENT_TYPE_REMOVED");
+                }
+                Event evt = new Event(eventType, msg.id, getSmsFolderName(msg.type), null,
                         mSmsType);
                 sendEvent(evt);
                 listChanged = true;
