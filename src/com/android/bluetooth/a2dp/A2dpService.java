@@ -169,10 +169,8 @@ public class A2dpService extends ProfileService {
             Log.i(TAG, "mMaxConnectedAudioDevices: " + mMaxConnectedAudioDevices);
             if (mIsTwsPlusEnabled) {
                 mMaxConnectedAudioDevices = 2;
-            } else if (mMaxConnectedAudioDevices > 2) {
-                mMaxConnectedAudioDevices = 2;
-                mSetMaxConnectedAudioDevices = mMaxConnectedAudioDevices;
             }
+            mSetMaxConnectedAudioDevices = mMaxConnectedAudioDevices;
             String twsPlusMonoEnabled = SystemProperties.get("persist.vendor.btstack.twsplus.monosupport");
             if (!twsPlusMonoEnabled.isEmpty() && "true".equals(twsPlusMonoEnabled)) {
                 mIsTwsPlusMonoSupported = true;
