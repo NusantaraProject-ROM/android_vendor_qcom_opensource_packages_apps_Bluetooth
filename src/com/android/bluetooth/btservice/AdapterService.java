@@ -617,6 +617,12 @@ public class AdapterService extends Service {
         }
     }
 
+    void ssrCleanupCallback() {
+        disableProfileServices(false);
+        Log.e(TAG, "Killing the process to force restart as part of fault tolerance");
+        android.os.Process.killProcess(android.os.Process.myPid());
+    }
+
     /**
      * Sets the Bluetooth CoD value of the local adapter if there exists a config value for it.
      */
