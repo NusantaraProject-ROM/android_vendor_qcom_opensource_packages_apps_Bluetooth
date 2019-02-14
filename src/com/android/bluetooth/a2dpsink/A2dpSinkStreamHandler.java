@@ -266,8 +266,18 @@ public class A2dpSinkStreamHandler extends Handler {
         stopFluorideStreaming();
         if (mAudioFocus != AudioManager.AUDIOFOCUS_NONE) {
             Log.d(TAG, "abandoning audio focus");
-            mAudioManager.abandonAudioFocus(mAudioFocusListener);
-            mAudioFocus = AudioManager.AUDIOFOCUS_NONE;
+          AudioAttributes streamAttributes =
+                  new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
+                          .setContentType(AudioAttributes.CONTENT_TYPE_UNKNOWN)
+                          .build();
+          AudioFocusRequest mfocusRequest =
+                  new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN).setAudioAttributes(
+                          streamAttributes)
+                          .setWillPauseWhenDucked(true)
+                          .setOnAudioFocusChangeListener(mAudioFocusListener, this)
+                          .build();
+          mAudioManager.abandonAudioFocusRequest(mfocusRequest);
+          mAudioFocus = AudioManager.AUDIOFOCUS_NONE;
         }
     }
 
