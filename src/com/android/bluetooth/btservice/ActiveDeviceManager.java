@@ -299,13 +299,24 @@ class ActiveDeviceManager {
 
                         mHfpConnectedDevices.remove(device);
                         if (Objects.equals(mHfpActiveDevice, device)) {
-                            if (!mHfpConnectedDevices.isEmpty() &&
-                               mAdapterService.isTwsPlusDevice(mHfpConnectedDevices.get(0)) &&
-                               (hfpService != null) &&
-                                (hfpService.getConnectionState(mHfpConnectedDevices.get(0)) ==
-                                         BluetoothProfile.STATE_CONNECTED)) {
-                               setHfpActiveDevice(mHfpConnectedDevices.get(0));
-                               Log.d(TAG, "calling set Active dev: " + mHfpConnectedDevices.get(0));
+                            if (mAdapterService.isTwsPlusDevice(device) &&
+                                !mHfpConnectedDevices.isEmpty()) {
+                                if (hfpService == null) {
+                                    Log.e(TAG, "no headsetService, FATAL");
+                                    return;
+                                }
+                                BluetoothDevice peerTwsDevice =
+                                 hfpService.getTwsPlusConnectedPeer(device);
+                                if (peerTwsDevice != null &&
+                                    hfpService.getConnectionState(peerTwsDevice)
+                                    == BluetoothProfile.STATE_CONNECTED) {
+                                   setHfpActiveDevice(peerTwsDevice);
+                                   Log.d(TAG, "calling set Active dev: "
+                                      + peerTwsDevice);
+                                } else {
+                                   Log.d(TAG, "No Active device Switch" +
+                                          "as there is no Connected TWS+ peer");
+                                }
                             } else {
                                setHfpActiveDevice(null);
                             }

@@ -126,6 +126,7 @@ public class HeadsetService extends ProfileService {
     private static HeadsetService sHeadsetService;
     private boolean mDisconnectAll;
     private boolean mIsTwsPlusEnabled = false;
+    private boolean mIsTwsPlusShoEnabled = false;
 
     @Override
     public IProfileServiceBinder initBinder() {
@@ -144,8 +145,9 @@ public class HeadsetService extends ProfileService {
     @Override
     protected boolean start() {
         Log.i(TAG, "start()");
-        if (mStarted) {
-            throw new IllegalStateException("start() called twice");
+        if (sHeadsetService != null) {
+            Log.w(TAG, "HeadsetService is already running");
+            return true;
         }
         // Step 1: Get adapter service, should never be null
         mAdapterService = Objects.requireNonNull(AdapterService.getAdapterService(),
@@ -160,24 +162,33 @@ public class HeadsetService extends ProfileService {
         mSetMaxConfig = mMaxHeadsetConnections = mAdapterService.getMaxConnectedAudioDevices();
         if(mAdapterService.isVendorIntfEnabled()) {
             String twsPlusEnabled = SystemProperties.get("persist.vendor.btstack.enable.twsplus");
+            String twsPlusShoEnabled =
+               SystemProperties.get("persist.vendor.btstack.enable.twsplussho");
             if (!twsPlusEnabled.isEmpty() && "true".equals(twsPlusEnabled)) {
                 mIsTwsPlusEnabled = true;
             }
+            if (!twsPlusShoEnabled.isEmpty() && "true".equals(twsPlusShoEnabled)) {
+                if (mIsTwsPlusEnabled) {
+                    mIsTwsPlusShoEnabled = true;
+                } else {
+                    Log.e(TAG, "no TWS+ SHO without TWS+ support!");
+                    mIsTwsPlusShoEnabled = false;
+                }
+            }
             Log.i(TAG, "mIsTwsPlusEnabled: " + mIsTwsPlusEnabled);
-            if (mIsTwsPlusEnabled){
+            Log.i(TAG, "mIsTwsPlusShoEnabled: " + mIsTwsPlusShoEnabled);
+            if (mIsTwsPlusEnabled && mMaxHeadsetConnections < 2){
                //set MaxConn to 2 if TWSPLUS enabled
                mMaxHeadsetConnections = 2;
             }
-            if (mMaxHeadsetConnections > 2) {
-                //If the set config is more than 2
-                //limit it to 2
-                mMaxHeadsetConnections = 2;
-                mSetMaxConfig = 2;
+            if (mIsTwsPlusShoEnabled &&  mMaxHeadsetConnections < 3) {
+               //set MaxConn to 3 if TWSPLUS enabled
+               mMaxHeadsetConnections = 3;
             }
             //Only if the User set config 1 and TWS+ is enabled leaves
             //these maxConn at 2 and setMaxConfig to 1. this is to avoid
             //connecting to more than 1 legacy device even though max conns
-            //is set 2 because of TWS+ requirement
+            //is set 2 or 3because of TWS+ requirement
             Log.d(TAG, "Max_HFP_Connections  " + mMaxHeadsetConnections);
             Log.d(TAG, "mSetMaxConfig  " + mSetMaxConfig);
         }
@@ -780,6 +791,17 @@ public class HeadsetService extends ProfileService {
         return null;
     }
 
+
+    /*
+     * This function determines possible connections allowed with both Legacy
+     * TWS+ earbuds.
+     * In TWS+ connections
+     *    -There can be 3 connections in Maximum.2 connections for a TWS+ earbud
+     * set and 1 Connection for a Legacy(non-TWS+) device
+     * In Legacy(Non-TWS+) Connections
+     *    -Maximum allowed connections N set by user is used to determine number
+     * of Legacy connections
+     */
     private boolean isConnectionAllowed(BluetoothDevice device,
                                            List<BluetoothDevice> connDevices
                                            ) {
@@ -797,25 +819,51 @@ public class HeadsetService extends ProfileService {
             BluetoothDevice connectedDev = connDevices.get(0);
             if (adapterService.isTwsPlusDevice(connectedDev)) {
                 //If connected device is TWSPlus device
-                //Allow connection only if the outgoing is peer of TWS connected earbud
-                if (adapterService.isTwsPlusDevice(device)&&
-                   adapterService.getTwsPlusPeerAddress(device).equals(connectedDev.getAddress())) {
-                   allowSecondHfConnection = true;
+                if (adapterService.isTwsPlusDevice(device)) {
+                   if (adapterService.getTwsPlusPeerAddress(device).equals(connectedDev.getAddress())) {
+                       //Allow connection only if the outgoing is peer of TWS connected earbud
+                       allowSecondHfConnection = true;
+                   } else {
+                       allowSecondHfConnection = false;
+                   }
                 } else {
-                   allowSecondHfConnection = false;
-                   if (connDevices.size() == 1) {
-                       mDisconnectAll = true;
+                   if (connDevices.size() == 1
+                           || (connDevices.size() == 2
+                           && adapterService.isTwsPlusDevice(connDevices.get(1)))) {
+                       if (mIsTwsPlusShoEnabled) {
+                           allowSecondHfConnection = true;
+                       } else {
+                           allowSecondHfConnection = false;
+                           logD("Not Allowed as TWS+ SHO is not enabled");
+                       }
+                   } else if (connDevices.size() == 3) {
+                       //mDisconnectAll = true;
+                       allowSecondHfConnection = false;
                    }
                 }
             } else {
                 //if Connected device is not TWS
                 if (adapterService.isTwsPlusDevice(device)) {
-                    //outgoing connection is TWSP
-                    allowSecondHfConnection = false;
-                    if (connDevices.size() == 1) {
-                        //only if connected devices is 1
-                        //disconnect it and override it with tws+
-                        mDisconnectAll = true;
+                    if (mIsTwsPlusShoEnabled) {
+                        //outgoing connection is TWSP
+                        //allowSecondHfConnection = false;
+                        if (connDevices.size() == 1) {
+                            //only if connected devices is 1
+                            //disconnect it and override it with tws+
+                            allowSecondHfConnection = true;
+                            //mDisconnectAll = true;
+                        } else if (connDevices.size() == 2) {
+                            if (getTwsPlusConnectedPeer(device) != null) {
+                                //If there are 2 devices connected
+                                //allow this TWS+ only PEER of this device is connected
+                                allowSecondHfConnection = true;
+                            }
+                        } else {
+                            allowSecondHfConnection = false;
+                        }
+                    } else {
+                        allowSecondHfConnection = false;
+                        logD("Not Allowed as TWS+ SHO is not enabled");
                     }
                 } else {
                     //Outgoing connection is legacy device
@@ -1296,7 +1344,31 @@ public class HeadsetService extends ProfileService {
             }
             BluetoothDevice previousActiveDevice = mActiveDevice;
             mActiveDevice = device;
-            if (getAudioState(previousActiveDevice) != BluetoothHeadset.STATE_AUDIO_DISCONNECTED) {
+            int audioStateOfPrevActiveDevice = BluetoothHeadset.STATE_AUDIO_DISCONNECTED;
+            if (previousActiveDevice != null &&
+                    mAdapterService.isTwsPlusDevice(previousActiveDevice)) {
+                BluetoothDevice peerDevice =
+                               getTwsPlusConnectedPeer(previousActiveDevice);
+                if (getAudioState(previousActiveDevice) !=
+                               BluetoothHeadset.STATE_AUDIO_DISCONNECTED ||
+                   getAudioState(peerDevice) !=
+                               BluetoothHeadset.STATE_AUDIO_DISCONNECTED) {
+                     audioStateOfPrevActiveDevice =
+                               BluetoothHeadset.STATE_AUDIO_CONNECTED;
+                }
+                if (audioStateOfPrevActiveDevice ==
+                        BluetoothHeadset.STATE_AUDIO_CONNECTED &&
+                        getAudioState(previousActiveDevice) ==
+                        BluetoothHeadset.STATE_AUDIO_DISCONNECTED) {
+                    Log.w(TAG, "Update previousActiveDevice with" + peerDevice);
+                    previousActiveDevice = peerDevice;
+                }
+            } else {
+                audioStateOfPrevActiveDevice =
+                               getAudioState(previousActiveDevice);
+            }
+            if (audioStateOfPrevActiveDevice !=
+                               BluetoothHeadset.STATE_AUDIO_DISCONNECTED) {
                 if (!disconnectAudio(previousActiveDevice)) {
                     Log.e(TAG, "setActiveDevice: fail to disconnectAudio from "
                             + previousActiveDevice);
@@ -1372,7 +1444,7 @@ public class HeadsetService extends ProfileService {
                 //SCO is connecting or connected.
                 //Return true to telephony
                 Log.w(TAG, "connectAudio: audio is not idle, current audio devices are: "
-                        + Arrays.toString(getNonIdleAudioDevices().toArray()) + 
+                        + Arrays.toString(getNonIdleAudioDevices().toArray()) +
                         " ,returning true");
                 return true;
             }
@@ -1523,6 +1595,23 @@ public class HeadsetService extends ProfileService {
         }
     }
 
+    public boolean isTwsPlusActive(BluetoothDevice device) {
+        boolean ret = false;
+        if (mAdapterService.isTwsPlusDevice(device)) {
+            if (device.equals(getActiveDevice())) {
+                ret = true;
+            } else {
+                BluetoothDevice peerTwsDevice = mAdapterService.getTwsPlusPeerDevice(device);
+                if (peerTwsDevice != null &&
+                    peerTwsDevice.equals(getActiveDevice())) {
+                    ret = true;
+                }
+            }
+        }
+        Log.d(TAG, "isTwsPlusActive returns" + ret);
+        return ret;
+    }
+
     /**
      * Dial an outgoing call as requested by the remote device
      *
@@ -1548,7 +1637,7 @@ public class HeadsetService extends ProfileService {
                     return false;
                 }
             }
-            if (!mAdapterService.isTwsPlusDevice(fromDevice) &&
+            if (!isTwsPlusActive(fromDevice) &&
                 !setActiveDevice(fromDevice)) {
                 Log.e(TAG, "dialOutgoingCall failed to set active device to " + fromDevice);
                 return false;
@@ -1638,7 +1727,7 @@ public class HeadsetService extends ProfileService {
                         + ", already pending by " + mVoiceRecognitionTimeoutEvent);
                 return false;
             }
-            if (!mAdapterService.isTwsPlusDevice(fromDevice) && !setActiveDevice(fromDevice)) {
+            if (!isTwsPlusActive(fromDevice) && !setActiveDevice(fromDevice)) {
                 Log.w(TAG, "startVoiceRecognitionByHeadset: failed to set " + fromDevice
                         + " as active");
                 return false;
@@ -1952,47 +2041,69 @@ public class HeadsetService extends ProfileService {
     @VisibleForTesting
     public void onAudioStateChangedFromStateMachine(BluetoothDevice device, int fromState,
             int toState) {
+        Log.w(TAG, "onAudioStateChangedFromStateMachine: " + fromState + "->" + toState);
         synchronized (mStateMachines) {
             if (toState == BluetoothHeadset.STATE_AUDIO_DISCONNECTED) {
-                if (mVoiceRecognitionStarted) {
-                    if (!stopVoiceRecognitionByHeadset(device)) {
-                        Log.w(TAG, "onAudioStateChangedFromStateMachine: failed to stop voice "
-                                + "recognition");
-                    } else {
-                        final HeadsetStateMachine stateMachine = mStateMachines.get(device);
-                        if (stateMachine != null) {
-                            Log.d(TAG, "onAudioStateChangedFromStateMachine: send +bvra:0");
-                            stateMachine.sendMessage(HeadsetStateMachine.VOICE_RECOGNITION_STOP,
-                                    device);
-                        }
-                    }
-                }
-
-                if (mAdapterService.isTwsPlusDevice(device) &&
-                    isAudioConnected(getTwsPlusConnectedPeer(device))) {
-                    Log.w(TAG, "Ignore stop virtuall voice call if the other TWS+ device is "
-                            + "audio connected");
-                } else {
-                    if (mVirtualCallStarted) {
-                        if (!stopScoUsingVirtualVoiceCall()) {
-                            Log.w(TAG, "onAudioStateChangedFromStateMachine: failed to stop "
-                                    + "virtual voice call");
-                        }
-                    }
-                }
-
                 //Transfer SCO is not needed for TWS+ devices
-                if (!mAdapterService.isTwsPlusDevice(device)) {
+                if (mAdapterService.isTwsPlusDevice(device) &&
+                   mActiveDevice != null &&
+                   mAdapterService.isTwsPlusDevice(mActiveDevice) &&
+                   isAudioOn()) {
+                    Log.w(TAG, "Sco transfer is not needed btween earbuds");
+                } else {
                     // trigger SCO after SCO disconnected with previous active
                     // device
-                    if (mActiveDevice != null && !mActiveDevice.equals(device) &&
+                    Log.w(TAG, "onAudioStateChangedFromStateMachine:"
+                            + "shouldPersistAudio() returns"
+                            + shouldPersistAudio());
+                    if (mAdapterService.isTwsPlusDevice(device) &&
+                                   isAudioOn()) {
+                        Log.w(TAG, "TWS: Don't stop VR or VOIP");
+                    } else {
+                        if (mVoiceRecognitionStarted) {
+                            if (!stopVoiceRecognitionByHeadset(device)) {
+                                Log.w(TAG,"onAudioStateChangedFromStateMachine:"
+                                    + " failed to stop voice"
+                                    + " recognition");
+                            } else {
+                                final HeadsetStateMachine stateMachine
+                                                  = mStateMachines.get(device);
+                                if (stateMachine != null) {
+                                Log.d(TAG, "onAudioStateChanged" +
+                                        "FromStateMachine: send +bvra:0");
+                                  stateMachine.sendMessage(
+                                    HeadsetStateMachine.VOICE_RECOGNITION_STOP,
+                                    device);
+                                }
+                            }
+                        }
+                        if (mVirtualCallStarted) {
+                            if (!stopScoUsingVirtualVoiceCall()) {
+                                Log.w(TAG,"onAudioStateChangedFromStateMachine:"
+                                    + " failed to stop virtual "
+                                    + " voice call");
+                            }
+                        }
+                    }
+
+                    if (mActiveDevice != null &&
+                                 !mActiveDevice.equals(device) &&
                                  shouldPersistAudio()) {
-                        Log.d(TAG, "onAudioStateChangedFromStateMachine: triggering SCO with device "
+                       if (mAdapterService.isTwsPlusDevice(device)
+                                                   && isAudioOn()) {
+                           Log.d(TAG, "TWS: Wait for both eSCO closed");
+                       } else {
+                           Log.d(TAG, "onAudioStateChangedFromStateMachine:"
+                              + " triggering SCO with device "
                               + mActiveDevice);
-                       if (!connectAudio(mActiveDevice)) {
-                           Log.w(TAG, "onAudioStateChangedFromStateMachine, failed to connect"
-                              + " audio to new " + "active device " + mActiveDevice
-                              + ", after " + device + " is disconnected from SCO");
+                           if (!connectAudio(mActiveDevice)) {
+                               Log.w(TAG, "onAudioStateChangedFromStateMachine,"
+                               + " failed to connect"
+                               + " audio to new " + "active device "
+                               + mActiveDevice
+                               + ", after " + device
+                               + " is disconnected from SCO");
+                           }
                        }
                     }
                 }

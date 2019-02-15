@@ -359,6 +359,9 @@ class PhonePolicy {
                 debugLog("processProfileStateChanged, device=" + device + ", a2dpDisconnected="
                         + a2dpDisconnected + ", hsDisconnected=" + hsDisconnected);
                 if (hsDisconnected && a2dpDisconnected) {
+                    //remove a2dp and headset retry set.
+                    mA2dpRetrySet.remove(device);
+                    mHeadsetRetrySet.remove(device);
                     removeAutoConnectFromA2dpSink(device);
                     removeAutoConnectFromHeadset(device);
                 }
@@ -367,6 +370,8 @@ class PhonePolicy {
     }
 
     private void processProfileActiveDeviceChanged(BluetoothDevice activeDevice, int profileId) {
+        HeadsetService hsService = mFactory.getHeadsetService();
+        A2dpService a2dpService = mFactory.getA2dpService();
         debugLog("processProfileActiveDeviceChanged, activeDevice=" + activeDevice + ", profile="
                 + profileId);
         switch (profileId) {
@@ -380,13 +385,29 @@ class PhonePolicy {
                     return;
                 }
                 for (BluetoothDevice device : mAdapterService.getBondedDevices()) {
-                    if (!mAdapterService.isTwsPlusDevice(activeDevice)) {
-                        removeAutoConnectFromA2dpSink(device);
-                        removeAutoConnectFromHeadset(device);
-                    }
+                   removeAutoConnectFromA2dpSink(device);
+                   removeAutoConnectFromHeadset(device);
                 }
+
                 setAutoConnectForA2dpSink(activeDevice);
                 setAutoConnectForHeadset(activeDevice);
+                if (mAdapterService.isTwsPlusDevice(activeDevice)) {
+                    BluetoothDevice peerTwsDevice = hsService.getTwsPlusConnectedPeer(activeDevice);
+                    if (peerTwsDevice != null) {
+                        if (a2dpService != null &&
+                            a2dpService.getConnectionState(peerTwsDevice) !=
+                            BluetoothProfile.STATE_DISCONNECTED) {
+                            debugLog("A2DP: Set Autoconnect for Peer TWS+ as well");
+                            setAutoConnectForA2dpSink(peerTwsDevice);
+                        }
+                        if (hsService != null &&
+                            hsService.getConnectionState(peerTwsDevice) !=
+                            BluetoothProfile.STATE_DISCONNECTED) {
+                            debugLog("HFP: Set Autoconnect for Peer TWS+ as well");
+                            setAutoConnectForHeadset(peerTwsDevice);
+                        }
+                    }
+                }
                 break;
             case BluetoothProfile.HEADSET:
                 // Ignore null active device since we don't know if the change is triggered by
@@ -397,7 +418,6 @@ class PhonePolicy {
                 }
                 // If a device with only HFP profile is connected then set autoconnection for
                 // that device.
-                A2dpService a2dpService = mFactory.getA2dpService();
                 if (a2dpService != null) {
                      if (a2dpService.getConnectedDevices().size() == 0) {
                          warnLog("processProfileActiveDeviceChanged: HFP active device changed and"+

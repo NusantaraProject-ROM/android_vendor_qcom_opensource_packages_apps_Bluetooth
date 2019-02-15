@@ -143,7 +143,8 @@ public class A2dpService extends ProfileService {
     protected boolean start() {
         Log.i(TAG, "start()");
         if (sA2dpService != null) {
-            throw new IllegalStateException("start() called twice");
+            Log.w(TAG, "A2dpService is already running");
+            return true;
         }
 
         // Step 1: Get AdapterService, A2dpNativeInterface, AudioManager.
@@ -669,10 +670,24 @@ public class A2dpService extends ProfileService {
      */
     public boolean setActiveDevice(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
+
+        if(mAvrcp_ext != null) {
+            if (mAvrcp_ext.startSHO(device, false) == false) {
+                return startSHO(device);
+            } else {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public boolean startSHO(BluetoothDevice device) {
         synchronized (mActiveDeviceLock) {
             return setActiveDeviceInternal(device);
         }
     }
+
     private boolean setActiveDeviceInternal(BluetoothDevice device) {
         boolean deviceChanged;
         BluetoothCodecStatus codecStatus = null;
