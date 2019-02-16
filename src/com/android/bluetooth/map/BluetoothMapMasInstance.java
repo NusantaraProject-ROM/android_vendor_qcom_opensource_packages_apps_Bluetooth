@@ -56,6 +56,10 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
     /* TODO: Should these be adaptive for each MAS? - e.g. read from app? */
     static final int SDP_MAP_MAS_FEATURES = 0x0000007F;
 
+    // Adv map version and supported features
+    private final int SDP_MAP_MAS_FEATURES_ADV = 0x603ff;
+    private final int SDP_MAP_MAS_VERSION_ADV =  0x0103;
+    private int mPeerProfileVersion = -1;
     private ServerSession mServerSession = null;
     // The handle to the socket registration with SDP
     private ObexServerSockets mServerSockets = null;
@@ -473,20 +477,33 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
     }
 
     public void setRemoteFeatureMask(int supportedFeatures, int remoteProfileVersion) {
-       Log.d(mTag, "Current Feature Mask: " + Integer.toHexString(mRemoteFeatureMask)
-               + ", remote feature Mask: " + Integer.toHexString(supportedFeatures));
-       mRemoteFeatureMask = remoteProfileVersion > SDP_MAP_MAS_VERSION ?
-                SDP_MAP_MAS_FEATURES : supportedFeatures;
+        Log.d(mTag, "setRemoteFeatureMask supportedFeatures : "
+                + Integer.toHexString(supportedFeatures) +", remoteProfileVersion: "
+                + Integer.toHexString(remoteProfileVersion));
+        mPeerProfileVersion = remoteProfileVersion;
+        if ((remoteProfileVersion > SDP_MAP_MAS_VERSION)
+            && (remoteProfileVersion <= SDP_MAP_MAS_VERSION_ADV)){
+            mRemoteFeatureMask =
+                supportedFeatures & SDP_MAP_MAS_FEATURES_ADV;
+        } else {
+            mRemoteFeatureMask =
+                supportedFeatures & SDP_MAP_MAS_FEATURES;
+        }
         if (mObserver != null) {
             mObserver.setObserverRemoteFeatureMask(mRemoteFeatureMask);
             if (V) {
-                Log.v(mTag, "setRemoteFeatureMask : set: " + mRemoteFeatureMask);
+                Log.v(mTag, "setRemoteFeatureMask : modified mRemoteFeatureMask: "
+                        + Integer.toHexString(mRemoteFeatureMask));
             }
         }
     }
 
     public int getRemoteFeatureMask() {
         return this.mRemoteFeatureMask;
+    }
+
+    public int getRemoteProfileVersion() {
+        return mPeerProfileVersion;
     }
 
     @Override
