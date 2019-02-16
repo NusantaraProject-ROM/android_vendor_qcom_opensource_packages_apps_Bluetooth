@@ -1082,6 +1082,8 @@ public class BluetoothMapService extends ProfileService {
                     Log.d(TAG, "Received ACTION_SDP_RECORD.");
                 }
                 ParcelUuid uuid = intent.getParcelableExtra(BluetoothDevice.EXTRA_UUID);
+                BluetoothDevice remoteDevice = intent.getParcelableExtra(
+                        BluetoothDevice.EXTRA_DEVICE);
                 if (VERBOSE) {
                     Log.v(TAG, "Received UUID: " + uuid.toString());
                     Log.v(TAG, "expected UUID: "
@@ -1103,6 +1105,7 @@ public class BluetoothMapService extends ProfileService {
                                     .setRemoteFeatureMask(mMnsRecord.getSupportedFeatures(),
                                     mMnsRecord.getProfileVersion());
                         }
+                        //BluetoothMapFixes.showNotification(BluetoothMapService.this,remoteDevice);
                     }
                     if (mSdpSearchInitiated) {
                         mSdpSearchInitiated = false; // done searching
@@ -1146,10 +1149,11 @@ public class BluetoothMapService extends ProfileService {
                 }
 
                 if (VERBOSE) {
-                    Log.v(TAG, "ACL disconnected for " + device);
+                    Log.v(TAG, "ACL disconnected for " + device
+                        + " mIsWaitingAuthorization :" + mIsWaitingAuthorization);
                 }
 
-                if (sRemoteDevice.equals(device)) {
+                if (mIsWaitingAuthorization && device.equals(sRemoteDevice)) {
                     // Send any pending timeout now, since ACL got disconnected
                     mSessionStatusHandler.removeMessages(USER_TIMEOUT);
                     mSessionStatusHandler.obtainMessage(USER_TIMEOUT).sendToTarget();
