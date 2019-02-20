@@ -801,10 +801,22 @@ class AdapterProperties {
             return;
         }
 
+
         synchronized (mObject) {
+
             updateProfileConnectionState(profile, state, prevState);
 
-            if (updateCountersAndCheckForConnectionStateChange(state, prevState)) {
+            boolean validateConnectionState = false;
+
+            try {
+                validateConnectionState =
+                   updateCountersAndCheckForConnectionStateChange(state, prevState);
+            } catch (IllegalStateException ee) {
+                Log.w(TAG, "ADAPTER_CONNECTION_STATE_CHANGE: unexpected transition for profile="
+                        + profile + ", " + prevState + " -> " + state);
+            }
+
+            if (validateConnectionState) {
                 int newAdapterState = convertToAdapterState(state);
                 int prevAdapterState = convertToAdapterState(prevState);
                 setConnectionState(newAdapterState);
