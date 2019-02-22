@@ -35,9 +35,10 @@ import android.support.test.filters.MediumTest;
 import android.support.test.rule.ServiceTestRule;
 import android.support.test.runner.AndroidJUnit4;
 
-import com.android.bluetooth.R;
 import com.android.bluetooth.TestUtils;
 import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.btservice.storage.DatabaseManager;
+import com.android.internal.R;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -69,6 +70,7 @@ public class HearingAidServiceTest {
     private BroadcastReceiver mHearingAidIntentReceiver;
 
     @Mock private AdapterService mAdapterService;
+    @Mock private DatabaseManager mDatabaseManager;
     @Mock private HearingAidNativeInterface mNativeInterface;
     @Mock private AudioManager mAudioManager;
 
@@ -78,7 +80,8 @@ public class HearingAidServiceTest {
     public void setUp() throws Exception {
         mTargetContext = InstrumentationRegistry.getTargetContext();
         Assume.assumeTrue("Ignore test when HearingAidService is not enabled",
-                mTargetContext.getResources().getBoolean(R.bool.profile_supported_hearing_aid));
+                mTargetContext.getResources().getBoolean(
+                    R.bool.config_hearing_aid_profile_supported));
         // Set up mocks and test assets
         MockitoAnnotations.initMocks(this);
 
@@ -111,9 +114,6 @@ public class HearingAidServiceTest {
         mDeviceQueueMap.put(mLeftDevice, new LinkedBlockingQueue<>());
         mDeviceQueueMap.put(mRightDevice, new LinkedBlockingQueue<>());
         mDeviceQueueMap.put(mSingleDevice, new LinkedBlockingQueue<>());
-        mService.setPriority(mLeftDevice, BluetoothProfile.PRIORITY_UNDEFINED);
-        mService.setPriority(mRightDevice, BluetoothProfile.PRIORITY_UNDEFINED);
-        mService.setPriority(mSingleDevice, BluetoothProfile.PRIORITY_UNDEFINED);
         doReturn(BluetoothDevice.BOND_BONDED).when(mAdapterService)
                 .getBondState(any(BluetoothDevice.class));
         doReturn(new ParcelUuid[]{BluetoothUuid.HearingAid}).when(mAdapterService)
@@ -122,7 +122,8 @@ public class HearingAidServiceTest {
 
     @After
     public void tearDown() throws Exception {
-        if (!mTargetContext.getResources().getBoolean(R.bool.profile_supported_hearing_aid)) {
+        if (!mTargetContext.getResources().getBoolean(
+                            R.bool.config_hearing_aid_profile_supported)) {
             return;
         }
         stopService();
@@ -214,22 +215,30 @@ public class HearingAidServiceTest {
      */
     @Test
     public void testGetSetPriority() {
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mLeftDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_UNDEFINED);
         Assert.assertEquals("Initial device priority",
                 BluetoothProfile.PRIORITY_UNDEFINED,
                 mService.getPriority(mLeftDevice));
 
-        Assert.assertTrue(mService.setPriority(mLeftDevice, BluetoothProfile.PRIORITY_OFF));
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mLeftDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_OFF);
         Assert.assertEquals("Setting device priority to PRIORITY_OFF",
                 BluetoothProfile.PRIORITY_OFF,
                 mService.getPriority(mLeftDevice));
 
-        Assert.assertTrue(mService.setPriority(mLeftDevice, BluetoothProfile.PRIORITY_ON));
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mLeftDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
         Assert.assertEquals("Setting device priority to PRIORITY_ON",
                 BluetoothProfile.PRIORITY_ON,
                 mService.getPriority(mLeftDevice));
 
-        Assert.assertTrue(mService.setPriority(mLeftDevice,
-                BluetoothProfile.PRIORITY_AUTO_CONNECT));
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mLeftDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_AUTO_CONNECT);
         Assert.assertEquals("Setting device priority to PRIORITY_AUTO_CONNECT",
                 BluetoothProfile.PRIORITY_AUTO_CONNECT,
                 mService.getPriority(mLeftDevice));
@@ -253,13 +262,13 @@ public class HearingAidServiceTest {
         testOkToConnectCase(mSingleDevice,
                 BluetoothDevice.BOND_NONE, badPriorityValue, false);
         testOkToConnectCase(mSingleDevice,
-                BluetoothDevice.BOND_BONDING, BluetoothProfile.PRIORITY_UNDEFINED, true);
+                BluetoothDevice.BOND_BONDING, BluetoothProfile.PRIORITY_UNDEFINED, false);
         testOkToConnectCase(mSingleDevice,
                 BluetoothDevice.BOND_BONDING, BluetoothProfile.PRIORITY_OFF, false);
         testOkToConnectCase(mSingleDevice,
-                BluetoothDevice.BOND_BONDING, BluetoothProfile.PRIORITY_ON, true);
+                BluetoothDevice.BOND_BONDING, BluetoothProfile.PRIORITY_ON, false);
         testOkToConnectCase(mSingleDevice,
-                BluetoothDevice.BOND_BONDING, BluetoothProfile.PRIORITY_AUTO_CONNECT, true);
+                BluetoothDevice.BOND_BONDING, BluetoothProfile.PRIORITY_AUTO_CONNECT, false);
         testOkToConnectCase(mSingleDevice,
                 BluetoothDevice.BOND_BONDING, badPriorityValue, false);
         testOkToConnectCase(mSingleDevice,
@@ -282,8 +291,6 @@ public class HearingAidServiceTest {
                 badBondState, BluetoothProfile.PRIORITY_AUTO_CONNECT, false);
         testOkToConnectCase(mSingleDevice,
                 badBondState, badPriorityValue, false);
-        // Restore prirority to undefined for this test device
-        Assert.assertTrue(mService.setPriority(mSingleDevice, BluetoothProfile.PRIORITY_UNDEFINED));
     }
 
     /**
@@ -292,9 +299,13 @@ public class HearingAidServiceTest {
     @Test
     public void testOutgoingConnectMissingHearingAidUuid() {
         // Update the device priority so okToConnect() returns true
-        mService.setPriority(mLeftDevice, BluetoothProfile.PRIORITY_ON);
-        mService.setPriority(mRightDevice, BluetoothProfile.PRIORITY_OFF);
-        mService.setPriority(mSingleDevice, BluetoothProfile.PRIORITY_OFF);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mLeftDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
+        when(mDatabaseManager.getProfilePriority(mRightDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_OFF);
+        when(mDatabaseManager.getProfilePriority(mSingleDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_OFF);
         doReturn(true).when(mNativeInterface).connectHearingAid(any(BluetoothDevice.class));
         doReturn(true).when(mNativeInterface).disconnectHearingAid(any(BluetoothDevice.class));
 
@@ -315,7 +326,9 @@ public class HearingAidServiceTest {
         doReturn(true).when(mNativeInterface).disconnectHearingAid(any(BluetoothDevice.class));
 
         // Set the device priority to PRIORITY_OFF so connect() should fail
-        mService.setPriority(mLeftDevice, BluetoothProfile.PRIORITY_OFF);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mLeftDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_OFF);
 
         // Send a connect request
         Assert.assertFalse("Connect expected to fail", mService.connect(mLeftDevice));
@@ -327,9 +340,13 @@ public class HearingAidServiceTest {
     @Test
     public void testOutgoingConnectTimeout() {
         // Update the device priority so okToConnect() returns true
-        mService.setPriority(mLeftDevice, BluetoothProfile.PRIORITY_ON);
-        mService.setPriority(mRightDevice, BluetoothProfile.PRIORITY_OFF);
-        mService.setPriority(mSingleDevice, BluetoothProfile.PRIORITY_OFF);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mLeftDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
+        when(mDatabaseManager.getProfilePriority(mRightDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_OFF);
+        when(mDatabaseManager.getProfilePriority(mSingleDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_OFF);
         doReturn(true).when(mNativeInterface).connectHearingAid(any(BluetoothDevice.class));
         doReturn(true).when(mNativeInterface).disconnectHearingAid(any(BluetoothDevice.class));
 
@@ -358,9 +375,13 @@ public class HearingAidServiceTest {
         // Update hiSyncId map
         getHiSyncIdFromNative();
         // Update the device priority so okToConnect() returns true
-        mService.setPriority(mLeftDevice, BluetoothProfile.PRIORITY_ON);
-        mService.setPriority(mRightDevice, BluetoothProfile.PRIORITY_ON);
-        mService.setPriority(mSingleDevice, BluetoothProfile.PRIORITY_OFF);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mLeftDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
+        when(mDatabaseManager.getProfilePriority(mRightDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
+        when(mDatabaseManager.getProfilePriority(mSingleDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_OFF);
         doReturn(true).when(mNativeInterface).connectHearingAid(any(BluetoothDevice.class));
         doReturn(true).when(mNativeInterface).disconnectHearingAid(any(BluetoothDevice.class));
 
@@ -386,9 +407,13 @@ public class HearingAidServiceTest {
         // Update hiSyncId map
         getHiSyncIdFromNative();
         // Update the device priority so okToConnect() returns true
-        mService.setPriority(mLeftDevice, BluetoothProfile.PRIORITY_ON);
-        mService.setPriority(mRightDevice, BluetoothProfile.PRIORITY_ON);
-        mService.setPriority(mSingleDevice, BluetoothProfile.PRIORITY_ON);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mLeftDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
+        when(mDatabaseManager.getProfilePriority(mRightDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
+        when(mDatabaseManager.getProfilePriority(mSingleDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
         doReturn(true).when(mNativeInterface).connectHearingAid(any(BluetoothDevice.class));
         doReturn(true).when(mNativeInterface).disconnectHearingAid(any(BluetoothDevice.class));
 
@@ -446,9 +471,13 @@ public class HearingAidServiceTest {
         // Update hiSyncId map
         getHiSyncIdFromNative();
         // Update the device priority so okToConnect() returns true
-        mService.setPriority(mLeftDevice, BluetoothProfile.PRIORITY_ON);
-        mService.setPriority(mRightDevice, BluetoothProfile.PRIORITY_ON);
-        mService.setPriority(mSingleDevice, BluetoothProfile.PRIORITY_OFF);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mLeftDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
+        when(mDatabaseManager.getProfilePriority(mRightDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
+        when(mDatabaseManager.getProfilePriority(mSingleDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_OFF);
         doReturn(true).when(mNativeInterface).connectHearingAid(any(BluetoothDevice.class));
         doReturn(true).when(mNativeInterface).disconnectHearingAid(any(BluetoothDevice.class));
 
@@ -559,9 +588,13 @@ public class HearingAidServiceTest {
     @Test
     public void testCreateStateMachineStackEvents() {
         // Update the device priority so okToConnect() returns true
-        mService.setPriority(mLeftDevice, BluetoothProfile.PRIORITY_ON);
-        mService.setPriority(mRightDevice, BluetoothProfile.PRIORITY_OFF);
-        mService.setPriority(mSingleDevice, BluetoothProfile.PRIORITY_OFF);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mLeftDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
+        when(mDatabaseManager.getProfilePriority(mRightDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_OFF);
+        when(mDatabaseManager.getProfilePriority(mSingleDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_OFF);
         doReturn(true).when(mNativeInterface).connectHearingAid(any(BluetoothDevice.class));
         doReturn(true).when(mNativeInterface).disconnectHearingAid(any(BluetoothDevice.class));
 
@@ -620,9 +653,13 @@ public class HearingAidServiceTest {
     @Test
     public void testDeleteStateMachineUnbondEvents() {
         // Update the device priority so okToConnect() returns true
-        mService.setPriority(mLeftDevice, BluetoothProfile.PRIORITY_ON);
-        mService.setPriority(mRightDevice, BluetoothProfile.PRIORITY_OFF);
-        mService.setPriority(mSingleDevice, BluetoothProfile.PRIORITY_OFF);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mLeftDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
+        when(mDatabaseManager.getProfilePriority(mRightDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_OFF);
+        when(mDatabaseManager.getProfilePriority(mSingleDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_OFF);
         doReturn(true).when(mNativeInterface).connectHearingAid(any(BluetoothDevice.class));
         doReturn(true).when(mNativeInterface).disconnectHearingAid(any(BluetoothDevice.class));
 
@@ -677,9 +714,13 @@ public class HearingAidServiceTest {
     @Test
     public void testDeleteStateMachineDisconnectEvents() {
         // Update the device priority so okToConnect() returns true
-        mService.setPriority(mLeftDevice, BluetoothProfile.PRIORITY_ON);
-        mService.setPriority(mRightDevice, BluetoothProfile.PRIORITY_OFF);
-        mService.setPriority(mSingleDevice, BluetoothProfile.PRIORITY_OFF);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mLeftDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
+        when(mDatabaseManager.getProfilePriority(mRightDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_OFF);
+        when(mDatabaseManager.getProfilePriority(mSingleDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_OFF);
         doReturn(true).when(mNativeInterface).connectHearingAid(any(BluetoothDevice.class));
         doReturn(true).when(mNativeInterface).disconnectHearingAid(any(BluetoothDevice.class));
 
@@ -722,9 +763,13 @@ public class HearingAidServiceTest {
         // Update hiSyncId map
         getHiSyncIdFromNative();
         // Update the device priority so okToConnect() returns true
-        mService.setPriority(mLeftDevice, BluetoothProfile.PRIORITY_ON);
-        mService.setPriority(mRightDevice, BluetoothProfile.PRIORITY_ON);
-        mService.setPriority(mSingleDevice, BluetoothProfile.PRIORITY_OFF);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mLeftDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
+        when(mDatabaseManager.getProfilePriority(mRightDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
+        when(mDatabaseManager.getProfilePriority(mSingleDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_OFF);
 
         generateConnectionMessageFromNative(mRightDevice, BluetoothProfile.STATE_CONNECTED,
                 BluetoothProfile.STATE_DISCONNECTED);
@@ -752,9 +797,13 @@ public class HearingAidServiceTest {
         // Update hiSyncId map
         getHiSyncIdFromNative();
         // Update the device priority so okToConnect() returns true
-        mService.setPriority(mLeftDevice, BluetoothProfile.PRIORITY_ON);
-        mService.setPriority(mRightDevice, BluetoothProfile.PRIORITY_ON);
-        mService.setPriority(mSingleDevice, BluetoothProfile.PRIORITY_ON);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mLeftDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
+        when(mDatabaseManager.getProfilePriority(mRightDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
+        when(mDatabaseManager.getProfilePriority(mSingleDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
 
         generateConnectionMessageFromNative(mRightDevice, BluetoothProfile.STATE_CONNECTED,
                 BluetoothProfile.STATE_DISCONNECTED);
@@ -781,8 +830,11 @@ public class HearingAidServiceTest {
     @Test
     public void firstTimeConnection_shouldConnectToBothDevices() {
         // Update the device priority so okToConnect() returns true
-        mService.setPriority(mLeftDevice, BluetoothProfile.PRIORITY_ON);
-        mService.setPriority(mRightDevice, BluetoothProfile.PRIORITY_ON);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mLeftDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
+        when(mDatabaseManager.getProfilePriority(mRightDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
         doReturn(true).when(mNativeInterface).connectHearingAid(any(BluetoothDevice.class));
         doReturn(true).when(mNativeInterface).disconnectHearingAid(any(BluetoothDevice.class));
         // Send a connect request for left device
@@ -861,9 +913,13 @@ public class HearingAidServiceTest {
     @Test
     public void getHiSyncId_afterFirstDeviceConnected() {
         // Update the device priority so okToConnect() returns true
-        mService.setPriority(mLeftDevice, BluetoothProfile.PRIORITY_ON);
-        mService.setPriority(mRightDevice, BluetoothProfile.PRIORITY_ON);
-        mService.setPriority(mSingleDevice, BluetoothProfile.PRIORITY_ON);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(mLeftDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
+        when(mDatabaseManager.getProfilePriority(mRightDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
+        when(mDatabaseManager.getProfilePriority(mSingleDevice, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
         doReturn(true).when(mNativeInterface).connectHearingAid(any(BluetoothDevice.class));
         doReturn(true).when(mNativeInterface).disconnectHearingAid(any(BluetoothDevice.class));
         // Send a connect request
@@ -949,7 +1005,9 @@ public class HearingAidServiceTest {
         List<BluetoothDevice> prevConnectedDevices = mService.getConnectedDevices();
 
         // Update the device priority so okToConnect() returns true
-        mService.setPriority(device, BluetoothProfile.PRIORITY_ON);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(device, BluetoothProfile.HEARING_AID))
+                .thenReturn(BluetoothProfile.PRIORITY_ON);
         doReturn(true).when(mNativeInterface).connectHearingAid(device);
         doReturn(true).when(mNativeInterface).disconnectHearingAid(device);
 
@@ -1016,7 +1074,9 @@ public class HearingAidServiceTest {
     private void testOkToConnectCase(BluetoothDevice device, int bondState, int priority,
             boolean expected) {
         doReturn(bondState).when(mAdapterService).getBondState(device);
-        Assert.assertTrue(mService.setPriority(device, priority));
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
+        when(mDatabaseManager.getProfilePriority(device, BluetoothProfile.HEARING_AID))
+                .thenReturn(priority);
         Assert.assertEquals(expected, mService.okToConnect(device));
     }
 

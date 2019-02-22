@@ -42,9 +42,10 @@ import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.SystemProperties;
 import android.os.UserHandle;
-import android.provider.Settings;
 import android.telecom.PhoneAccount;
+import android.util.EventLog;
 import android.util.Log;
+import android.util.StatsLog;
 
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.Utils;
@@ -255,12 +256,17 @@ public class HeadsetService extends ProfileService {
             mVoiceRecognitionStarted = false;
             mVirtualCallStarted = false;
             if (mDialingOutTimeoutEvent != null) {
-                mStateMachinesThread.getThreadHandler().removeCallbacks(mDialingOutTimeoutEvent);
+                if (mStateMachinesThread != null) {
+                    mStateMachinesThread.getThreadHandler()
+                      .removeCallbacks(mDialingOutTimeoutEvent);
+                }
                 mDialingOutTimeoutEvent = null;
             }
             if (mVoiceRecognitionTimeoutEvent != null) {
-                mStateMachinesThread.getThreadHandler()
+                if (mStateMachinesThread != null) {
+                    mStateMachinesThread.getThreadHandler()
                         .removeCallbacks(mVoiceRecognitionTimeoutEvent);
+                }
                 mVoiceRecognitionTimeoutEvent = null;
                 if (mSystemInterface.getVoiceRecognitionWakeLock().isHeld()) {
                     mSystemInterface.getVoiceRecognitionWakeLock().release();
@@ -276,11 +282,13 @@ public class HeadsetService extends ProfileService {
         mNativeInterface.cleanup();
         // Step 3: Destroy system interface
         mSystemInterface.stop();
-        // Step 2: Stop handler thread
-        mStateMachinesThread.quitSafely();
-        mStateMachinesThread = null;
-        // Step 1: Clear
         synchronized (mStateMachines) {
+            // Step 2: Stop handler thread
+            if (mStateMachinesThread != null) {
+                mStateMachinesThread.quitSafely();
+            }
+            mStateMachinesThread = null;
+            // Step 1: Clear
             mAdapterService = null;
         }
         return true;
@@ -312,7 +320,10 @@ public class HeadsetService extends ProfileService {
      */
     @VisibleForTesting
     public Looper getStateMachinesThreadLooper() {
-        return mStateMachinesThread.getLooper();
+        if (mStateMachinesThread != null) {
+            return mStateMachinesThread.getLooper();
+        }
+        return null;
     }
 
     interface StateMachineTask {
@@ -324,7 +335,11 @@ public class HeadsetService extends ProfileService {
         synchronized (mStateMachines) {
             for (BluetoothDevice device :
                          getDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES)) {
-                task.execute(mStateMachines.get(device));
+                HeadsetStateMachine stateMachine = mStateMachines.get(device);
+                if (stateMachine == null) {
+                    continue;
+                }
+                task.execute(stateMachine);
             }
         }
     }
@@ -343,15 +358,21 @@ public class HeadsetService extends ProfileService {
     private void doForEachConnectedStateMachine(StateMachineTask task) {
         synchronized (mStateMachines) {
             for (BluetoothDevice device : getConnectedDevices()) {
-                task.execute(mStateMachines.get(device));
+                HeadsetStateMachine stateMachine = mStateMachines.get(device);
+                if (stateMachine == null) {
+                    continue;
+                }
+                task.execute(stateMachine);
             }
         }
     }
 
     void onDeviceStateChanged(HeadsetDeviceState deviceState) {
-        doForEachConnectedStateMachine(
+        synchronized (mStateMachines) {
+            doForEachConnectedStateMachine(
                 stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.DEVICE_STATE_CHANGED,
                         deviceState));
+        }
     }
 
     /**
@@ -371,11 +392,15 @@ public class HeadsetService extends ProfileService {
                     case HeadsetHalConstants.CONNECTION_STATE_CONNECTING: {
                         // Create new state machine if none is found
                         if (stateMachine == null) {
-                            stateMachine = HeadsetObjectsFactory.getInstance()
+                            if (mStateMachinesThread != null) {
+                                stateMachine = HeadsetObjectsFactory.getInstance()
                                     .makeStateMachine(stackEvent.device,
                                             mStateMachinesThread.getLooper(), this, mAdapterService,
                                             mNativeInterface, mSystemInterface);
-                            mStateMachines.put(stackEvent.device, stateMachine);
+                                mStateMachines.put(stackEvent.device, stateMachine);
+                            } else {
+                                Log.w(TAG, "messageFromNative: mStateMachinesThread is null");
+                            }
                         }
                         break;
                     }
@@ -413,8 +438,10 @@ public class HeadsetService extends ProfileService {
                 case AudioManager.VOLUME_CHANGED_ACTION: {
                     int streamType = intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, -1);
                     if (streamType == AudioManager.STREAM_BLUETOOTH_SCO) {
-                        doForEachConnectedStateMachine(stateMachine -> stateMachine.sendMessage(
+                       synchronized (mStateMachines) {
+                          doForEachConnectedStateMachine(stateMachine -> stateMachine.sendMessage(
                                 HeadsetStateMachine.INTENT_SCO_VOLUME_CHANGED, intent));
+                       }
                     }
                     break;
                 }
@@ -461,7 +488,6 @@ public class HeadsetService extends ProfileService {
                     }
                     break;
                 }
-                //TODO: below 2 should be done for all stateMachines ( doForEachConnectedStateMachine )
                 case BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED: {
                     logD("Received BluetoothA2dp Play State changed");
                     mHfpA2dpSyncInterface.updateA2DPPlayingState(intent);
@@ -474,8 +500,10 @@ public class HeadsetService extends ProfileService {
                 }
                 case TelecomManager.ACTION_CALL_TYPE: {
                     logD("Received BluetoothHeadset action call type");
-                    doForEachConnectedStateMachine(stateMachine -> stateMachine.sendMessage(
+                    synchronized (mStateMachines) {
+                        doForEachConnectedStateMachine(stateMachine -> stateMachine.sendMessage(
                             HeadsetStateMachine.UPDATE_CALL_TYPE, intent));
+                    }
                 }
                 default:
                     Log.w(TAG, "Unknown action " + action);
@@ -791,13 +819,31 @@ public class HeadsetService extends ProfileService {
         return null;
     }
 
+    private BluetoothDevice getConnectedTwspDevice() {
+        List<BluetoothDevice> connDevices = getConnectedDevices();
+        int size = connDevices.size();
+        for(int i = 0; i < size; i++) {
+            BluetoothDevice ConnectedDevice = connDevices.get(i);
+            if (mAdapterService.isTwsPlusDevice(ConnectedDevice)) {
+                logD("getConnectedTwspDevice: found" + ConnectedDevice);
+                return ConnectedDevice;
+            }
+        }
+        return null;
+    }
 
     /*
      * This function determines possible connections allowed with both Legacy
      * TWS+ earbuds.
+     * N is the maximum audio connections set (defaults to 5)
      * In TWS+ connections
-     *    -There can be 3 connections in Maximum.2 connections for a TWS+ earbud
-     * set and 1 Connection for a Legacy(non-TWS+) device
+     *    - There can be only ONE set of TWS+ earbud connected at any point
+     *      of time
+     *    - Once one of the TWS+ earbud is connected, another slot will be
+     *      reserved for the TWS+ peer earbud. Hence there can be maximum
+     *      of N-2 legacy device connections when an earbud is connected.
+     *    - If user wants to connect to another TWS+ earbud set. Existing TWS+
+     *      connection need to be removed explicitly
      * In Legacy(Non-TWS+) Connections
      *    -Maximum allowed connections N set by user is used to determine number
      * of Legacy connections
@@ -807,6 +853,7 @@ public class HeadsetService extends ProfileService {
                                            ) {
         AdapterService adapterService = AdapterService.getAdapterService();
         boolean allowSecondHfConnection = false;
+        int reservedSlotForTwspPeer = 0;
 
         if (!mIsTwsPlusEnabled && adapterService.isTwsPlusDevice(device)) {
            logD("No TWSPLUS connections as It is not Enabled");
@@ -816,54 +863,51 @@ public class HeadsetService extends ProfileService {
         if (connDevices.size() == 0) {
             allowSecondHfConnection = true;
         } else {
-            BluetoothDevice connectedDev = connDevices.get(0);
-            if (adapterService.isTwsPlusDevice(connectedDev)) {
-                //If connected device is TWSPlus device
+            BluetoothDevice connectedTwspDev = getConnectedTwspDevice();
+            if (connectedTwspDev != null) {
+                // There is TWSP connected earbud
                 if (adapterService.isTwsPlusDevice(device)) {
-                   if (adapterService.getTwsPlusPeerAddress(device).equals(connectedDev.getAddress())) {
-                       //Allow connection only if the outgoing is peer of TWS connected earbud
+                   if (adapterService.getTwsPlusPeerAddress
+                           (device).equals(connectedTwspDev.getAddress())) {
+                       //Allow connection only if the outgoing
+                       //is peer of TWS connected earbud
                        allowSecondHfConnection = true;
                    } else {
                        allowSecondHfConnection = false;
                    }
                 } else {
-                   if (connDevices.size() == 1
-                           || (connDevices.size() == 2
-                           && adapterService.isTwsPlusDevice(connDevices.get(1)))) {
-                       if (mIsTwsPlusShoEnabled) {
-                           allowSecondHfConnection = true;
-                       } else {
+                   reservedSlotForTwspPeer = 0;
+                   if (getTwsPlusConnectedPeer(connectedTwspDev) == null) {
+                       //Peer of Connected Tws+ device is not Connected
+                       //yet, reserve one slot
+                       reservedSlotForTwspPeer = 1;
+                   }
+                   if (connDevices.size() <
+                          (mMaxHeadsetConnections - reservedSlotForTwspPeer)
+                          && mIsTwsPlusShoEnabled) {
+                       allowSecondHfConnection = true;
+                   } else {
                            allowSecondHfConnection = false;
-                           logD("Not Allowed as TWS+ SHO is not enabled");
-                       }
-                   } else if (connDevices.size() == 3) {
-                       //mDisconnectAll = true;
-                       allowSecondHfConnection = false;
+                           if (!mIsTwsPlusShoEnabled) {
+                               logD("Not Allowed as TWS+ SHO is not enabled");
+                           } else {
+                               logD("Max Connections have reached");
+                           }
                    }
                 }
             } else {
-                //if Connected device is not TWS
+                //There is no TWSP connected device
                 if (adapterService.isTwsPlusDevice(device)) {
                     if (mIsTwsPlusShoEnabled) {
                         //outgoing connection is TWSP
-                        //allowSecondHfConnection = false;
-                        if (connDevices.size() == 1) {
-                            //only if connected devices is 1
-                            //disconnect it and override it with tws+
+                        if ((mMaxHeadsetConnections-connDevices.size()) >= 2) {
                             allowSecondHfConnection = true;
-                            //mDisconnectAll = true;
-                        } else if (connDevices.size() == 2) {
-                            if (getTwsPlusConnectedPeer(device) != null) {
-                                //If there are 2 devices connected
-                                //allow this TWS+ only PEER of this device is connected
-                                allowSecondHfConnection = true;
-                            }
                         } else {
                             allowSecondHfConnection = false;
+                            logD("Not enough available slots for TWSP");
                         }
                     } else {
                         allowSecondHfConnection = false;
-                        logD("Not Allowed as TWS+ SHO is not enabled");
                     }
                 } else {
                     //Outgoing connection is legacy device
@@ -879,7 +923,11 @@ public class HeadsetService extends ProfileService {
                      "is"+ adapterService.isTwsPlusDevice(device));
             Log.v(TAG, "TWS Peer Addr: " +
                       adapterService.getTwsPlusPeerAddress(device));
-            Log.v(TAG, "Connected device" + connectedDev.getAddress());
+            if (connectedTwspDev != null) {
+                Log.v(TAG, "Connected device" + connectedTwspDev.getAddress());
+            } else {
+                Log.v(TAG, "No Connected TWSP devices");
+            }
         }
 
         Log.v(TAG, "allowSecondHfConnection: " + allowSecondHfConnection);
@@ -903,10 +951,14 @@ public class HeadsetService extends ProfileService {
             Log.i(TAG, "connect: device=" + device + ", " + Utils.getUidPidString());
             HeadsetStateMachine stateMachine = mStateMachines.get(device);
             if (stateMachine == null) {
-                stateMachine = HeadsetObjectsFactory.getInstance()
+                if (mStateMachinesThread != null) {
+                    stateMachine = HeadsetObjectsFactory.getInstance()
                         .makeStateMachine(device, mStateMachinesThread.getLooper(), this,
                                 mAdapterService, mNativeInterface, mSystemInterface);
-                mStateMachines.put(device, stateMachine);
+                    mStateMachines.put(device, stateMachine);
+                } else {
+                    Log.w(TAG, "connect: mStateMachinesThread is null");
+                }
             }
             int connectionState = stateMachine.getConnectionState();
             if (connectionState == BluetoothProfile.STATE_CONNECTED
@@ -1074,18 +1126,17 @@ public class HeadsetService extends ProfileService {
 
     public boolean setPriority(BluetoothDevice device, int priority) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
-        Settings.Global.putInt(getContentResolver(),
-                Settings.Global.getBluetoothHeadsetPriorityKey(device.getAddress()), priority);
         Log.i(TAG, "setPriority: device=" + device + ", priority=" + priority + ", "
                 + Utils.getUidPidString());
+        mAdapterService.getDatabase()
+                .setProfilePriority(device, BluetoothProfile.HEADSET, priority);
         return true;
     }
 
     public int getPriority(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
-        return Settings.Global.getInt(getContentResolver(),
-                Settings.Global.getBluetoothHeadsetPriorityKey(device.getAddress()),
-                BluetoothProfile.PRIORITY_UNDEFINED);
+        return mAdapterService.getDatabase()
+                .getProfilePriority(device, BluetoothProfile.HEADSET);
     }
 
     boolean startVoiceRecognition(BluetoothDevice device) {
@@ -1129,8 +1180,12 @@ public class HeadsetService extends ProfileService {
                             + ", fall back to requesting device");
                     device = mVoiceRecognitionTimeoutEvent.mVoiceRecognitionDevice;
                 }
-                mStateMachinesThread.getThreadHandler()
-                        .removeCallbacks(mVoiceRecognitionTimeoutEvent);
+                if (mStateMachinesThread != null) {
+                    mStateMachinesThread.getThreadHandler()
+                           .removeCallbacks(mVoiceRecognitionTimeoutEvent);
+                } else {
+                    Log.w(TAG, "startVoiceRecognition: mStateMachinesThread is null");
+                }
                 mVoiceRecognitionTimeoutEvent = null;
                 if (mSystemInterface.getVoiceRecognitionWakeLock().isHeld()) {
                     mSystemInterface.getVoiceRecognitionWakeLock().release();
@@ -1283,6 +1338,36 @@ public class HeadsetService extends ProfileService {
             return stateMachines.get(0).getDevice();
         }
         return null;
+    }
+
+    /**
+     * Process a change in the silence mode for a {@link BluetoothDevice}.
+     *
+     * @param device the device to change silence mode
+     * @param silence true to enable silence mode, false to disable.
+     * @return true on success, false on error
+     */
+    @VisibleForTesting
+    public boolean setSilenceMode(BluetoothDevice device, boolean silence) {
+        Log.d(TAG, "setSilenceMode(" + device + "): " + silence);
+
+        if (silence && Objects.equals(mActiveDevice, device)) {
+            setActiveDevice(null);
+        } else if (!silence && mActiveDevice == null) {
+            // Set the device as the active device if currently no active device.
+            setActiveDevice(device);
+        }
+        synchronized (mStateMachines) {
+            final HeadsetStateMachine stateMachine = mStateMachines.get(device);
+            if (stateMachine == null) {
+                Log.w(TAG, "setSilenceMode: device " + device
+                        + " was never connected/connecting");
+                return false;
+            }
+            stateMachine.setSilenceDevice(silence);
+        }
+
+        return true;
     }
 
     /**
@@ -1647,8 +1732,12 @@ public class HeadsetService extends ProfileService {
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(intent);
             mDialingOutTimeoutEvent = new DialingOutTimeoutEvent(fromDevice);
-            mStateMachinesThread.getThreadHandler()
+            if (mStateMachinesThread != null) {
+                mStateMachinesThread.getThreadHandler()
                     .postDelayed(mDialingOutTimeoutEvent, DIALING_OUT_TIMEOUT_MS);
+            } else {
+                Log.w(TAG, "dialOutgoingCall: mStateMachinesThread is null");
+            }
             return true;
         }
     }
@@ -1752,8 +1841,12 @@ public class HeadsetService extends ProfileService {
                 return false;
             }
             mVoiceRecognitionTimeoutEvent = new VoiceRecognitionTimeoutEvent(fromDevice);
-            mStateMachinesThread.getThreadHandler()
+            if (mStateMachinesThread != null) {
+                mStateMachinesThread.getThreadHandler()
                     .postDelayed(mVoiceRecognitionTimeoutEvent, sStartVrTimeoutMs);
+            } else {
+                Log.w(TAG, "startVoiceRecognitionByHeadset: mStateMachinesThread is null");
+            }
             if (!mSystemInterface.getVoiceRecognitionWakeLock().isHeld()) {
                 mSystemInterface.getVoiceRecognitionWakeLock().acquire(sStartVrTimeoutMs);
             }
@@ -1778,8 +1871,12 @@ public class HeadsetService extends ProfileService {
                 if (mSystemInterface.getVoiceRecognitionWakeLock().isHeld()) {
                     mSystemInterface.getVoiceRecognitionWakeLock().release();
                 }
-                mStateMachinesThread.getThreadHandler()
+                if (mStateMachinesThread != null) {
+                    mStateMachinesThread.getThreadHandler()
                         .removeCallbacks(mVoiceRecognitionTimeoutEvent);
+                } else {
+                    Log.w(TAG, "stopVoiceRecognitionByHeadset: mStateMachinesThread is null");
+                }
                 mVoiceRecognitionTimeoutEvent = null;
             }
             if (mVoiceRecognitionStarted) {
@@ -1801,6 +1898,10 @@ public class HeadsetService extends ProfileService {
             int type, String name, boolean isVirtualCall) {
         enforceCallingOrSelfPermission(MODIFY_PHONE_STATE, "Need MODIFY_PHONE_STATE permission");
         synchronized (mStateMachines) {
+            if (mStateMachinesThread == null) {
+                Log.w(TAG, "mStateMachinesThread is null, returning");
+                return;
+            }
             // Should stop all other audio mode in this case
             if ((numActive + numHeld) > 0 || callState != HeadsetHalConstants.CALL_STATE_IDLE) {
                 if (!isVirtualCall && mVirtualCallStarted) {
@@ -1815,7 +1916,7 @@ public class HeadsetService extends ProfileService {
                 // ignore CS non-call state update when virtual call started
                 if (!isVirtualCall && mVirtualCallStarted) {
                     Log.i(TAG, "Ignore CS non-call state update");
-                    return ;
+                    return;
                 }
             }
             if (mDialingOutTimeoutEvent != null) {
@@ -1836,46 +1937,55 @@ public class HeadsetService extends ProfileService {
                     }
                 }
             }
-        }
-        mStateMachinesThread.getThreadHandler().post(() -> {
-            mSystemInterface.getHeadsetPhoneState().setNumActiveCall(numActive);
-            mSystemInterface.getHeadsetPhoneState().setNumHeldCall(numHeld);
-            mSystemInterface.getHeadsetPhoneState().setCallState(callState);
-        });
-        List<BluetoothDevice> availableDevices =
-                    getDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES);
-        if(availableDevices.size() > 0) {
-            Log.i(TAG, "Update the phoneStateChanged status to connecting and connected devices");
-            doForEachConnectedConnectingStateMachine(
-                     stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.CALL_STATE_CHANGED,
-                             new HeadsetCallState(numActive, numHeld, callState, number, type, name)));
             mStateMachinesThread.getThreadHandler().post(() -> {
-                if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging())) {
-                    Log.i(TAG, "no call, sending resume A2DP message to state machines");
-                    for (BluetoothDevice device : availableDevices) {
-                        HeadsetStateMachine stateMachine = mStateMachines.get(device);
-                        stateMachine.sendMessage(HeadsetStateMachine.RESUME_A2DP);
+                mSystemInterface.getHeadsetPhoneState().setNumActiveCall(numActive);
+                mSystemInterface.getHeadsetPhoneState().setNumHeldCall(numHeld);
+                mSystemInterface.getHeadsetPhoneState().setCallState(callState);
+            });
+            List<BluetoothDevice> availableDevices =
+                        getDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES);
+            if(availableDevices.size() > 0) {
+                Log.i(TAG, "Update the phoneStateChanged status to connecting and " +
+                           "connected devices");
+                doForEachConnectedConnectingStateMachine(
+                   stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.CALL_STATE_CHANGED,
+                        new HeadsetCallState(numActive, numHeld, callState, number, type, name)));
+                mStateMachinesThread.getThreadHandler().post(() -> {
+                    if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging())) {
+                        Log.i(TAG, "no call, sending resume A2DP message to state machines");
+                        for (BluetoothDevice device : availableDevices) {
+                            HeadsetStateMachine stateMachine = mStateMachines.get(device);
+                            if (stateMachine == null) {
+                                Log.w(TAG, "phoneStateChanged: device " + device +
+                                       " was never connected/connecting");
+                                continue;
+                            }
+                            stateMachine.sendMessage(HeadsetStateMachine.RESUME_A2DP);
+                        }
                     }
-                }
-            });
-        } else {
-            mStateMachinesThread.getThreadHandler().post(() -> {
-                if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging())) {
-                    //If no device is connected, resume A2DP if there is no call
-                    Log.i(TAG, "No device is connected and no call, set A2DPsuspended to false");
-                    mHfpA2dpSyncInterface.releaseA2DP(null);
-                }
-            });
+                });
+            } else {
+                mStateMachinesThread.getThreadHandler().post(() -> {
+                    if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging())) {
+                        //If no device is connected, resume A2DP if there is no call
+                        Log.i(TAG, "No device is connected and no call, " +
+                                   "set A2DPsuspended to false");
+                        mHfpA2dpSyncInterface.releaseA2DP(null);
+                    }
+                });
+            }
         }
     }
 
     private void clccResponse(int index, int direction, int status, int mode, boolean mpty,
             String number, int type) {
         enforceCallingOrSelfPermission(MODIFY_PHONE_STATE, "Need MODIFY_PHONE_STATE permission");
-        doForEachConnectedStateMachine(
+        synchronized (mStateMachines) {
+           doForEachConnectedStateMachine(
                 stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.SEND_CCLC_RESPONSE,
                         new HeadsetClccResponse(index, direction, status, mode, mpty, number,
                                 type)));
+        }
     }
 
     private boolean sendVendorSpecificResultCode(BluetoothDevice device, String command,
@@ -2093,6 +2203,17 @@ public class HeadsetService extends ProfileService {
                                                    && isAudioOn()) {
                            Log.d(TAG, "TWS: Wait for both eSCO closed");
                        } else {
+                           if (mAdapterService.isTwsPlusDevice(device) &&
+                               isTwsPlusActive(mActiveDevice)) {
+                               /* If the device for which SCO got disconnected
+                                  is a TwsPlus device and TWS+ set is active
+                                  device. This should be the case where User
+                                  transferred from BT to Phone Speaker from
+                                  Call UI*/
+                                  Log.d(TAG,"don't transfer SCO. It is an" +
+                                             "explicit voice transfer from UI");
+                                  return;
+                           }
                            Log.d(TAG, "onAudioStateChangedFromStateMachine:"
                               + " triggering SCO with device "
                               + mActiveDevice);
@@ -2113,6 +2234,8 @@ public class HeadsetService extends ProfileService {
 
     private void broadcastActiveDevice(BluetoothDevice device) {
         logD("broadcastActiveDevice: " + device);
+        StatsLog.write(StatsLog.BLUETOOTH_ACTIVE_DEVICE_CHANGED, BluetoothProfile.HEADSET,
+                mAdapterService.obfuscateAddress(device));
         Intent intent = new Intent(BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT
@@ -2135,24 +2258,21 @@ public class HeadsetService extends ProfileService {
         }
         if(!isPts) {
             // Check priority and accept or reject the connection.
-            // Note: Logic can be simplified, but keeping it this way for readability
             int priority = getPriority(device);
             int bondState = mAdapterService.getBondState(device);
-            // If priority is undefined, it is likely that service discovery has not completed and peer
-            // initiated the connection. Allow this connection only if the device is bonded or bonding
-            boolean serviceDiscoveryPending = (priority == BluetoothProfile.PRIORITY_UNDEFINED) && (
-                    bondState == BluetoothDevice.BOND_BONDING
-                        || bondState == BluetoothDevice.BOND_BONDED);
-            // Also allow connection when device is bonded/bonding and priority is ON/AUTO_CONNECT.
-            boolean isEnabled = (priority == BluetoothProfile.PRIORITY_ON
-                    || priority == BluetoothProfile.PRIORITY_AUTO_CONNECT) && (
-                    bondState == BluetoothDevice.BOND_BONDED
-                        || bondState == BluetoothDevice.BOND_BONDING);
-            if (!serviceDiscoveryPending && !isEnabled) {
-                // Otherwise, reject the connection if no service discovery is pending and priority is
-                // neither PRIORITY_ON nor PRIORITY_AUTO_CONNECT
-                Log.w(TAG, "okToConnect: return false, priority=" + priority + ", bondState="
-                        + bondState);
+            // Allow this connection only if the device is bonded. Any attempt to connect while
+            // bonding would potentially lead to an unauthorized connection.
+            if (bondState != BluetoothDevice.BOND_BONDED) {
+                Log.w(TAG, "okToAcceptConnection: return false, bondState=" + bondState);
+                if (bondState == BluetoothDevice.BOND_BONDING) {
+                    EventLog.writeEvent(0x534e4554, "79703832", -1, "");
+                }
+                return false;
+            } else if (priority != BluetoothProfile.PRIORITY_UNDEFINED
+                    && priority != BluetoothProfile.PRIORITY_ON
+                    && priority != BluetoothProfile.PRIORITY_AUTO_CONNECT) {
+                // Otherwise, reject the connection if priority is not valid.
+                Log.w(TAG, "okToAcceptConnection: return false, priority=" + priority);
                 return false;
             }
         }

@@ -28,8 +28,8 @@ import android.content.IntentFilter;
 import android.media.AudioManager;
 import android.os.HandlerThread;
 import android.os.ParcelUuid;
-import android.provider.Settings;
 import android.util.Log;
+import android.util.StatsLog;
 
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.Utils;
@@ -335,24 +335,18 @@ public class HearingAidService extends ProfileService {
             return false;
         }
         // Check priority and accept or reject the connection.
-        // Note: Logic can be simplified, but keeping it this way for readability
         int priority = getPriority(device);
         int bondState = mAdapterService.getBondState(device);
-        // If priority is undefined, it is likely that service discovery has not completed and peer
-        // initiated the connection. Allow this connection only if the device is bonded or bonding
-        boolean serviceDiscoveryPending = (priority == BluetoothProfile.PRIORITY_UNDEFINED)
-                && (bondState == BluetoothDevice.BOND_BONDING
-                   || bondState == BluetoothDevice.BOND_BONDED);
-        // Also allow connection when device is bonded/bonding and priority is ON/AUTO_CONNECT.
-        boolean isEnabled = (priority == BluetoothProfile.PRIORITY_ON
-                || priority == BluetoothProfile.PRIORITY_AUTO_CONNECT)
-                && (bondState == BluetoothDevice.BOND_BONDED
-                   || bondState == BluetoothDevice.BOND_BONDING);
-        if (!serviceDiscoveryPending && !isEnabled) {
-            // Otherwise, reject the connection if no service discovery is pending and priority is
-            // neither PRIORITY_ON nor PRIORITY_AUTO_CONNECT
-            Log.w(TAG, "okToConnect: return false, priority=" + priority + ", bondState="
-                    + bondState);
+        // Allow this connection only if the device is bonded. Any attempt to connect while
+        // bonding would potentially lead to an unauthorized connection.
+        if (bondState != BluetoothDevice.BOND_BONDED) {
+            Log.w(TAG, "okToConnect: return false, bondState=" + bondState);
+            return false;
+        } else if (priority != BluetoothProfile.PRIORITY_UNDEFINED
+                && priority != BluetoothProfile.PRIORITY_ON
+                && priority != BluetoothProfile.PRIORITY_AUTO_CONNECT) {
+            // Otherwise, reject the connection if priority is not valid.
+            Log.w(TAG, "okToConnect: return false, priority=" + priority);
             return false;
         }
         return true;
@@ -436,20 +430,18 @@ public class HearingAidService extends ProfileService {
      */
     public boolean setPriority(BluetoothDevice device, int priority) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
-        Settings.Global.putInt(getContentResolver(),
-                Settings.Global.getBluetoothHearingAidPriorityKey(device.getAddress()), priority);
         if (DBG) {
             Log.d(TAG, "Saved priority " + device + " = " + priority);
         }
+        mAdapterService.getDatabase()
+                .setProfilePriority(device, BluetoothProfile.HEARING_AID, priority);
         return true;
     }
 
     public int getPriority(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
-        int priority = Settings.Global.getInt(getContentResolver(),
-                Settings.Global.getBluetoothHearingAidPriorityKey(device.getAddress()),
-                BluetoothProfile.PRIORITY_UNDEFINED);
-        return priority;
+        return mAdapterService.getDatabase()
+                .getProfilePriority(device, BluetoothProfile.HEARING_AID);
     }
 
     void setVolume(int volume) {
@@ -609,6 +601,8 @@ public class HearingAidService extends ProfileService {
             Log.d(TAG, "reportActiveDevice(" + device + ")");
         }
 
+        StatsLog.write(StatsLog.BLUETOOTH_ACTIVE_DEVICE_CHANGED, BluetoothProfile.HEARING_AID,
+                mAdapterService.obfuscateAddress(device));
         Intent intent = new Intent(BluetoothHearingAid.ACTION_ACTIVE_DEVICE_CHANGED);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT

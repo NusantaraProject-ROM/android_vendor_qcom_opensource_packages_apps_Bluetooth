@@ -99,7 +99,8 @@ public class Config {
                     (1 << BluetoothProfile.OPP)),
             new ProfileConfig(BluetoothPbapService.class, R.bool.profile_supported_pbap,
                     (1 << BluetoothProfile.PBAP)),
-            new ProfileConfig(HearingAidService.class, R.bool.profile_supported_hearing_aid,
+            new ProfileConfig(HearingAidService.class,
+                    com.android.internal.R.bool.config_hearing_aid_profile_supported,
                     (1 << BluetoothProfile.HEARING_AID)),
             new ProfileConfig(BATService.class, R.bool.profile_supported_ba,
                     (1 << BluetoothProfile.BA_TRANSMITTER))
