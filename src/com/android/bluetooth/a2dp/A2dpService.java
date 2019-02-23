@@ -893,9 +893,19 @@ public class A2dpService extends ProfileService {
             // Inform the Audio Service about the codec configuration
             // change, so the Audio Service can reset accordingly the audio
             // feeding parameters in the Audio HAL to the Bluetooth stack.
-            String offloadSupported =
-                 SystemProperties.get("persist.vendor.btstack.enable.splita2dp");
-            if (!(offloadSupported.isEmpty() || "true".equals(offloadSupported))) {
+            // Split A2dp will be enabled by default
+            boolean isSplitA2dpEnabled = true;
+            AdapterService adapterService = AdapterService.getAdapterService();
+
+            if (adapterService != null){
+                isSplitA2dpEnabled = adapterService.isSplitA2dpEnabled();
+                Log.v(TAG,"isSplitA2dpEnabled: " + isSplitA2dpEnabled);
+            } else {
+                Log.e(TAG,"adapterService is null");
+            }
+
+
+            if (!isSplitA2dpEnabled) {
                 mAudioManager.handleBluetoothA2dpDeviceConfigChange(device);
                 if (wasMuted) {
                     mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,

@@ -1278,13 +1278,18 @@ public final class Avrcp {
                 if (param <= 0)
                     param = 1;
 
-                boolean isSplitA2dpEnabled = false;
                 long update_interval = 0L;
-                String offloadSupported = SystemProperties.get("persist.vendor.btstack.enable.splita2dp");
-                if (offloadSupported.isEmpty() || "true".equals(offloadSupported)) {
-                    isSplitA2dpEnabled = true;
-                    Log.v(TAG,"split enabled");
+                // Split A2dp will be enabled by default
+                boolean isSplitA2dpEnabled = true;
+                AdapterService adapterService = AdapterService.getAdapterService();
+
+                if (adapterService != null){
+                    isSplitA2dpEnabled = adapterService.isSplitA2dpEnabled();
+                    Log.v(TAG,"isSplitA2dpEnabled: " + isSplitA2dpEnabled);
+                } else {
+                    Log.e(TAG,"adapterService is null");
                 }
+
                 update_interval = (isSplitA2dpEnabled) ?
                         SystemProperties.getLong("persist.vendor.btstack.avrcp.pos_time", 3000L):
                         SystemProperties.getLong("persist.vendor.btstack.avrcp.pos_time", 1000L);
