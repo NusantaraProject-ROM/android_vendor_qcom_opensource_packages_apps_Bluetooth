@@ -227,18 +227,22 @@ class ActiveDeviceManager {
                                     + "device " + device + " disconnected");
                         }
                         mA2dpConnectedDevices.remove(device);
-                        final A2dpService a2dpService = mFactory.getA2dpService();
 
                         if (Objects.equals(mA2dpActiveDevice, device)) {
-                            if (!mA2dpConnectedDevices.isEmpty() &&
-                                mAdapterService.isTwsPlusDevice(mA2dpConnectedDevices.get(0)) &&
-                                (a2dpService != null) &&
-                                (a2dpService.getConnectionState(mA2dpConnectedDevices.get(0)) ==
-                                         BluetoothProfile.STATE_CONNECTED)) {
-                                Log.d(TAG, "calling set a2dp Active dev: " + mA2dpConnectedDevices.get(0));
-                                setA2dpActiveDevice(mA2dpConnectedDevices.get(0));
-                            } else
-                                setA2dpActiveDevice(null);
+                            final A2dpService mA2dpService = mFactory.getA2dpService();
+                            BluetoothDevice mDevice = null;
+                            if (mAdapterService.isTwsPlusDevice(device) &&
+                                !mA2dpConnectedDevices.isEmpty()) {
+                                for (BluetoothDevice connected_device: mA2dpConnectedDevices) {
+                                    if (mAdapterService.isTwsPlusDevice(connected_device) &&
+                                        mA2dpService.getConnectionState(connected_device) ==
+                                        BluetoothProfile.STATE_CONNECTED) {
+                                        mDevice = connected_device;
+                                        break;
+                                    }
+                                }
+                            }
+                            setA2dpActiveDevice(mDevice);
                         }
                     }
                 }
