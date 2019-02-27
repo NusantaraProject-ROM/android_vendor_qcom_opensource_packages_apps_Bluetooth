@@ -540,6 +540,8 @@ public class ScanManager {
     }
 
     public int getCurrentUsedTrackingAdvertisement() {
+        Log.d(TAG, "mCurUsedTrackableAdvertisements: "
+                + mCurUsedTrackableAdvertisements);
         return mCurUsedTrackableAdvertisements;
     }
 
@@ -1112,6 +1114,7 @@ public class ScanManager {
                         0);
                 waitForCallback();
             } else {
+                Log.d(TAG, "Available Filter size: " + mFilterIndexStack.size());
                 Deque<Integer> clientFilterIndices = new ArrayDeque<Integer>();
                 for (ScanFilter filter : client.filters) {
                     ScanFilterQueue queue = new ScanFilterQueue();

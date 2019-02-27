@@ -1593,6 +1593,7 @@ public class GattService extends ProfileService {
             throws RemoteException {
         ScannerMap.App app = mScannerMap.getById(client.scannerId);
         if (app == null) {
+            Log.e(TAG, "app not found from id(" + client.scannerId + ") for received callback");
             return;
         }
         if (client.filters == null || client.filters.isEmpty()) {
@@ -1883,7 +1884,8 @@ public class GattService extends ProfileService {
                 }
             }
         }
-
+        if (VDBG) Log.v(TAG, "getDevicesMatchingConnectionStates: State = "
+                        + Arrays.toString(states) + ", deviceList = " + deviceList);
         return deviceList;
     }
 
@@ -1924,7 +1926,7 @@ public class GattService extends ProfileService {
     void startScan(int scannerId, ScanSettings settings, List<ScanFilter> filters,
             List<List<ResultStorageDescriptor>> storages, String callingPackage) {
         if (DBG) {
-            Log.d(TAG, "start scan with filters");
+            Log.d(TAG, "start scan with filters. callingPackage: " + callingPackage);
         }
         UserHandle callingUser = UserHandle.of(UserHandle.getCallingUserId());
         enforceAdminPermission();
@@ -1962,7 +1964,8 @@ public class GattService extends ProfileService {
     void registerPiAndStartScan(PendingIntent pendingIntent, ScanSettings settings,
             List<ScanFilter> filters, String callingPackage) {
         if (DBG) {
-            Log.d(TAG, "start scan with filters, for PendingIntent");
+            Log.d(TAG, "start scan with filters, for PendingIntent. callingPackage: "
+                    + callingPackage);
         }
         enforceAdminPermission();
         if (needsPrivilegedPermissionForScan(settings)) {
@@ -2087,6 +2090,7 @@ public class GattService extends ProfileService {
                 return true;
             }
         }
+        if (VDBG) Log.v(TAG, "clientIf: " + clientIf + " is not a ScanClient");
         return false;
     }
 
@@ -2666,6 +2670,7 @@ public class GattService extends ProfileService {
 
         ServerMap.App app = mServerMap.getById(serverIf);
         if (app == null) {
+            Log.e(TAG, "app not found from id(" + serverIf + ") for received callback");
             return;
         }
 
@@ -2694,6 +2699,7 @@ public class GattService extends ProfileService {
 
         ServerMap.App app = mServerMap.getById(entry.serverIf);
         if (app == null) {
+            Log.e(TAG, "app not found from id(" + entry.serverIf + ") for received callback");
             return;
         }
 
@@ -2716,6 +2722,7 @@ public class GattService extends ProfileService {
 
         ServerMap.App app = mServerMap.getById(entry.serverIf);
         if (app == null) {
+            Log.e(TAG, "app not found from id(" + entry.serverIf + ") for received callback");
             return;
         }
 
@@ -2740,6 +2747,7 @@ public class GattService extends ProfileService {
 
         ServerMap.App app = mServerMap.getById(entry.serverIf);
         if (app == null) {
+            Log.e(TAG, "app not found from id(" + entry.serverIf + ") for received callback");
             return;
         }
 
@@ -2764,6 +2772,7 @@ public class GattService extends ProfileService {
 
         ServerMap.App app = mServerMap.getById(entry.serverIf);
         if (app == null) {
+            Log.e(TAG, "app not found from id(" + entry.serverIf + ") for received callback");
             return;
         }
 
@@ -2780,6 +2789,7 @@ public class GattService extends ProfileService {
 
         ServerMap.App app = mServerMap.getByConnId(connId);
         if (app == null) {
+            Log.e(TAG, "app not found from connId(" + connId + ") for received callback");
             return;
         }
 
@@ -2799,11 +2809,13 @@ public class GattService extends ProfileService {
 
         String address = mServerMap.addressByConnId(connId);
         if (address == null) {
+            Log.e(TAG, "address not found for given connId:" + connId);
             return;
         }
 
         ServerMap.App app = mServerMap.getByConnId(connId);
         if (app == null) {
+            Log.e(TAG, "app not found from connId(" + connId + ") for received callback");
             return;
         }
 
@@ -2824,6 +2836,7 @@ public class GattService extends ProfileService {
 
         ServerMap.App app = mServerMap.getByConnId(connId);
         if (app == null) {
+            Log.e(TAG, "app not found from connId(" + connId + ") for received callback");
             return;
         }
 
@@ -2844,11 +2857,13 @@ public class GattService extends ProfileService {
 
         String address = mServerMap.addressByConnId(connId);
         if (address == null) {
+            Log.e(TAG, "address not found for given connId: " + connId);
             return;
         }
 
         ServerMap.App app = mServerMap.getByConnId(connId);
         if (app == null) {
+            Log.e(TAG, "app not found from connId(" + connId + ") for received callback");
             return;
         }
 
@@ -3002,7 +3017,9 @@ public class GattService extends ProfileService {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
 
         if (VDBG) {
-            Log.d(TAG, "sendResponse() - address=" + address);
+            Log.d(TAG, "sendResponse() - address=" + address + " serverIf: " + serverIf
+                    + "requestId: " + requestId + " status: " + status + " value: "
+                    + Arrays.toString(value));
         }
 
         int handle = 0;
@@ -3021,11 +3038,13 @@ public class GattService extends ProfileService {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
 
         if (VDBG) {
-            Log.d(TAG, "sendNotification() - address=" + address + " handle=" + handle);
+            Log.d(TAG, "sendNotification() - address = " + address + " handle = " + handle
+                    + " confirm = " + confirm + " value = " + Arrays.toString(value));
         }
 
         Integer connId = mServerMap.connIdByAddress(serverIf, address);
         if (connId == null || connId == 0) {
+            Log.e(TAG, "couldn't find connId for given address. Return");
             return;
         }
 
@@ -3155,6 +3174,8 @@ public class GattService extends ProfileService {
             }
             handleList.add(entry.handle);
         }
+
+        if (VDBG) Log.v(TAG, "delete Services handleList : " + handleList);
 
         /* Now actually delete the services.... */
         for (Integer handle : handleList) {
