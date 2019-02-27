@@ -244,6 +244,7 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
 
     @Override
     public boolean stop() {
+        if (D) Log.d(TAG," stop");
         setBluetoothOppService(null);
         mHandler.sendMessage(mHandler.obtainMessage(STOP_LISTENER));
         return true;
@@ -255,8 +256,8 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                 if (V) {
                     Log.v(TAG, "Starting RfcommListener");
                 }
-                mHandler.sendMessage(mHandler.obtainMessage(START_LISTENER));
                 mListenStarted = true;
+                mHandler.sendMessage(mHandler.obtainMessage(START_LISTENER));
             }
         }
     }
@@ -319,8 +320,12 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
             Log.i(TAG, " handleMessage :" + msg.what);
             switch (msg.what) {
                 case STOP_LISTENER:
-                    stopListeners();
+                    if (!mListenStarted) { // Extra check to avoid redundant call
+                        if (V) Log.v(TAG," stop_listener already called");
+                        return;
+                    }
                     mListenStarted = false;
+                    stopListeners();
                     //Stop Active INBOUND Transfer
                     if (mServerTransfer != null) {
                         mServerTransfer.onBatchCanceled();

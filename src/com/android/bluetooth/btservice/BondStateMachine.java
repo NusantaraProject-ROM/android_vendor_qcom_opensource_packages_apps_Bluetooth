@@ -102,8 +102,8 @@ final class BondStateMachine extends StateMachine {
         setInitialState(mStableState);
 
         //WakeLock instantiation in RemoteDevices class
-        mWakeLock = pm.newWakeLock(PowerManager.FULL_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP
-                       | PowerManager.ON_AFTER_RELEASE, TAG);
+        mWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK
+                | PowerManager.ACQUIRE_CAUSES_WAKEUP | PowerManager.ON_AFTER_RELEASE, TAG);
         mWakeLock.setReferenceCounted(false);
     }
 
@@ -397,7 +397,7 @@ final class BondStateMachine extends StateMachine {
         intent.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         // Workaround for Android Auto until pre-accepting pairing requests is added.
         intent.addFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
-        mAdapterService.sendOrderedBroadcast(intent, mAdapterService.BLUETOOTH_ADMIN_PERM);
+        mAdapterService.sendOrderedBroadcast(intent, AdapterService.BLUETOOTH_ADMIN_PERM);
         // Release wakelock to allow the LCD to go off after the PIN popup notification.
         mWakeLock.release();
     }

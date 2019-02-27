@@ -1055,7 +1055,7 @@ public class BluetoothMapContentObserver {
         mResolver.unregisterContentObserver(mObserver);
         mObserverRegistered = false;
         if (mProviderClient != null) {
-            mProviderClient.release();
+            mProviderClient.close();
             mProviderClient = null;
         }
     }
