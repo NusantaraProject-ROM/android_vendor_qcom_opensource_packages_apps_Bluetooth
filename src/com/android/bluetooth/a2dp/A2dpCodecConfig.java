@@ -104,6 +104,7 @@ class A2dpCodecConfig {
 
         BT_SOC = SystemProperties.get("vendor.bluetooth.soc");
         int value;
+        AdapterService mAdapterService = AdapterService.getAdapterService();
         try {
             value = resources.getInteger(R.integer.a2dp_source_codec_priority_sbc);
         } catch (NotFoundException e) {
@@ -133,14 +134,18 @@ class A2dpCodecConfig {
                 < BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST)) {
             mA2dpSourceCodecPriorityAptx = value;
         }
-        try {
-            value = resources.getInteger(R.integer.a2dp_source_codec_priority_aptx_adaptive);
-        } catch (NotFoundException e) {
-            value = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
-        }
-        if ((value >= BluetoothCodecConfig.CODEC_PRIORITY_DISABLED) && (value
-                < BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST)) {
-            mA2dpSourceCodecPriorityAptxAdaptive = value;
+        if(mAdapterService.isSplitA2DPSourceAPTXADAPTIVE()) {
+            try {
+                value = resources.getInteger(R.integer.a2dp_source_codec_priority_aptx_adaptive);
+            } catch (NotFoundException e) {
+                value = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
+            }
+            if ((value >= BluetoothCodecConfig.CODEC_PRIORITY_DISABLED) && (value
+                    < BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST)) {
+                mA2dpSourceCodecPriorityAptxAdaptive = value;
+            }
+        } else {
+            mA2dpSourceCodecPriorityAptxAdaptive = BluetoothCodecConfig.CODEC_PRIORITY_DISABLED;
         }
 
         if(BT_SOC.equals("cherokee")) {
@@ -171,7 +176,6 @@ class A2dpCodecConfig {
         } else {
             mA2dpSourceCodecPriorityLdac = BluetoothCodecConfig.CODEC_PRIORITY_DISABLED;
         }
-        AdapterService mAdapterService = AdapterService.getAdapterService();
         if (mAdapterService.isVendorIntfEnabled()) {
             try {
                 value = resources.getInteger(R.integer.a2dp_source_codec_priority_aptx_tws);
