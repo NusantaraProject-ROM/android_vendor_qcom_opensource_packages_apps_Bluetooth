@@ -2935,8 +2935,9 @@ public class AdapterService extends Service {
      * @return true if Split A2DP Source APTX ADAPTIVE  is enabled
      */
     public boolean isSplitA2DPSourceAPTXADAPTIVE() {
+        String BT_SOC = SystemProperties.get("vendor.bluetooth.soc");
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
-        return mAdapterProperties.isSplitA2DPSourceAPTXADAPTIVE();
+        return BT_SOC.equals("cherokee") || mAdapterProperties.isSplitA2DPSourceAPTXADAPTIVE();
     }
 
     /**
