@@ -2810,6 +2810,15 @@ public class AdapterService extends Service {
         return mAdapterProperties.isBroadcastAudioRxwithEC_3_9();
     }
 
+    /**
+     * Check  AddonFeatures Cmd Support.
+     *
+     * @return true if AddonFeatures Cmd is Supported
+     */
+    public boolean isAddonFeaturesCmdSupported() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isAddonFeaturesCmdSupported();
+    }
 
     private BluetoothActivityEnergyInfo reportActivityInfo() {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED, "Need BLUETOOTH permission");
