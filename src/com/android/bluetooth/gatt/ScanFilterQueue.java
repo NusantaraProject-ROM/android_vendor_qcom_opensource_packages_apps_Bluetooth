@@ -39,6 +39,7 @@ import java.util.UUID;
     public static final int TYPE_LOCAL_NAME = 4;
     public static final int TYPE_MANUFACTURER_DATA = 5;
     public static final int TYPE_SERVICE_DATA = 6;
+    public static final int TYPE_TRANSPORT_DISCOVERY_DATA = 7;
 
     // Max length is 31 - 3(flags) - 2 (one byte for length and one byte for type).
     private static final int MAX_LEN_PER_FIELD = 26;
@@ -57,6 +58,9 @@ import java.util.UUID;
         public int company_mask;
         public byte[] data;
         public byte[] data_mask;
+        public int org_id;
+        public int tds_flags;
+        public int tds_flags_mask;
     }
 
     private Set<Entry> mEntries = new HashSet<Entry>();
@@ -143,6 +147,16 @@ import java.util.UUID;
         mEntries.add(entry);
     }
 
+    void addTransportDiscoveryData(int orgId, int TDSFlags, int TDSFlagsMask, byte[] wifiNANHash) {
+        Entry entry = new Entry();
+        entry.type = TYPE_TRANSPORT_DISCOVERY_DATA;
+        entry.org_id = orgId;
+        entry.tds_flags = TDSFlags;
+        entry.tds_flags_mask = TDSFlagsMask;
+        entry.data = wifiNANHash;
+        mEntries.add(entry);
+    }
+
     Entry pop() {
         if (mEntries.isEmpty()) {
             return null;
@@ -217,6 +231,10 @@ import java.util.UUID;
             if (serviceData != null && serviceDataMask != null) {
                 addServiceData(serviceData, serviceDataMask);
             }
+        }
+        if (filter.getOrgId() >= 0) {
+            addTransportDiscoveryData(filter.getOrgId(), filter.getTDSFlags(),
+                filter.getTDSFlagsMask(), filter.getWifiNANHash());
         }
     }
 
