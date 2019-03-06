@@ -21,6 +21,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.Resources;
 import android.provider.Settings;
+import android.util.FeatureFlagUtils;
 import android.util.Log;
 import android.os.SystemProperties;
 
@@ -121,6 +122,13 @@ public class Config {
         ArrayList<Class> profiles = new ArrayList<>(PROFILE_SERVICES_AND_FLAGS.length);
         for (ProfileConfig config : PROFILE_SERVICES_AND_FLAGS) {
             boolean supported = resources.getBoolean(config.mSupported);
+
+            if (!supported && (config.mClass == HearingAidService.class) && FeatureFlagUtils
+                                .isEnabled(ctx, FeatureFlagUtils.HEARING_AID_SETTINGS)) {
+                Log.v(TAG, "Feature Flag enables support for HearingAidService");
+                supported = true;
+            }
+
             if (supported && !isProfileDisabled(ctx, config.mMask)) {
                 if (!addAudioProfiles(config.mClass.getSimpleName())) {
                     Log.i(TAG, " Profile " + config.mClass.getSimpleName() + " Not added ");
