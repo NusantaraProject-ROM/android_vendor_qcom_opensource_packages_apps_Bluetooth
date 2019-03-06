@@ -703,6 +703,24 @@ public class A2dpService extends ProfileService {
     }
 
     /**
+     * Early notification that Hearing Aids will be the active device. This allows the A2DP to save
+     * its volume before the Audio Service starts changing its media stream.
+     */
+    public void earlyNotifyHearingAidActive() {
+        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
+
+        synchronized (mStateMachines) {
+            if ((mActiveDevice != null) && (AvrcpTargetService.get() != null)) {
+                // Switch active device from A2DP to Hearing Aids.
+                if (DBG) {
+                    Log.d(TAG, "earlyNotifyHearingAidActive: Save volume for " + mActiveDevice);
+                }
+                AvrcpTargetService.get().storeVolumeForDevice(mActiveDevice);
+            }
+        }
+    }
+
+    /**
      * Set the active device.
      *
      * @param device the active device
@@ -1308,10 +1326,6 @@ public class A2dpService extends ProfileService {
 
         synchronized (mStateMachines) {
             if (AvrcpTargetService.get() != null) {
-                if (mActiveDevice != null) {
-                    AvrcpTargetService.get().storeVolumeForDevice(mActiveDevice);
-                }
-
                 AvrcpTargetService.get().volumeDeviceSwitched(device);
             }
 
