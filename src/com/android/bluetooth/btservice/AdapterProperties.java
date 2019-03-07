@@ -228,9 +228,9 @@ class AdapterProperties {
         mMaxConnectedAudioDevices = Math.min(Math.max(propertyOverlayedMaxConnectedAudioDevices,
                 MAX_CONNECTED_AUDIO_DEVICES_LOWER_BOND), MAX_CONNECTED_AUDIO_DEVICES_UPPER_BOUND);
         // if QTI stack, overwrite max audio connections to 2
-        if(mService.isVendorIntfEnabled() && mMaxConnectedAudioDevices > 2) {
-            Log.i(TAG, "overwriting mMaxConnectedAudioDevices to 2 for vendor stack");
-            mMaxConnectedAudioDevices = 2;
+        if(mService.isVendorIntfEnabled() && mMaxConnectedAudioDevices > 5) {
+            Log.i(TAG, "overwriting mMaxConnectedAudioDevices to 5 for vendor stack");
+            mMaxConnectedAudioDevices = 5;
         }
 
         Log.i(TAG, "init(), maxConnectedAudioDevices, default="
@@ -843,10 +843,22 @@ class AdapterProperties {
             return;
         }
 
+
         synchronized (mObject) {
+
             updateProfileConnectionState(profile, state, prevState);
 
-            if (updateCountersAndCheckForConnectionStateChange(state, prevState)) {
+            boolean validateConnectionState = false;
+
+            try {
+                validateConnectionState =
+                   updateCountersAndCheckForConnectionStateChange(state, prevState);
+            } catch (IllegalStateException ee) {
+                Log.w(TAG, "ADAPTER_CONNECTION_STATE_CHANGE: unexpected transition for profile="
+                        + profile + ", " + prevState + " -> " + state);
+            }
+
+            if (validateConnectionState) {
                 int newAdapterState = convertToAdapterState(state);
                 int prevAdapterState = convertToAdapterState(prevState);
                 setConnectionState(newAdapterState);
@@ -1239,6 +1251,7 @@ class AdapterProperties {
             Intent intent;
             if ((state == AbstractionLayer.BT_DISCOVERY_STOPPED) && mDiscovering) {
                 mDiscovering = false;
+                mService.clearDiscoveringPackages();
                 mDiscoveryEndMs = System.currentTimeMillis();
                 intent = new Intent(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
                 mService.sendBroadcast(intent, AdapterService.BLUETOOTH_PERM);

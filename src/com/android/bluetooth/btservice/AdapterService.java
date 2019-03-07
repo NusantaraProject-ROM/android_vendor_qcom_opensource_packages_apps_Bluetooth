@@ -179,6 +179,8 @@ public class AdapterService extends Service {
 
     private static final int CONTROLLER_ENERGY_UPDATE_TIMEOUT_MILLIS = 30;
 
+    private final ArrayList<DiscoveringPackage> mDiscoveringPackages = new ArrayList<>();
+
     static {
         System.loadLibrary("bluetooth_jni");
         classInitNative();
@@ -468,6 +470,7 @@ public class AdapterService extends Service {
         mAdapter = BluetoothAdapter.getDefaultAdapter();
         mRemoteDevices = new RemoteDevices(this, Looper.getMainLooper());
         mRemoteDevices.init();
+        clearDiscoveringPackages();
         mBinder = new AdapterServiceBinder(this);
         mAdapterProperties = new AdapterProperties(this);
         mVendor = new Vendor(this);
@@ -642,6 +645,12 @@ public class AdapterService extends Service {
         } else {
             Log.e(TAG, "Incorrect status " + status + " in stateChangeCallback");
         }
+    }
+
+    void ssrCleanupCallback() {
+        disableProfileServices(false);
+        Log.e(TAG, "Killing the process to force restart as part of fault tolerance");
+        android.os.Process.killProcess(android.os.Process.myPid());
     }
 
     /**
@@ -2188,17 +2197,45 @@ public class AdapterService extends Service {
         return mAdapterProperties.setDiscoverableTimeout(timeout);
     }
 
+    ArrayList<DiscoveringPackage> getDiscoveringPackages() {
+        return mDiscoveringPackages;
+    }
+
+    void clearDiscoveringPackages() {
+        synchronized (mDiscoveringPackages) {
+            mDiscoveringPackages.clear();
+        }
+    }
+
     boolean startDiscovery(String callingPackage) {
         UserHandle callingUser = UserHandle.of(UserHandle.getCallingUserId());
         debugLog("startDiscovery");
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
-        if (!Utils.checkCallerHasLocationPermission(this, mAppOps, callingPackage, callingUser)) {
-            return false;
+        mAppOps.checkPackage(Binder.getCallingUid(), callingPackage);
+        boolean isQApp = Utils.isQApp(this, callingPackage);
+        String permission = null;
+        if (Utils.checkCallerHasNetworkSettingsPermission(this)) {
+            permission = android.Manifest.permission.NETWORK_SETTINGS;
+        } else if (Utils.checkCallerHasNetworkSetupWizardPermission(this)) {
+            permission = android.Manifest.permission.NETWORK_SETUP_WIZARD;
+        } else if (isQApp) {
+            if (!Utils.checkCallerHasFineLocation(this, mAppOps, callingPackage, callingUser)) {
+                return false;
+            }
+            permission = android.Manifest.permission.ACCESS_FINE_LOCATION;
+        } else {
+            if (!Utils.checkCallerHasCoarseLocation(this, mAppOps, callingPackage, callingUser)) {
+                return false;
+            }
+            permission = android.Manifest.permission.ACCESS_COARSE_LOCATION;
         }
 
         if (mAdapterProperties.isDiscovering()) {
             Log.i(TAG,"discovery already active, ignore startDiscovery");
             return false;
+        }
+        synchronized (mDiscoveringPackages) {
+            mDiscoveringPackages.add(new DiscoveringPackage(callingPackage, permission));
         }
         return startDiscoveryNative();
     }

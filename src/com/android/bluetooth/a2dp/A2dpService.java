@@ -29,7 +29,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.AudioManager;
 import android.os.HandlerThread;
-import android.util.EventLog;
 import android.util.Log;
 import android.util.StatsLog;
 
@@ -169,10 +168,8 @@ public class A2dpService extends ProfileService {
             Log.i(TAG, "mMaxConnectedAudioDevices: " + mMaxConnectedAudioDevices);
             if (mIsTwsPlusEnabled) {
                 mMaxConnectedAudioDevices = 2;
-            } else if (mMaxConnectedAudioDevices > 2) {
-                mMaxConnectedAudioDevices = 2;
-                mSetMaxConnectedAudioDevices = mMaxConnectedAudioDevices;
             }
+            mSetMaxConnectedAudioDevices = mMaxConnectedAudioDevices;
             String twsPlusMonoEnabled = SystemProperties.get("persist.vendor.btstack.twsplus.monosupport");
             if (!twsPlusMonoEnabled.isEmpty() && "true".equals(twsPlusMonoEnabled)) {
                 mIsTwsPlusMonoSupported = true;
@@ -454,6 +451,10 @@ public class A2dpService extends ProfileService {
             } else if(mAdapterService.getTwsPlusPeerAddress(mConnDev).equals(device.getAddress())) {
                 Log.d(TAG,"isConnectionAllowed: Peer earbud pair allow connection");
                 return true;
+            } else {
+                Log.d(TAG,"isConnectionAllowed: Unpaired earbud, disconnect previous TWS+ device");
+                disconnectExisting = true;
+                return false;
             }
         } else if (tws_connected && !mAdapterService.isTwsPlusDevice(device)) {
             Log.d(TAG,"isConnectionAllowed: Disconnect tws device to connect to legacy headset");
@@ -537,9 +538,6 @@ public class A2dpService extends ProfileService {
         // bonding would potentially lead to an unauthorized connection.
         if (bondState != BluetoothDevice.BOND_BONDED) {
             Log.w(TAG, "okToConnect: return false, bondState=" + bondState);
-            if (bondState == BluetoothDevice.BOND_BONDING) {
-                EventLog.writeEvent(0x534e4554, "79703832", -1, "");
-            }
             return false;
         } else if (priority != BluetoothProfile.PRIORITY_UNDEFINED
                 && priority != BluetoothProfile.PRIORITY_ON
