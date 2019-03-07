@@ -1105,7 +1105,7 @@ public class BluetoothMapService extends ProfileService {
                                     .setRemoteFeatureMask(mMnsRecord.getSupportedFeatures(),
                                     mMnsRecord.getProfileVersion());
                         }
-                        //BluetoothMapFixes.showNotification(BluetoothMapService.this,remoteDevice);
+                        BluetoothMapFixes.showNotification(BluetoothMapService.this, remoteDevice);
                     }
                     if (mSdpSearchInitiated) {
                         mSdpSearchInitiated = false; // done searching
