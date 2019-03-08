@@ -301,6 +301,12 @@ public class AdapterService extends Service {
         }
     }
 
+    public void StartHCIClose() {
+        if (isVendorIntfEnabled()) {
+            mVendor.HCIClose();
+        }
+    }
+
      public void voipNetworkWifiInfo(boolean isVoipStarted, boolean isNetworkWifi) {
         Log.i(TAG, "In voipNetworkWifiInfo, isVoipStarted: " + isVoipStarted +
                     ", isNetworkWifi: " + isNetworkWifi);
@@ -694,6 +700,12 @@ public class AdapterService extends Service {
             mAdapterStateMachine.sendMessage(AdapterState.BREDR_STARTED);
         } else {
             setAllProfileServiceStates(supportedProfileServices, BluetoothAdapter.STATE_ON);
+        }
+    }
+
+    void startBrEdrStartup(){
+        if (isVendorIntfEnabled()) {
+            mVendor.bredrStartup();
         }
     }
 
