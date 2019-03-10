@@ -165,7 +165,7 @@ class BluetoothOppNotification {
     public void updateNotification() {
         synchronized (BluetoothOppNotification.this) {
             mPendingUpdate++;
-            if (mPendingUpdate > 1) {
+            if ((mPendingUpdate > 1) && (mUpdateNotificationThread != null)) {
                 if (V) {
                     Log.v(TAG, "update too frequent, put in queue");
                 }
