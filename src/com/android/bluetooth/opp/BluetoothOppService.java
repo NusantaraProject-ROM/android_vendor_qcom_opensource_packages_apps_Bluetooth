@@ -613,8 +613,7 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                     }
                     if (V) {
                         Log.v(TAG, "pendingUpdate is " + mPendingUpdate + " sListenStarted is "
-                                + mListenStarted + " isInterrupted :" + mIsInterrupted
-                                + " isInterrupted :" + mIsInterrupted );
+                                + mListenStarted + " isInterrupted :" + mIsInterrupted);
                     }
                     if (!mPendingUpdate) {
                         mUpdateThread = null;
