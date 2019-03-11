@@ -450,6 +450,15 @@ static void btavrcp_get_folder_items_callback(
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
+  ScopedLocalRef<jbyteArray> addr(
+    sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
+  if (!addr.get()) {
+    ALOGE("Fail to get new array ");
+    return;
+  }
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
+                                   (jbyte*)&bd_addr.address);
+
   // Inspect if the first element is a folder/item or player listing. They are
   // always exclusive.
   bool isPlayerListing =
@@ -623,10 +632,10 @@ static void btavrcp_get_folder_items_callback(
 
   if (isPlayerListing) {
     sCallbackEnv->CallVoidMethod(sCallbacksObj, method_handleGetPlayerItemsRsp,
-                                 itemArray.get());
+                                 itemArray.get(), addr.get());
   } else {
     sCallbackEnv->CallVoidMethod(sCallbacksObj, method_handleGetFolderItemsRsp,
-                                 status, itemArray.get());
+                                 status, itemArray.get(), addr.get());
   }
 }
 
@@ -636,8 +645,17 @@ static void btavrcp_change_path_callback(const RawAddress& bd_addr,
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
+  ScopedLocalRef<jbyteArray> addr(
+    sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
+  if (!addr.get()) {
+    ALOGE("Fail to get new array ");
+    return;
+  }
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
+                                   (jbyte*)&bd_addr.address);
+
   sCallbackEnv->CallVoidMethod(sCallbacksObj, method_handleChangeFolderRsp,
-                               (jint)count);
+                               (jint)count, addr.get());
 }
 
 static void btavrcp_set_browsed_player_callback(const RawAddress& bd_addr,
@@ -647,8 +665,17 @@ static void btavrcp_set_browsed_player_callback(const RawAddress& bd_addr,
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
+  ScopedLocalRef<jbyteArray> addr(
+    sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
+  if (!addr.get()) {
+    ALOGE("Fail to get new array ");
+    return;
+  }
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
+                                   (jbyte*)&bd_addr.address);
+
   sCallbackEnv->CallVoidMethod(sCallbacksObj, method_handleSetBrowsedPlayerRsp,
-                               (jint)num_items, (jint)depth);
+                               (jint)num_items, (jint)depth, addr.get());
 }
 
 static void btavrcp_set_addressed_player_callback(const RawAddress& bd_addr,
@@ -658,8 +685,17 @@ static void btavrcp_set_addressed_player_callback(const RawAddress& bd_addr,
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
 
+  ScopedLocalRef<jbyteArray> addr(
+    sCallbackEnv.get(), sCallbackEnv->NewByteArray(sizeof(RawAddress)));
+  if (!addr.get()) {
+    ALOGE("Fail to get new array ");
+    return;
+  }
+  sCallbackEnv->SetByteArrayRegion(addr.get(), 0, sizeof(RawAddress),
+                                   (jbyte*)&bd_addr.address);
+
   sCallbackEnv->CallVoidMethod(
-      sCallbacksObj, method_handleSetAddressedPlayerRsp, (jint)status);
+      sCallbacksObj, method_handleSetAddressedPlayerRsp, (jint)status, addr.get());
 }
 
 static btrc_ctrl_callbacks_t sBluetoothAvrcpCallbacks = {
@@ -728,10 +764,10 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 
   method_handleGetFolderItemsRsp =
       env->GetMethodID(clazz, "handleGetFolderItemsRsp",
-                       "(I[Landroid/media/browse/MediaBrowser$MediaItem;)V");
+                       "(I[Landroid/media/browse/MediaBrowser$MediaItem;[B)V");
   method_handleGetPlayerItemsRsp = env->GetMethodID(
       clazz, "handleGetPlayerItemsRsp",
-      "([Lcom/android/bluetooth/avrcpcontroller/AvrcpPlayer;)V");
+      "([Lcom/android/bluetooth/avrcpcontroller/AvrcpPlayer;[B)V");
 
   method_createFromNativeMediaItem =
       env->GetMethodID(clazz, "createFromNativeMediaItem",
@@ -745,11 +781,11 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
                        "(ILjava/lang/String;[BII)Lcom/android/bluetooth/"
                        "avrcpcontroller/AvrcpPlayer;");
   method_handleChangeFolderRsp =
-      env->GetMethodID(clazz, "handleChangeFolderRsp", "(I)V");
+      env->GetMethodID(clazz, "handleChangeFolderRsp", "(I[B)V");
   method_handleSetBrowsedPlayerRsp =
-      env->GetMethodID(clazz, "handleSetBrowsedPlayerRsp", "(II)V");
+      env->GetMethodID(clazz, "handleSetBrowsedPlayerRsp", "(II[B)V");
   method_handleSetAddressedPlayerRsp =
-      env->GetMethodID(clazz, "handleSetAddressedPlayerRsp", "(I)V");
+      env->GetMethodID(clazz, "handleSetAddressedPlayerRsp", "(I[B)V");
   ALOGI("%s: succeeds", __func__);
 }
 

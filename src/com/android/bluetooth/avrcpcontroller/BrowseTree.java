@@ -41,7 +41,7 @@ import java.util.List;
 public class BrowseTree {
     private static final String TAG = "BrowseTree";
     private static final boolean DBG = false;
-    private static final boolean VDBG = false;
+    private static final boolean VDBG = AvrcpControllerService.VDBG;
 
     public static final int DIRECTION_DOWN = 0;
     public static final int DIRECTION_UP = 1;
