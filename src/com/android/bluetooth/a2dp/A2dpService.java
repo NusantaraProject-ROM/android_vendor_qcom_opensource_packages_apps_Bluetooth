@@ -659,13 +659,9 @@ public class A2dpService extends ProfileService {
                 previousActiveDevice = mDummyDevice;
                 mDummyDevice = null;
             }
-            mDisconnectDelay =
-                    mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
+            mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
                     previousActiveDevice, BluetoothProfile.STATE_DISCONNECTED,
                     BluetoothProfile.A2DP, suppressNoisyIntent, -1);
-            if (mDisconnectDelay > 0) {
-                mDisconnectTime = SystemClock.uptimeMillis();
-            }
             // Make sure the Active device in native layer is set to null and audio is off
             if (!mA2dpNativeInterface.setActiveDevice(null)) {
                 Log.w(TAG, "setActiveDevice(null): Cannot remove active device in native "
