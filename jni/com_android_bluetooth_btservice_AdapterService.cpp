@@ -1240,6 +1240,25 @@ static void interopDatabaseAddNative(JNIEnv* env, jobject obj, int feature,
   env->ReleaseByteArrayElements(address, addr, 0);
 }
 
+static jbyteArray obfuscateAddressNative(JNIEnv* env, jobject obj,
+                                         jbyteArray address) {
+  ALOGV("%s", __func__);
+  if (!sBluetoothInterface) return env->NewByteArray(0);
+  jbyte* addr = env->GetByteArrayElements(address, nullptr);
+  if (addr == nullptr) {
+    jniThrowIOException(env, EINVAL);
+    return env->NewByteArray(0);
+  }
+  RawAddress addr_obj = {};
+  addr_obj.FromOctets((uint8_t*)addr);
+  std::string output = sBluetoothInterface->obfuscate_address(addr_obj);
+  jsize output_size = output.size() * sizeof(char);
+  jbyteArray output_bytes = env->NewByteArray(output_size);
+  env->SetByteArrayRegion(output_bytes, 0, output_size,
+                          (const jbyte*)output.data());
+  return output_bytes;
+}
+
 static JNINativeMethod sMethods[] = {
     /* name, signature, funcPtr */
     {"classInitNative", "()V", (void*)classInitNative},
@@ -1274,7 +1293,8 @@ static JNINativeMethod sMethods[] = {
     {"dumpMetricsNative", "()[B", (void*)dumpMetricsNative},
     {"factoryResetNative", "()Z", (void*)factoryResetNative},
     {"interopDatabaseClearNative", "()V", (void*)interopDatabaseClearNative},
-    {"interopDatabaseAddNative", "(I[BI)V", (void*)interopDatabaseAddNative}};
+    {"interopDatabaseAddNative", "(I[BI)V", (void*)interopDatabaseAddNative},
+    {"obfuscateAddressNative", "([B)[B", (void*)obfuscateAddressNative}};
 
 int register_com_android_bluetooth_btservice_AdapterService(JNIEnv* env) {
   return jniRegisterNativeMethods(

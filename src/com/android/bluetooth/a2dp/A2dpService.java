@@ -106,6 +106,8 @@ public class A2dpService extends ProfileService {
     private boolean mIsTwsPlusMonoSupported = false;
     private String  mTwsPlusChannelMode = "dual-mono";
     private BluetoothDevice mDummyDevice = null;
+    private static final int max_tws_connection = 2;
+    private static final int min_tws_connection = 1;
 
     private static final long AptxBLEScanMask = 0x3000;
     private static final long Aptx_BLEScanEnable = 0x1000;
@@ -160,14 +162,21 @@ public class A2dpService extends ProfileService {
         // Step 2: Get maximum number of connected audio devices
         mMaxConnectedAudioDevices = mAdapterService.getMaxConnectedAudioDevices();
         mSetMaxConnectedAudioDevices = mMaxConnectedAudioDevices;
+        Log.i(TAG, "Max connected audio devices set to " + mMaxConnectedAudioDevices);
         if (mAdapterService.isVendorIntfEnabled()) {
             String twsPlusEnabled = SystemProperties.get("persist.vendor.btstack.enable.twsplus");
             if (!twsPlusEnabled.isEmpty() && "true".equals(twsPlusEnabled)) {
                 mIsTwsPlusEnabled = true;
             }
             Log.i(TAG, "mMaxConnectedAudioDevices: " + mMaxConnectedAudioDevices);
-            if (mIsTwsPlusEnabled) {
+            String twsShoEnabled = SystemProperties.get("persist.vendor.btstack.enable.twsplussho"); 
+            if (!twsShoEnabled.isEmpty() && "true".equals(twsShoEnabled) &&
+                (mIsTwsPlusEnabled == true) && mMaxConnectedAudioDevices <= 2) {
+                mMaxConnectedAudioDevices = 3;
+                Log.i(TAG, "TWS+ SHO enabled mMaxConnectedAudioDevices changed to: " + mMaxConnectedAudioDevices);
+            } else if (mIsTwsPlusEnabled && mMaxConnectedAudioDevices < 2) {
                 mMaxConnectedAudioDevices = 2;
+                Log.i(TAG, "TWS+ enabled mMaxConnectedAudioDevices changed to: " + mMaxConnectedAudioDevices);
             }
             mSetMaxConnectedAudioDevices = mMaxConnectedAudioDevices;
             String twsPlusMonoEnabled = SystemProperties.get("persist.vendor.btstack.twsplus.monosupport");
@@ -180,7 +189,6 @@ public class A2dpService extends ProfileService {
             }
             Log.d(TAG, "Default TwsPlus ChannelMode: " + mTwsPlusChannelMode);
         }
-        Log.i(TAG, "Max connected audio devices set to " + mMaxConnectedAudioDevices);
 
         // Step 3: Setup AVRCP
         if(mAdapterService.isVendorIntfEnabled())
@@ -412,54 +420,62 @@ public class A2dpService extends ProfileService {
             return devices;
         }
     }
-    private boolean isConnectionAllowed(BluetoothDevice device, boolean tws_connected,
+    private boolean isConnectionAllowed(BluetoothDevice device, int tws_connected,
                                         int num_connected) {
         if (!mIsTwsPlusEnabled && mAdapterService.isTwsPlusDevice(device)) {
            Log.d(TAG, "No TWSPLUS connections as It is not Enabled");
            return false;
         }
         if (num_connected == 0) return true;
-
+        Log.d(TAG,"isConnectionAllowed");
         List <BluetoothDevice> connectingConnectedDevices =
                   getDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES);
-        BluetoothDevice mConnDev = connectingConnectedDevices.get(0);
+        BluetoothDevice mConnDev = null;
+        if (mMaxConnectedAudioDevices > 2 && tws_connected > 0) {
+            for (BluetoothDevice connectingConnectedDevice : connectingConnectedDevices) {
+                if (mAdapterService.isTwsPlusDevice(connectingConnectedDevice)) {
+                    mConnDev = connectingConnectedDevice;
+                    break;
+                }
+            }
+        } else {
+            mConnDev = connectingConnectedDevices.get(0);
+        }
         if (mA2dpStackEvent == A2dpStackEvent.CONNECTION_STATE_CONNECTING ||
             mA2dpStackEvent == A2dpStackEvent.CONNECTION_STATE_CONNECTED) {
-            if ((!mAdapterService.isTwsPlusDevice(device) && tws_connected) ||
-                (mAdapterService.isTwsPlusDevice(device) && !tws_connected)) {
+            //Handle incoming connection
+            if (!mAdapterService.isTwsPlusDevice(device) &&
+                ((mMaxConnectedAudioDevices - max_tws_connection) - (num_connected - tws_connected)) < 1) {
                 Log.d(TAG,"isConnectionAllowed: incoming connection not allowed");
                 mA2dpStackEvent = EVENT_TYPE_NONE;
                 return false;
             }
         }
-        if (num_connected > 1 &&
-           ((!tws_connected && mAdapterService.isTwsPlusDevice(device)) ||
-           (tws_connected && !mAdapterService.isTwsPlusDevice(device)))) {
-            Log.d(TAG,"isConnectionAllowed: Max connections reached");
-            return false;
-        }
-        if (!tws_connected && mAdapterService.isTwsPlusDevice(device)) {
-            Log.d(TAG,"isConnectionAllowed: Disconnect legacy device for outgoing TWSP connection");
-            disconnectExisting = true;
-            return false;
-        }
-        if (tws_connected && mAdapterService.isTwsPlusDevice(device)) {
-            //if (num_connected == mMaxConnectedAudioDevices) {
-            if (num_connected > 1) {
-                Log.d(TAG,"isConnectionAllowed: Max TWS connected, disconnect first");
-                return false;
-            } else if(mAdapterService.getTwsPlusPeerAddress(mConnDev).equals(device.getAddress())) {
-                Log.d(TAG,"isConnectionAllowed: Peer earbud pair allow connection");
-                return true;
-            } else {
-                Log.d(TAG,"isConnectionAllowed: Unpaired earbud, disconnect previous TWS+ device");
-                disconnectExisting = true;
+        if (mAdapterService.isTwsPlusDevice(device)) {
+            if (tws_connected == max_tws_connection) {
+                Log.d(TAG,"isConnectionAllowed:TWS+ pair connected, disallow other TWS+ connection");
                 return false;
             }
-        } else if (tws_connected && !mAdapterService.isTwsPlusDevice(device)) {
-            Log.d(TAG,"isConnectionAllowed: Disconnect tws device to connect to legacy headset");
-            disconnectExisting = true;
-            return false;
+            if ((tws_connected > 0 && (mMaxConnectedAudioDevices - num_connected) >= min_tws_connection) ||
+                (tws_connected == 0 && (mMaxConnectedAudioDevices - num_connected) >= max_tws_connection)){
+                if ((tws_connected == 0) || (tws_connected == min_tws_connection && mConnDev != null &&
+                    mAdapterService.getTwsPlusPeerAddress(mConnDev).equals(device.getAddress()))) {
+                    Log.d(TAG,"isConnectionAllowed: Allow TWS+ connection");
+                    return true;
+                }
+            } else {
+                Log.d(TAG,"isConnectionAllowed: Too many connections, TWS+ connection not allowed");
+                return false;
+            }
+        } else {
+            if ((tws_connected == max_tws_connection && (mMaxConnectedAudioDevices - num_connected) >= 1) ||
+                (tws_connected == min_tws_connection && (mMaxConnectedAudioDevices - num_connected) >= 2)) {
+                Log.d(TAG,"isConnectionAllowed: Allow legacy connection");
+                return true;
+            } else {
+                Log.d(TAG,"isConnectionAllowed: Too many connections, legacy connection not allowed");
+                return false;
+            }
         }
         return false;
     }
@@ -472,7 +488,7 @@ public class A2dpService extends ProfileService {
      */
     private boolean connectionAllowedCheckMaxDevices(BluetoothDevice device) {
         int connected = 0;
-        boolean tws_device = false;
+        int tws_device = 0;
         // Count devices that are in the process of connecting or already connected
         synchronized (mBtA2dpLock) {
             for (A2dpStateMachine sm : mStateMachines.values()) {
@@ -482,9 +498,8 @@ public class A2dpService extends ProfileService {
                         if (Objects.equals(device, sm.getDevice())) {
                             return true;    // Already connected or accounted for
                         }
-                        if (tws_device == false) {
-                            tws_device = mAdapterService.isTwsPlusDevice(sm.getDevice());
-                        }
+                        if (mAdapterService.isTwsPlusDevice(sm.getDevice()))
+                            tws_device++;
                         connected++;
                         break;
                     default:
@@ -492,10 +507,11 @@ public class A2dpService extends ProfileService {
                 }
             }
         }
-        Log.d(TAG,"connectionAllowedCheckMaxDevices connected = " + connected);
+        Log.d(TAG,"connectionAllowedCheckMaxDevices connected = " + connected +
+              "tws connected = " + tws_device);
         if (mAdapterService.isVendorIntfEnabled() &&
-            (tws_device || mAdapterService.isTwsPlusDevice(device) ||
-            (tws_device && connected == mMaxConnectedAudioDevices &&
+            ((tws_device > 0) || mAdapterService.isTwsPlusDevice(device) ||
+            ((tws_device > 0) && connected == mMaxConnectedAudioDevices &&
             !mAdapterService.isTwsPlusDevice(device)))) {
             return isConnectionAllowed(device, tws_device, connected);
         }
@@ -504,7 +520,7 @@ public class A2dpService extends ProfileService {
             disconnectExisting = true;
             return true;
         }
-        return (connected < mMaxConnectedAudioDevices);
+        return (connected < mSetMaxConnectedAudioDevices);
     }
 
     /**
@@ -684,6 +700,24 @@ public class A2dpService extends ProfileService {
             return false;
         }
         return true;
+    }
+
+    /**
+     * Early notification that Hearing Aids will be the active device. This allows the A2DP to save
+     * its volume before the Audio Service starts changing its media stream.
+     */
+    public void earlyNotifyHearingAidActive() {
+        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
+
+        synchronized (mStateMachines) {
+            if ((mActiveDevice != null) && (AvrcpTargetService.get() != null)) {
+                // Switch active device from A2DP to Hearing Aids.
+                if (DBG) {
+                    Log.d(TAG, "earlyNotifyHearingAidActive: Save volume for " + mActiveDevice);
+                }
+                AvrcpTargetService.get().storeVolumeForDevice(mActiveDevice);
+            }
+        }
     }
 
     /**
@@ -1292,10 +1326,6 @@ public class A2dpService extends ProfileService {
 
         synchronized (mStateMachines) {
             if (AvrcpTargetService.get() != null) {
-                if (mActiveDevice != null) {
-                    AvrcpTargetService.get().storeVolumeForDevice(mActiveDevice);
-                }
-
                 AvrcpTargetService.get().volumeDeviceSwitched(device);
             }
 
@@ -1408,10 +1438,17 @@ public class A2dpService extends ProfileService {
         }
         if (supportsOptional) {
             int enabled = getOptionalCodecsEnabled(device);
-            if (enabled == BluetoothA2dp.OPTIONAL_CODECS_PREF_ENABLED) {
-                enableOptionalCodecs(device);
-            } else if (enabled == BluetoothA2dp.OPTIONAL_CODECS_PREF_DISABLED) {
-                disableOptionalCodecs(device);
+            switch (enabled) {
+                case BluetoothA2dp.OPTIONAL_CODECS_PREF_UNKNOWN:
+                    // Enable optional codec by default.
+                    setOptionalCodecsEnabled(device, BluetoothA2dp.OPTIONAL_CODECS_PREF_ENABLED);
+                    // Fall through intended
+                case BluetoothA2dp.OPTIONAL_CODECS_PREF_ENABLED:
+                    enableOptionalCodecs(device);
+                    break;
+                case BluetoothA2dp.OPTIONAL_CODECS_PREF_DISABLED:
+                    disableOptionalCodecs(device);
+                    break;
             }
         }
     }
