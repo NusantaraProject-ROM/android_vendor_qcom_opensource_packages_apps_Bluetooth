@@ -146,6 +146,7 @@ class AdapterProperties {
     private boolean mBroadcastAudioTxwithEC_3_9;
     private boolean mBroadcastAudioRxwithEC_2_5;
     private boolean mBroadcastAudioRxwithEC_3_9;
+    private boolean mAddonFeaturesSupported;
 
     private boolean mReceiverRegistered;
     private BroadcastReceiver mReceiver = new BroadcastReceiver() {
@@ -736,6 +737,13 @@ class AdapterProperties {
     }
 
     /**
+     * @return Broadcast AddonFeatures Cmd Support status
+     */
+    boolean isAddonFeaturesCmdSupported() {
+        return mAddonFeaturesSupported;
+    }
+
+    /**
      * @return the mBondedDevices
      */
     BluetoothDevice[] getBondedDevices() {
@@ -1145,66 +1153,71 @@ class AdapterProperties {
     }
 
     public void updateSocFeatureSupport(byte[] val) {
-        mWiPowerFastbootEnabled = ((0x01 & ((int) val[0])) != 0);
-        mSplitA2DPScrambleDataRequired = ((0x02 & ((int) val[0])) != 0);
-        mSplitA2DP44p1KhzSampleFreq = ((0x04 & ((int) val[0])) != 0);
-        mSplitA2DP48KhzSampleFreq = ((0x08 & ((int) val[0])) != 0);
-        mSplitA2DPSingleVSCommandSupport = ((0x10 & ((int) val[0])) != 0);
-        mSplitA2DPSourceSBCEncoding = ((0x20 & ((int) val[0])) != 0);
-        mSplitA2DPSourceSBC = ((0x01 & ((int) val[1])) != 0);
-        mSplitA2DPSourceMP3 = ((0x02 & ((int) val[1])) != 0);
-        mSplitA2DPSourceAAC = ((0x04 & ((int) val[1])) != 0);
-        mSplitA2DPSourceLDAC = ((0x08 & ((int) val[1])) != 0);
-        mSplitA2DPSourceAPTX = ((0x10 & ((int) val[1])) != 0);
-        mSplitA2DPSourceAPTXHD = ((0x20 & ((int) val[1])) != 0);
-        mSplitA2DPSourceAPTXADAPTIVE = ((0x40 & ((int) val[1])) != 0);
-        mSplitA2DPSourceAPTXTWSPLUS = ((0x80 & ((int) val[1])) != 0);
-        mSplitA2DPSinkSBC = ((0x01 & ((int) val[2])) != 0);
-        mSplitA2DPSinkMP3 = ((0x02 & ((int) val[2])) != 0);
-        mSplitA2DPSinkAAC = ((0x04 & ((int) val[2])) != 0);
-        mSplitA2DPSinkLDAC = ((0x08 & ((int) val[2])) != 0);
-        mSplitA2DPSinkAPTX = ((0x10 & ((int) val[2])) != 0);
-        mSplitA2DPSinkAPTXHD = ((0x20 & ((int) val[2])) != 0);
-        mSplitA2DPSinkAPTXADAPTIVE = ((0x40 & ((int) val[2])) != 0);
-        mSplitA2DPSinkAPTXTWSPLUS = ((0x80 & ((int) val[2])) != 0);
-        mVoiceDualSCO = ((0x01 & ((int) val[3])) != 0);
-        mVoiceTWSPLUSeSCOAG = ((0x02 & ((int) val[3])) != 0);
-        mSWBVoicewithAptxAdaptiveAG = ((0x04 & ((int) val[3])) != 0);
-        mBroadcastAudioTxwithEC_2_5 = ((0x01 & ((int) val[4])) != 0);
-        mBroadcastAudioTxwithEC_3_9 = ((0x02 & ((int) val[4])) != 0);
-        mBroadcastAudioRxwithEC_2_5 = ((0x04 & ((int) val[4])) != 0);
-        mBroadcastAudioRxwithEC_3_9 = ((0x08 & ((int) val[4])) != 0);
+        mAddonFeaturesSupported = (val.length != 0);
+        if (!mAddonFeaturesSupported) {
+            Log.d(TAG, "BT_PROPERTY_ADD_ON_FEATURES: add-on features VSC is not supported");
+        } else {
+            mWiPowerFastbootEnabled = ((0x01 & ((int) val[0])) != 0);
+            mSplitA2DPScrambleDataRequired = ((0x02 & ((int) val[0])) != 0);
+            mSplitA2DP44p1KhzSampleFreq = ((0x04 & ((int) val[0])) != 0);
+            mSplitA2DP48KhzSampleFreq = ((0x08 & ((int) val[0])) != 0);
+            mSplitA2DPSingleVSCommandSupport = ((0x10 & ((int) val[0])) != 0);
+            mSplitA2DPSourceSBCEncoding = ((0x20 & ((int) val[0])) != 0);
+            mSplitA2DPSourceSBC = ((0x01 & ((int) val[1])) != 0);
+            mSplitA2DPSourceMP3 = ((0x02 & ((int) val[1])) != 0);
+            mSplitA2DPSourceAAC = ((0x04 & ((int) val[1])) != 0);
+            mSplitA2DPSourceLDAC = ((0x08 & ((int) val[1])) != 0);
+            mSplitA2DPSourceAPTX = ((0x10 & ((int) val[1])) != 0);
+            mSplitA2DPSourceAPTXHD = ((0x20 & ((int) val[1])) != 0);
+            mSplitA2DPSourceAPTXADAPTIVE = ((0x40 & ((int) val[1])) != 0);
+            mSplitA2DPSourceAPTXTWSPLUS = ((0x80 & ((int) val[1])) != 0);
+            mSplitA2DPSinkSBC = ((0x01 & ((int) val[2])) != 0);
+            mSplitA2DPSinkMP3 = ((0x02 & ((int) val[2])) != 0);
+            mSplitA2DPSinkAAC = ((0x04 & ((int) val[2])) != 0);
+            mSplitA2DPSinkLDAC = ((0x08 & ((int) val[2])) != 0);
+            mSplitA2DPSinkAPTX = ((0x10 & ((int) val[2])) != 0);
+            mSplitA2DPSinkAPTXHD = ((0x20 & ((int) val[2])) != 0);
+            mSplitA2DPSinkAPTXADAPTIVE = ((0x40 & ((int) val[2])) != 0);
+            mSplitA2DPSinkAPTXTWSPLUS = ((0x80 & ((int) val[2])) != 0);
+            mVoiceDualSCO = ((0x01 & ((int) val[3])) != 0);
+            mVoiceTWSPLUSeSCOAG = ((0x02 & ((int) val[3])) != 0);
+            mSWBVoicewithAptxAdaptiveAG = ((0x04 & ((int) val[3])) != 0);
+            mBroadcastAudioTxwithEC_2_5 = ((0x01 & ((int) val[4])) != 0);
+            mBroadcastAudioTxwithEC_3_9 = ((0x02 & ((int) val[4])) != 0);
+            mBroadcastAudioRxwithEC_2_5 = ((0x04 & ((int) val[4])) != 0);
+            mBroadcastAudioRxwithEC_3_9 = ((0x08 & ((int) val[4])) != 0);
 
 
-        Log.d(TAG, "BT_PROPERTY_ADD_ON_FEATURES: update from BT controller"
-                + "\n mWiPowerFastbootEnabled = "
-                + mWiPowerFastbootEnabled + "\n SplitA2DPScrambleDataRequired = "
-                + mSplitA2DPScrambleDataRequired + "\n mSplitA2DP44p1KhzSampleFreq = "
-                + mSplitA2DP44p1KhzSampleFreq + "\n mSplitA2DP48KhzSampleFreq = "
-                + mSplitA2DP48KhzSampleFreq + "\n mSplitA2DPSingleVSCommandSupport = "
-                + mSplitA2DPSingleVSCommandSupport + "\n mSplitA2DPSourceSBCEncoding = "
-                + mSplitA2DPSourceSBCEncoding + "\n mSplitA2DPSourceSBC = "
-                + mSplitA2DPSourceSBC + "\n mSplitA2DPSourceMP3 = "
-                + mSplitA2DPSourceMP3 + "\n mSplitA2DPSourceAAC = "
-                + mSplitA2DPSourceAAC + "\n mSplitA2DPSourceLDAC = " + mSplitA2DPSourceLDAC
-                + "\n mSplitA2DPSourceAPTX = " + mSplitA2DPSourceAPTX
-                + "\n mSplitA2DPSourceAPTXHD = " + mSplitA2DPSourceAPTXHD
-                + "\n mSplitA2DPSourceAPTXADAPTIVE = " + mSplitA2DPSourceAPTXADAPTIVE
-                + "\n mSplitA2DPSourceAPTXTWSPLUS = " + mSplitA2DPSourceAPTXTWSPLUS
-                + "\n mSplitA2DPSinkSBC = " + mSplitA2DPSinkSBC + "\n mSplitA2DPSinkMP3 = "
-                + mSplitA2DPSinkMP3 + "\n mSplitA2DPSinkAAC = "
-                + mSplitA2DPSinkAAC + "\n mSplitA2DPSinkLDAC = " + mSplitA2DPSinkLDAC
-                + "\n mSplitA2DPSinkAPTX = " + mSplitA2DPSinkAPTX
-                + "\n mSplitA2DPSinkAPTXHD = " + mSplitA2DPSinkAPTXHD
-                + "\n mSplitA2DPSinkAPTXADAPTIVE = " + mSplitA2DPSinkAPTXADAPTIVE
-                + "\n mSplitA2DPSinkAPTXTWSPLUS = " + mSplitA2DPSinkAPTXTWSPLUS
-                + "\n mVoiceDualSCO = " + mVoiceDualSCO + "\n mVoiceTWSPLUSeSCOAG = "
-                + mVoiceTWSPLUSeSCOAG + "\n mSWBVoicewithAptxAdaptiveAG = "
-                + mSWBVoicewithAptxAdaptiveAG + "\n BroadcastAudioTxwithEC_2_5 = "
-                + mBroadcastAudioTxwithEC_2_5 + "\n mBroadcastAudioTxwithEC_3_9 = "
-                + mBroadcastAudioTxwithEC_3_9 + "\n mBroadcastAudioRxwithEC_2_5 = "
-                + mBroadcastAudioRxwithEC_2_5 + "\n mBroadcastAudioRxwithEC_3_9= "
-                + mBroadcastAudioRxwithEC_3_9);
+            Log.d(TAG, "BT_PROPERTY_ADD_ON_FEATURES: update from BT controller"
+                    + "\n mWiPowerFastbootEnabled = "
+                    + mWiPowerFastbootEnabled + "\n SplitA2DPScrambleDataRequired = "
+                    + mSplitA2DPScrambleDataRequired + "\n mSplitA2DP44p1KhzSampleFreq = "
+                    + mSplitA2DP44p1KhzSampleFreq + "\n mSplitA2DP48KhzSampleFreq = "
+                    + mSplitA2DP48KhzSampleFreq + "\n mSplitA2DPSingleVSCommandSupport = "
+                    + mSplitA2DPSingleVSCommandSupport + "\n mSplitA2DPSourceSBCEncoding = "
+                    + mSplitA2DPSourceSBCEncoding + "\n mSplitA2DPSourceSBC = "
+                    + mSplitA2DPSourceSBC + "\n mSplitA2DPSourceMP3 = "
+                    + mSplitA2DPSourceMP3 + "\n mSplitA2DPSourceAAC = "
+                    + mSplitA2DPSourceAAC + "\n mSplitA2DPSourceLDAC = " + mSplitA2DPSourceLDAC
+                    + "\n mSplitA2DPSourceAPTX = " + mSplitA2DPSourceAPTX
+                    + "\n mSplitA2DPSourceAPTXHD = " + mSplitA2DPSourceAPTXHD
+                    + "\n mSplitA2DPSourceAPTXADAPTIVE = " + mSplitA2DPSourceAPTXADAPTIVE
+                    + "\n mSplitA2DPSourceAPTXTWSPLUS = " + mSplitA2DPSourceAPTXTWSPLUS
+                    + "\n mSplitA2DPSinkSBC = " + mSplitA2DPSinkSBC + "\n mSplitA2DPSinkMP3 = "
+                    + mSplitA2DPSinkMP3 + "\n mSplitA2DPSinkAAC = "
+                    + mSplitA2DPSinkAAC + "\n mSplitA2DPSinkLDAC = " + mSplitA2DPSinkLDAC
+                    + "\n mSplitA2DPSinkAPTX = " + mSplitA2DPSinkAPTX
+                    + "\n mSplitA2DPSinkAPTXHD = " + mSplitA2DPSinkAPTXHD
+                    + "\n mSplitA2DPSinkAPTXADAPTIVE = " + mSplitA2DPSinkAPTXADAPTIVE
+                    + "\n mSplitA2DPSinkAPTXTWSPLUS = " + mSplitA2DPSinkAPTXTWSPLUS
+                    + "\n mVoiceDualSCO = " + mVoiceDualSCO + "\n mVoiceTWSPLUSeSCOAG = "
+                    + mVoiceTWSPLUSeSCOAG + "\n mSWBVoicewithAptxAdaptiveAG = "
+                    + mSWBVoicewithAptxAdaptiveAG + "\n BroadcastAudioTxwithEC_2_5 = "
+                    + mBroadcastAudioTxwithEC_2_5 + "\n mBroadcastAudioTxwithEC_3_9 = "
+                    + mBroadcastAudioTxwithEC_3_9 + "\n mBroadcastAudioRxwithEC_2_5 = "
+                    + mBroadcastAudioRxwithEC_2_5 + "\n mBroadcastAudioRxwithEC_3_9= "
+                    + mBroadcastAudioRxwithEC_3_9);
+         }
     }
 
     public void updateHostFeatureSupport(byte[] val) {
