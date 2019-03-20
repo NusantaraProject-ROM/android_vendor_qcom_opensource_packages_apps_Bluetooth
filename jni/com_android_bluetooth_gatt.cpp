@@ -1309,6 +1309,9 @@ static void gattClientScanFilterAddNative(JNIEnv* env, jobject object,
   jfieldID companyMaskFid = env->GetFieldID(entryClazz, "company_mask", "I");
   jfieldID dataFid = env->GetFieldID(entryClazz, "data", "[B");
   jfieldID dataMaskFid = env->GetFieldID(entryClazz, "data_mask", "[B");
+  jfieldID orgFid = env->GetFieldID(entryClazz, "org_id", "I");
+  jfieldID TDSFlagsFid = env->GetFieldID(entryClazz, "tds_flags", "I");
+  jfieldID TDSFlagsMaskFid = env->GetFieldID(entryClazz, "tds_flags_mask", "I");
 
   for (int i = 0; i < numFilters; ++i) {
     ApcfCommand curr;
@@ -1378,6 +1381,10 @@ static void gattClientScanFilterAddNative(JNIEnv* env, jobject object,
         env->ReleaseByteArrayElements(data_mask.get(), data_array, JNI_ABORT);
       }
     }
+    curr.org_id = env->GetIntField(current.get(), orgFid);
+    curr.tds_flags = env->GetIntField(current.get(), TDSFlagsFid);
+    curr.tds_flags_mask = env->GetIntField(current.get(), TDSFlagsMaskFid);
+
     native_filters.push_back(curr);
   }
 
