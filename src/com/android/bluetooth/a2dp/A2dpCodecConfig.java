@@ -49,6 +49,7 @@ class A2dpCodecConfig {
     private int mA2dpSourceCodecPriorityLdac = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
     private int mA2dpSourceCodecPriorityAptxTws = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
     private int SOURCE_CODEC_TYPE_APTX_TWS = BluetoothCodecConfig.SOURCE_CODEC_TYPE_MAX + 1;
+    private int assigned_codec_length = 0;
     A2dpCodecConfig(Context context, A2dpNativeInterface a2dpNativeInterface) {
         mContext = context;
         mA2dpNativeInterface = a2dpNativeInterface;
@@ -107,7 +108,7 @@ class A2dpCodecConfig {
         }
 
         // Set the mandatory codec's priority to default, and remove the rest
-        for (int i = 0; i < codecConfigArray.length; i++) {
+        for (int i = 0; i < assigned_codec_length; i++) {
             BluetoothCodecConfig codecConfig = codecConfigArray[i];
             if (!codecConfig.isMandatoryCodec()) {
                 codecConfigArray[i] = null;
@@ -128,7 +129,7 @@ class A2dpCodecConfig {
             return;
         }
         // Set the mandatory codec's priority to highest, and remove the rest
-        for (int i = 0; i < codecConfigArray.length; i++) {
+        for (int i = 0; i < assigned_codec_length; i++) {
             BluetoothCodecConfig codecConfig = codecConfigArray[i];
             if (codecConfig.isMandatoryCodec()) {
                 codecConfig.setCodecPriority(BluetoothCodecConfig.CODEC_PRIORITY_HIGHEST);
@@ -318,6 +319,7 @@ class A2dpCodecConfig {
                 .CHANNEL_MODE_NONE, 0 /* codecSpecific1 */,
                 0 /* codecSpecific2 */, 0 /* codecSpecific3 */, 0 /* codecSpecific4 */);
         codecConfigArray[codecCount++] = codecConfig;
+        assigned_codec_length = codecCount;
         return codecConfigArray;
     }
 }
