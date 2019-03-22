@@ -38,6 +38,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.media.AudioFormat;
 import android.media.AudioManager;
+import android.media.AudioSystem;
 import android.os.Handler;
 import android.os.Message;
 import android.os.ParcelUuid;
@@ -78,6 +79,7 @@ public class A2dpSinkStateMachine extends StateMachine {
     public static final int AVRC_ID_PAUSE = 0x46;
     public static final int KEY_STATE_PRESSED = 0;
     public static final int KEY_STATE_RELEASED = 1;
+    private static final String BT_ADDR_KEY = "bt_addr";
 
     // Connection states.
     // 1. Disconnected: The connection does not exist.
@@ -146,6 +148,12 @@ public class A2dpSinkStateMachine extends StateMachine {
         addState(mDisconnected);
         addState(mPending);
         addState(mConnected);
+
+        if (mAdapter != null) {
+            String bdAddr = mAdapter.getAddress();
+            AudioSystem.setParameters(BT_ADDR_KEY + "=" + bdAddr);
+            log("AudioSystem.setParameters, Key: " + BT_ADDR_KEY + " Value: " + bdAddr);
+        }
 
         setInitialState(mDisconnected);
 
