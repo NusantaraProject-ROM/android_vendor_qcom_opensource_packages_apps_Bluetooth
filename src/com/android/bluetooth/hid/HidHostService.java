@@ -181,7 +181,11 @@ public class HidHostService extends ProfileService {
                         if (DBG) {
                             Log.d(TAG, "Incoming HID connection rejected");
                         }
-                        virtualUnPlugNative(Utils.getByteAddress(device));
+                        if (disconnectRemote(device)) {
+                            disconnectHidNative(Utils.getByteAddress(device));
+                        } else {
+                            virtualUnPlugNative(Utils.getByteAddress(device));
+                        }
                     } else {
                         broadcastConnectionState(device, convertHalState(halState));
                     }
@@ -828,6 +832,37 @@ public class HidHostService extends ProfileService {
             return false;
         }
         return true;
+    }
+
+    /**
+     * Check whether need to disconnect or virtual unplug remote device
+     * The check considers a number of factors during the evaluation.
+     *
+     * @param device the peer device to connect to
+     * @return true if remote device is to be disconnected, otherwise remote
+     * device needs to be virtually unplugged
+     */
+    private boolean disconnectRemote(BluetoothDevice device) {
+        AdapterService adapterService = AdapterService.getAdapterService();
+        // Check if adapter service is null.
+        if (adapterService == null) {
+            Log.w(TAG, "disconnectRemote: adapter service is null");
+            return false;
+        }
+        // Check if this is an incoming connection in Quiet mode.
+        if (adapterService.isQuietModeEnabled() && mTargetDevice == null) {
+            Log.w(TAG, "disconnectRemote: return false as quiet mode enabled");
+            return false;
+        }
+        int priority = getPriority(device);
+        int bondState = adapterService.getBondState(device);
+        // Disconnect remote device if bonded and priroty is OFF
+        if (bondState == BluetoothDevice.BOND_BONDED &&
+                priority == BluetoothProfile.PRIORITY_OFF) {
+            Log.w(TAG, "disconnectRemote: return true");
+            return true;
+        }
+        return false;
     }
 
     private static int convertHalState(int halState) {
