@@ -148,10 +148,10 @@ public class BluetoothMapContent {
     private final BluetoothMapAccountItem mAccount;
     /* The MasInstance reference is used to update persistent (over a connection) version counters*/
     private final BluetoothMapMasInstance mMasInstance;
-    private String mMessageVersion = BluetoothMapUtils.MAP_V10_STR;
+    protected String mMessageVersion = BluetoothMapUtils.MAP_V10_STR;
 
     private int mRemoteFeatureMask = BluetoothMapUtils.MAP_FEATURE_DEFAULT_BITMASK;
-    private int mMsgListingVersion = BluetoothMapUtils.MAP_MESSAGE_LISTING_FORMAT_V10;
+    protected int mMsgListingVersion = BluetoothMapUtils.MAP_MESSAGE_LISTING_FORMAT_V10;
 
     static final String[] SMS_PROJECTION = new String[]{
             BaseColumns._ID,
@@ -4322,6 +4322,10 @@ public class BluetoothMapContent {
             }
             this.mMsgListingVersion = BluetoothMapUtils.MAP_MESSAGE_LISTING_FORMAT_V11;
         }
+    }
+
+    public int getMsgListingVersion() {
+        return mMsgListingVersion;
     }
 
     public int getRemoteFeatureMask() {
