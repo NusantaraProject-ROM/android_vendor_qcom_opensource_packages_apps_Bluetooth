@@ -402,6 +402,11 @@ public class A2dpSinkStateMachine extends StateMachine {
                 case DISCONNECT:
                     Log.e(TAG, "Message received for wrong device.");
                     break;
+
+                case EVENT_RELEASE_FOCUS:
+                    mStreaming.obtainMessage(A2dpSinkStreamHandler.RELEASE_FOCUS).sendToTarget();
+                    break;
+
                 case STACK_EVENT:
                     StackEvent event = (StackEvent) message.obj;
                     log("STACK_EVENT " + event.type);
