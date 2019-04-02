@@ -382,10 +382,6 @@ public final class Utils {
                         == PackageManager.PERMISSION_GRANTED;
     }
 
-    public static boolean isLegacyForegroundApp(Context context, String pkgName) {
-        return !isMApp(context, pkgName) && isForegroundApp(context, pkgName);
-    }
-
     private static boolean isMApp(Context context, String pkgName) {
         try {
             return context.getPackageManager().getApplicationInfo(pkgName, 0).targetSdkVersion
@@ -404,16 +400,6 @@ public final class Utils {
             // In case of exception, assume Q app
         }
         return true;
-    }
-    /**
-     * Return true if the specified package name is a foreground app.
-     *
-     * @param pkgName application package name.
-     */
-    private static boolean isForegroundApp(Context context, String pkgName) {
-        ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-        List<ActivityManager.RunningTaskInfo> tasks = am.getRunningTasks(1);
-        return !tasks.isEmpty() && pkgName.equals(tasks.get(0).topActivity.getPackageName());
     }
 
     private static boolean isAppOppAllowed(AppOpsManager appOps, int op, String callingPackage) {

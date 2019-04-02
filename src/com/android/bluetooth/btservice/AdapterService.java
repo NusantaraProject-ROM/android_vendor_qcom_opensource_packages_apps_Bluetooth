@@ -112,8 +112,9 @@ import com.android.bluetooth.ba.BATService;
 import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.app.IBatteryStats;
+
+import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
-import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 
 import com.google.protobuf.ByteString;
@@ -290,14 +291,15 @@ public class AdapterService extends Service {
         if (!isVendorIntfEnabled()) {
             return;
         }
-        ConnectivityManager connMgr =
-              (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
-        NetworkInfo networkInfo = connMgr.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
-        if (networkInfo.isConnected()) {
-            mVendor.setWifiState(true);
-        } else {
-            mVendor.setWifiState(false);
+        boolean isWifiConnected = false;
+        WifiManager wifiMgr = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+        if ((wifiMgr != null) && (wifiMgr.isWifiEnabled())) {
+            WifiInfo wifiInfo = wifiMgr.getConnectionInfo();
+            if((wifiInfo != null) && (wifiInfo.getNetworkId() != -1)) {
+                isWifiConnected = true;
+            }
         }
+        mVendor.setWifiState(isWifiConnected);
     }
 
     public void StartHCIClose() {
