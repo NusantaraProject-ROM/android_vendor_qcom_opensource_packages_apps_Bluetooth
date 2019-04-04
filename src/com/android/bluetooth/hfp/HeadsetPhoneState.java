@@ -200,7 +200,7 @@ public class HeadsetPhoneState {
             Log.e(TAG, "mTelephonyManager is null, "
                  + "cannot start listening for phone state changes");
         } else {
-            mPhoneStateListener = new HeadsetPhoneStateListener(subId,
+            mPhoneStateListener = new HeadsetPhoneStateListener(
                     mHeadsetService.getStateMachinesThreadLooper());
             try {
                 mTelephonyManager.listen(mPhoneStateListener, events);
@@ -406,8 +406,8 @@ public class HeadsetPhoneState {
     }
 
     private class HeadsetPhoneStateListener extends PhoneStateListener {
-        HeadsetPhoneStateListener(Integer subId, Looper looper) {
-            super(subId, looper);
+        HeadsetPhoneStateListener(Looper looper) {
+            super(looper);
         }
 
         @Override
