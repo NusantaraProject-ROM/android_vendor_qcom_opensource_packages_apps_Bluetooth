@@ -72,6 +72,9 @@
     <uses-permission android:name="com.android.email.permission.READ_ATTACHMENT"/>
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
 
+    <!-- Allows access to read media audio -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
+
     <uses-sdk android:minSdkVersion="14"/>
 
     <!-- For PBAP Owner Vcard Info -->
