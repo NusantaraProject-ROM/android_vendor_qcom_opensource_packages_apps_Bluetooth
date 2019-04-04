@@ -1167,10 +1167,11 @@ public class BluetoothMapService extends ProfileService {
                 }
 
                 if (VERBOSE) {
-                    Log.v(TAG, "ACL disconnected for " + device);
+                    Log.v(TAG, "ACL disconnected for " + device
+                            + " mIsWaitingAuthorization :" + mIsWaitingAuthorization);
                 }
 
-                if (sRemoteDevice.equals(device)) {
+                if (mIsWaitingAuthorization && device.equals(sRemoteDevice)) {
                     // Send any pending timeout now, since ACL got disconnected
                     mSessionStatusHandler.removeMessages(USER_TIMEOUT);
                     mSessionStatusHandler.obtainMessage(USER_TIMEOUT).sendToTarget();
