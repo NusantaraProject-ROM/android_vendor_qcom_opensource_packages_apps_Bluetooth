@@ -36,7 +36,10 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.os.SystemProperties;
 import android.net.ConnectivityManager;
+import android.net.NetworkCapabilities;
+import android.net.ConnectivityManager.NetworkCallback;
 import android.net.NetworkInfo;
+import android.net.Network;
 import android.util.StatsLog;
 
 import com.android.bluetooth.btservice.AdapterService;
@@ -170,6 +173,8 @@ public class HeadsetStateMachine extends StateMachine {
     private final HeadsetCallState mStateMachineCallState =
                  new HeadsetCallState(0, 0, 0, "", 0, "");
 
+    private NetworkCallback mDefaultNetworkCallback = new NetworkCallback();
+
     // State machine states
     private final Disconnected mDisconnected = new Disconnected();
     private final Connecting mConnecting = new Connecting();
@@ -202,6 +207,9 @@ public class HeadsetStateMachine extends StateMachine {
     private boolean mIsCallIndDelay = false;
     private boolean mIsBlacklistedDevice = false;
     private int retryConnectCount = 0;
+
+    private static boolean mIsAvailable = false;
+
     //ConcurrentLinkeQueue is used so that it is threadsafe
     private ConcurrentLinkedQueue<HeadsetCallState> mPendingCallStates =
                              new ConcurrentLinkedQueue<HeadsetCallState>();
@@ -280,6 +288,21 @@ public class HeadsetStateMachine extends StateMachine {
                       " active delay " + CS_CALL_ACTIVE_DELAY_TIME_MSEC);
         }
 
+        NetworkCallback mDefaultNetworkCallback = new NetworkCallback() {
+            @Override
+            public void onAvailable(Network network) {
+                mIsAvailable = true;
+                Log.d(TAG, "The current Network: "+network+" is avialable: "+mIsAvailable);
+            }
+            @Override
+            public void onLost(Network network) {
+               mIsAvailable = false;
+               Log.d(TAG, "The current Network:"+network+" is lost, mIsAvailable: "
+                     +mIsAvailable);
+            }
+        };
+
+        mConnectivityManager.registerDefaultNetworkCallback(mDefaultNetworkCallback);
         Log.i(TAG," Exiting HeadsetStateMachine constructor for device :" + device);
     }
 
@@ -328,6 +351,7 @@ public class HeadsetStateMachine extends StateMachine {
                 !mSystemInterface.getHeadsetPhoneState().getIsCsCall()) {
             sendVoipConnectivityNetworktype(false);
         }
+        mConnectivityManager.unregisterNetworkCallback(mDefaultNetworkCallback);
         mAudioParams.clear();
     }
 
@@ -1498,6 +1522,12 @@ public class HeadsetStateMachine extends StateMachine {
                     // ignore, there is no BluetoothHeadset.STATE_AUDIO_DISCONNECTING
                     break;
                 case HeadsetHalConstants.AUDIO_STATE_CONNECTED:
+                    if (!mSystemInterface.getHeadsetPhoneState().getIsCsCall()) {
+                        stateLogI("Sco connected for call other than CS, check network type");
+                        sendVoipConnectivityNetworktype(true);
+                    } else {
+                        stateLogI("Sco connected for CS call, do not check network type");
+                    }
                     stateLogI("processAudioEvent: audio connected");
                     transitionTo(mAudioOn);
                     break;
@@ -2756,16 +2786,26 @@ public class HeadsetStateMachine extends StateMachine {
 
     private void sendVoipConnectivityNetworktype(boolean isVoipStarted) {
         Log.d(TAG, "Enter sendVoipConnectivityNetworktype()");
-        NetworkInfo networkInfo = mConnectivityManager.getActiveNetworkInfo();
-        if (networkInfo == null || !networkInfo.isAvailable() || !networkInfo.isConnected()) {
+        Network network = mConnectivityManager.getActiveNetwork();
+        if (network == null) {
+            Log.d(TAG, "No default network is currently active");
+            return;
+        }
+        NetworkCapabilities networkCapabilities = 
+                                   mConnectivityManager.getNetworkCapabilities(network);
+        if (mIsAvailable == false) {
             Log.d(TAG, "No connected/available connectivity network, don't update soc");
             return;
         }
-
-        if (networkInfo.getType() == ConnectivityManager.TYPE_MOBILE) {
-            Log.d(TAG, "Voip/VoLTE started/stopped on n/w TYPE_MOBILE, don't update to soc");
-        } else if (networkInfo.getType() == ConnectivityManager.TYPE_WIFI) {
-            Log.d(TAG, "Voip/VoLTE started/stopped on n/w TYPE_WIFI, update n/w type & start/stop to soc");
+        if (networkCapabilities == null) {
+            Log.d(TAG, "The capabilities of active network is NULL");
+            return;
+        }
+        if (networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+            Log.d(TAG, "Voip/VoLTE started/stopped on n/w TRANSPORT_CELLULAR, don't update to soc");
+        } else if (networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+            Log.d(TAG, "Voip/VoLTE started/stopped on n/w TRANSPORT_WIFI, "+
+                       "update n/w type & start/stop to soc");
             mAdapterService.voipNetworkWifiInfo(isVoipStarted, true);
         } else {
             Log.d(TAG, "Voip/VoLTE started/stopped on some other n/w, don't update to soc");
