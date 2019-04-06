@@ -401,6 +401,7 @@ public class AdapterService extends Service {
                     } else if (mRunningProfiles.size() == 0) {
                         Log.w(TAG,"onProfileServiceStateChange() - All profile services stopped..");
                         mAdapterStateMachine.sendMessage(AdapterState.BLE_STOPPED);
+                        disableNative();
                     }
                     break;
                 default:
