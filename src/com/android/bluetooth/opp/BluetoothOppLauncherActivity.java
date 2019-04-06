@@ -247,8 +247,8 @@ public class BluetoothOppLauncherActivity extends Activity {
                 Log.d(TAG, "Launching " + BluetoothDevicePicker.ACTION_LAUNCH);
             }
             startActivity(in1);
-            BluetoothOppManager.isReadyForFileSharing = true;
         }
+        BluetoothOppManager.isReadyForFileSharing = true;
     }
 
     /* Returns true if Bluetooth is allowed given current airplane mode settings. */
