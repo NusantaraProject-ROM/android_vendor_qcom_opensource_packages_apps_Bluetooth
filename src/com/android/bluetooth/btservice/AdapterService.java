@@ -101,8 +101,6 @@ import android.util.Slog;
 import android.util.SparseArray;
 import android.util.StatsLog;
 
-import androidx.room.Room;
-
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.RemoteDevices.DeviceProperties;
@@ -518,9 +516,7 @@ public class AdapterService extends Service {
         mActiveDeviceManager.start();
 
         mDatabaseManager = new DatabaseManager(this);
-        MetadataDatabase database = Room.databaseBuilder(this,
-                MetadataDatabase.class, MetadataDatabase.DATABASE_NAME).build();
-        mDatabaseManager.start(database);
+        mDatabaseManager.start(MetadataDatabase.createDatabase(this));
 
         mSilenceDeviceManager = new SilenceDeviceManager(this, new ServiceFactory(),
                 Looper.getMainLooper());
@@ -3113,6 +3109,15 @@ public class AdapterService extends Service {
         return mAdapterProperties.isBroadcastAudioRxwithEC_3_9();
     }
 
+    /**
+     * Check  AddonFeatures Cmd Support.
+     *
+     * @return true if AddonFeatures Cmd is Supported
+     */
+    public boolean isAddonFeaturesCmdSupported() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mAdapterProperties.isAddonFeaturesCmdSupported();
+    }
 
     private BluetoothActivityEnergyInfo reportActivityInfo() {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED, "Need BLUETOOTH permission");
@@ -3386,7 +3391,7 @@ public class AdapterService extends Service {
      */
     @VisibleForTesting
     public void metadataChanged(String address, int key, String value) {
-        BluetoothDevice device = mRemoteDevices.getDevice(address.getBytes());
+        BluetoothDevice device = mRemoteDevices.getDevice(Utils.getBytesFromAddress(address));
         if (mMetadataListeners.containsKey(device)) {
             ArrayList<IBluetoothMetadataListener> list = mMetadataListeners.get(device);
             for (IBluetoothMetadataListener listener : list) {
