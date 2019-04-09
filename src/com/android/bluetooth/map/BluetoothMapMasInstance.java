@@ -26,6 +26,7 @@ import android.util.Log;
 import com.android.bluetooth.BluetoothObexTransport;
 import com.android.bluetooth.IObexConnectionHandler;
 import com.android.bluetooth.ObexServerSockets;
+import com.android.bluetooth.Utils;
 import com.android.bluetooth.map.BluetoothMapContentObserver.Msg;
 import com.android.bluetooth.map.BluetoothMapUtils.TYPE;
 import com.android.bluetooth.sdp.SdpManager;
@@ -84,7 +85,7 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
     private int mMasInstanceId = -1;
     private boolean mEnableSmsMms = false;
     BluetoothMapContentObserver mObserver;
-
+    private BluetoothMapObexServer mapServer;
     private AtomicLong mDbIndetifier = new AtomicLong();
     private AtomicLong mFolderVersionCounter = new AtomicLong(0);
     private AtomicLong mSmsMmsConvoListVersionCounter = new AtomicLong(0);
@@ -367,7 +368,7 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
             }
 
             mMnsClient = mnsClient;
-            BluetoothMapObexServer mapServer;
+
             if (mAccount != null && mAccount.getType() == TYPE.EMAIL) {
                 Log.d(mTag, "startObexServerSession getType = " + mAccount.getType());
                 mObserver = new  BluetoothMapContentObserverEmail(mContext,
@@ -389,7 +390,7 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
                                                     this,
                                                     mAccount,
                                                     mEnableSmsMms);
-
+           mapServer.setRemoteFeatureMask(mRemoteFeatureMask);
             // setup transport
             BluetoothObexTransport transport = new BluetoothObexTransport(mConnSocket);
             mServerSession = new ServerSession(transport, mapServer, null);
@@ -481,7 +482,10 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
                 + Integer.toHexString(supportedFeatures) +", remoteProfileVersion: "
                 + Integer.toHexString(remoteProfileVersion));
         mPeerProfileVersion = remoteProfileVersion;
-        if ((remoteProfileVersion > SDP_MAP_MAS_VERSION)
+        if (Utils.isPtsTestMode()) {
+            mRemoteFeatureMask =
+                    SDP_MAP_MAS_FEATURES_ADV;
+        } else if ((remoteProfileVersion > SDP_MAP_MAS_VERSION)
             && (remoteProfileVersion <= SDP_MAP_MAS_VERSION_ADV)){
             mRemoteFeatureMask =
                 supportedFeatures & SDP_MAP_MAS_FEATURES_ADV;
@@ -489,12 +493,17 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
             mRemoteFeatureMask =
                 supportedFeatures & SDP_MAP_MAS_FEATURES;
         }
+        BluetoothMapUtils.setUtcTimeStamp(mRemoteFeatureMask);
+
+        if (mapServer != null) {
+            mapServer.setRemoteFeatureMask(mRemoteFeatureMask);
+        }
         if (mObserver != null) {
             mObserver.setObserverRemoteFeatureMask(mRemoteFeatureMask);
-            if (V) {
-                Log.v(mTag, "setRemoteFeatureMask : modified mRemoteFeatureMask: "
-                        + Integer.toHexString(mRemoteFeatureMask));
-            }
+        }
+        if (D) {
+            Log.v(mTag, "setRemoteFeatureMask : modified mRemoteFeatureMask: "
+                    + Integer.toHexString(mRemoteFeatureMask));
         }
     }
 

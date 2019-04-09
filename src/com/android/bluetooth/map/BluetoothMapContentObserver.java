@@ -113,7 +113,7 @@ public class BluetoothMapContentObserver {
     private static final long EVENT_FILTER_CONVERSATION_CHANGED = 1L << 10;
     private static final long EVENT_FILTER_PARTICIPANT_PRESENCE_CHANGED = 1L << 11;
     private static final long EVENT_FILTER_PARTICIPANT_CHATSTATE_CHANGED = 1L << 12;
-    private static final long EVENT_FILTER_MESSAGE_REMOVED = 1L << 13;
+    private static final long EVENT_FILTER_MESSAGE_REMOVED = 1L << 14;
 
     // TODO: If we are requesting a large message from the network, on a slow connection
     //       20 seconds might not be enough... But then again 20 seconds is long for other
@@ -149,7 +149,7 @@ public class BluetoothMapContentObserver {
      * Actually we only ever use the lower 4 bytes of this variable,
      * hence we could manage without the volatile keyword, but as
      * we tend to copy ways of doing things, we better do it right:-) */
-    private volatile long mEventFilter = 0xFFFFFFFFL;
+    protected volatile long mEventFilter = 0xFFFFFFFFL;
 
     public static final int DELETED_THREAD_ID = -1;
 
@@ -1055,7 +1055,7 @@ public class BluetoothMapContentObserver {
         mResolver.unregisterContentObserver(mObserver);
         mObserverRegistered = false;
         if (mProviderClient != null) {
-            mProviderClient.release();
+            mProviderClient.close();
             mProviderClient = null;
         }
     }

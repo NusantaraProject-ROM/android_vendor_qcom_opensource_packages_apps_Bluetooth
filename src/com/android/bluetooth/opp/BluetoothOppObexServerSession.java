@@ -116,7 +116,6 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler
         PowerManager pm = (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);
         mPartialWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG);
         mPartialWakeLock.setReferenceCounted(false);
-        BTOppUtils.acquireFullWakeLock(pm, TAG);
     }
 
     @Override
@@ -642,7 +641,6 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler
     }
 
     private synchronized void releaseWakeLocks() {
-        BTOppUtils.releaseFullWakeLock();
         if (mPartialWakeLock.isHeld()) {
             if (D) Log.d(TAG, "releasing partial wakelock");
             mPartialWakeLock.release();

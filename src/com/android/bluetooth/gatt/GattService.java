@@ -98,7 +98,7 @@ public class GattService extends ProfileService {
     private static final int ADVT_STATE_ONLOST = 1;
 
     private static final int ET_LEGACY_MASK = 0x10;
-
+    private static final int ET_CONNECTABLE_MASK = 0x01;
     private static final UUID HID_SERVICE_UUID =
             UUID.fromString("00001812-0000-1000-8000-00805F9B34FB");
 
@@ -310,6 +310,20 @@ public class GattService extends ProfileService {
 
         return (checkCallingOrSelfPermission(BLUETOOTH_PRIVILEGED)
                 == PERMISSION_GRANTED);
+    }
+
+    private boolean permissionCheck(ClientMap.App app, int connId, int handle) {
+        Set<Integer> restrictedHandles = mRestrictedHandles.get(connId);
+        if (restrictedHandles == null || !restrictedHandles.contains(handle)) {
+            return true;
+        }
+
+        if (!app.hasBluetoothPrivilegedPermission
+                && checkCallingOrSelfPermission(BLUETOOTH_PRIVILEGED)== PERMISSION_GRANTED) {
+            app.hasBluetoothPrivilegedPermission = true;
+        }
+
+        return app.hasBluetoothPrivilegedPermission;
     }
 
     @Override
@@ -1402,13 +1416,12 @@ public class GattService extends ProfileService {
                     + data.length);
         }
 
-        if (!permissionCheck(connId, handle)) {
-            Log.w(TAG, "onNotify() - permission check failed!");
-            return;
-        }
-
         ClientMap.App app = mClientMap.getByConnId(connId);
         if (app != null) {
+            if (!permissionCheck(app, connId, handle)) {
+                Log.w(TAG, "onNotify() - permission check failed!");
+                return;
+            }
             app.callback.onNotify(address, handle, data);
         }
     }
@@ -1649,7 +1662,7 @@ public class GattService extends ProfileService {
             BluetoothDevice device = mAdapter.getRemoteDevice(address);
             int rssi = record[8];
             long timestampNanos = now - parseTimestampNanos(extractBytes(record, 9, 2));
-            results.add(new ScanResult(device, ScanRecord.parseFromBytes(new byte[0]), rssi,
+            results.add(getScanResultInstance(device, ScanRecord.parseFromBytes(new byte[0]), rssi,
                     timestampNanos));
         }
         return results;
@@ -1697,7 +1710,7 @@ public class GattService extends ProfileService {
             if (DBG) {
                 Log.d(TAG, "ScanRecord : " + Arrays.toString(scanRecord));
             }
-            results.add(new ScanResult(device, ScanRecord.parseFromBytes(scanRecord), rssi,
+            results.add(getScanResultInstance(device, ScanRecord.parseFromBytes(scanRecord), rssi,
                     timestampNanos));
         }
         return results;
@@ -1754,7 +1767,7 @@ public class GattService extends ProfileService {
                 BluetoothAdapter.getDefaultAdapter().getRemoteDevice(trackingInfo.getAddress());
         int advertiserState = trackingInfo.getAdvState();
         ScanResult result =
-                new ScanResult(device, ScanRecord.parseFromBytes(trackingInfo.getResult()),
+                getScanResultInstance(device, ScanRecord.parseFromBytes(trackingInfo.getResult()),
                         trackingInfo.getRSSIValue(), SystemClock.elapsedRealtimeNanos());
 
         for (ScanClient client : mScanManager.getRegularScanQueue()) {
@@ -3255,7 +3268,17 @@ public class GattService extends ProfileService {
         }
     }
 
-    /**************************************************************************
+    private ScanResult getScanResultInstance(BluetoothDevice device, ScanRecord scanRecord,
+             int rssi, long timestampNanos) {
+         int eventType = (ScanResult.DATA_COMPLETE << 5) | ET_LEGACY_MASK | ET_CONNECTABLE_MASK;
+         int txPower = 127;
+         int periodicAdvertisingInterval = 0;
+         return new ScanResult(device, eventType, BluetoothDevice.PHY_LE_1M, ScanResult.PHY_UNUSED,
+             ScanResult.SID_NOT_PRESENT, txPower, rssi, periodicAdvertisingInterval,
+             scanRecord, timestampNanos);
+    }
+
+     /**************************************************************************
      * GATT Test functions
      *************************************************************************/
 

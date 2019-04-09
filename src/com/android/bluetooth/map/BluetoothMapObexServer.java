@@ -325,11 +325,13 @@ public class BluetoothMapObexServer extends ServerRequestHandler {
     }
 
     public void setRemoteFeatureMask(int mRemoteFeatureMask) {
-        if (D) {
-            Log.d(TAG, "setRemoteFeatureMask() " + Integer.toHexString(mRemoteFeatureMask));
-        }
         this.mRemoteFeatureMask = mRemoteFeatureMask;
         this.mOutContent.setRemoteFeatureMask(mRemoteFeatureMask);
+        if ((mRemoteFeatureMask & BluetoothMapUtils.MAP_FEATURE_MESSAGE_FORMAT_V11_BIT)
+                == BluetoothMapUtils.MAP_FEATURE_MESSAGE_FORMAT_V11_BIT) {
+            mMessageVersion = BluetoothMapUtils.MAP_V11_STR;
+        }
+        if (D) Log.d(TAG," setRemoteFeatureMask mMessageVersion :" + mMessageVersion);
     }
 
     @Override
@@ -402,8 +404,8 @@ public class BluetoothMapObexServer extends ServerRequestHandler {
             mMessageVersion = BluetoothMapUtils.MAP_V11_STR;
         }
 
-        if (V) {
-            Log.v(TAG, "onConnect(): uuid is ok, will send out " + "MSG_SESSION_ESTABLISHED msg.");
+        if (D) {
+            Log.d(TAG, "onConnect(): uuid is ok mMessageVersion :" + mMessageVersion);
         }
 
         if (mCallback != null) {
@@ -993,7 +995,7 @@ public class BluetoothMapObexServer extends ServerRequestHandler {
 
         }
         if (mProviderClient != null) {
-            mProviderClient.release();
+            mProviderClient.close();
             mProviderClient = null;
         }
 

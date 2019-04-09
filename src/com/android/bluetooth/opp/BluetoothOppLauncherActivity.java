@@ -253,8 +253,8 @@ public class BluetoothOppLauncherActivity extends Activity {
                 Log.d(TAG, "Launching " + BluetoothDevicePicker.ACTION_LAUNCH);
             }
             startActivity(in1);
-            BluetoothOppManager.isReadyForFileSharing = true;
         }
+        BluetoothOppManager.isReadyForFileSharing = true;
     }
 
     /* Returns true if Bluetooth is allowed given current airplane mode settings. */
@@ -273,7 +273,7 @@ public class BluetoothOppLauncherActivity extends Activity {
                 Settings.System.getString(resolver, Settings.Global.AIRPLANE_MODE_RADIOS);
         final boolean isAirplaneSensitive =
                 airplaneModeRadios == null || airplaneModeRadios.contains(
-                        Settings.System.RADIO_BLUETOOTH);
+                        Settings.Global.RADIO_BLUETOOTH);
         if (!isAirplaneSensitive) {
             return true;
         }
