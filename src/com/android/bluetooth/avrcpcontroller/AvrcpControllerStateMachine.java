@@ -888,13 +888,16 @@ class AvrcpControllerStateMachine extends StateMachine {
          * requested volume level will not be set fot rendering and current Abs vol level
          *  at DUT (sink: rendering device) will be sent in response. */
         Log.d(TAG, "Streaming device: " + A2dpSinkService.getCurrentStreamingDevice()
-                + " Device:" + mDevice);
+                + " Device:" + mDevice + "absVol " + absVol + "label " + label);
         if (!mDevice.equals(A2dpSinkService.getCurrentStreamingDevice())) {
-            absVol = (currIndex * ABS_VOL_BASE) / maxVolume;
             Log.w(TAG, "Volume change request came from non-streaming device," +
                     "respond with current absVol: " + absVol);
             AvrcpControllerService.sendAbsVolRspNative(mRemoteDevice.getBluetoothAddress(), absVol,
                 label);
+            int percentageVol = getVolumePercentage();
+            AvrcpControllerService.sendRegisterAbsVolRspNative(mRemoteDevice.getBluetoothAddress(),
+                NOTIFICATION_RSP_TYPE_CHANGED, percentageVol, mRemoteDevice.getNotificationLabel());
+            mPreviousPercentageVol = percentageVol;
             return;
         }
         // Ignore first volume command since phone may not know difference between stream volume
