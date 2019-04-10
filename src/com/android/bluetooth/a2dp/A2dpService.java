@@ -796,10 +796,6 @@ public class A2dpService extends ProfileService {
                 Log.d(TAG,"Ignore setActiveDevice request");
                 return false;
             }
-            if (!mA2dpNativeInterface.setActiveDevice(device)) {
-                Log.e(TAG, "setActiveDevice(" + device + "): Cannot set as active in native layer");
-                return false;
-            }
             codecStatus = sm.getCodecStatus();
 
             if (deviceChanged) {
@@ -812,9 +808,16 @@ public class A2dpService extends ProfileService {
 
             // This needs to happen before we inform the audio manager that the device
             // disconnected. Please see comment in updateAndBroadcastActiveDevice() for why.
-            updateAndBroadcastActiveDevice(device);
             Log.w(TAG, "setActiveDevice coming out of mutex lock");
         }
+
+        if (!mA2dpNativeInterface.setActiveDevice(device)) {
+            Log.e(TAG, "setActiveDevice(" + device + "): Cannot set as active in native layer");
+            return false;
+        }
+        updateAndBroadcastActiveDevice(device);
+        Log.d(TAG, "setActiveDevice(" + device + "): completed");
+
         if (deviceChanged &&
             (mDummyDevice == null || !mAdapterService.isTwsPlusDevice(mActiveDevice))) {
             if(mAvrcp_ext != null)
