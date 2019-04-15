@@ -97,7 +97,8 @@ public class HeadsetPhoneState {
         Objects.requireNonNull(mTelephonyManager, "TELEPHONY_SERVICE is null");
         // Register for SubscriptionInfo list changes which is guaranteed to invoke
         // onSubscriptionInfoChanged and which in turns calls loadInBackgroud.
-        mSubscriptionManager = SubscriptionManager.from(mHeadsetService);
+        mSubscriptionManager = (SubscriptionManager)  mHeadsetService.
+                 getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
         Objects.requireNonNull(mSubscriptionManager, "TELEPHONY_SUBSCRIPTION_SERVICE is null");
         // Initialize subscription on the handler thread
         mOnSubscriptionsChangedListener = new HeadsetPhoneStateOnSubscriptionChangedListener(
@@ -200,7 +201,7 @@ public class HeadsetPhoneState {
             Log.e(TAG, "mTelephonyManager is null, "
                  + "cannot start listening for phone state changes");
         } else {
-            mPhoneStateListener = new HeadsetPhoneStateListener(subId,
+            mPhoneStateListener = new HeadsetPhoneStateListener(
                     mHeadsetService.getStateMachinesThreadLooper());
             try {
                 mTelephonyManager.listen(mPhoneStateListener, events);
@@ -406,8 +407,8 @@ public class HeadsetPhoneState {
     }
 
     private class HeadsetPhoneStateListener extends PhoneStateListener {
-        HeadsetPhoneStateListener(Integer subId, Looper looper) {
-            super(subId, looper);
+        HeadsetPhoneStateListener(Looper looper) {
+            super(looper);
         }
 
         @Override

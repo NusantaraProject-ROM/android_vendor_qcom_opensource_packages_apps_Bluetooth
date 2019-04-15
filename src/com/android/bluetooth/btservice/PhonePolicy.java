@@ -347,23 +347,26 @@ class PhonePolicy {
                 }
                 connectOtherProfile(device);
             }
-            if (prevState == BluetoothProfile.STATE_CONNECTING
-                    && nextState == BluetoothProfile.STATE_DISCONNECTED) {
-                HeadsetService hsService = mFactory.getHeadsetService();
-                boolean hsDisconnected = hsService == null || hsService.getConnectionState(device)
-                        == BluetoothProfile.STATE_DISCONNECTED;
-                A2dpService a2dpService = mFactory.getA2dpService();
-                boolean a2dpDisconnected = a2dpService == null
-                        || a2dpService.getConnectionState(device)
-                        == BluetoothProfile.STATE_DISCONNECTED;
-                debugLog("processProfileStateChanged, device=" + device + ", a2dpDisconnected="
-                        + a2dpDisconnected + ", hsDisconnected=" + hsDisconnected);
-                if (hsDisconnected && a2dpDisconnected) {
-                    //remove a2dp and headset retry set.
-                    mA2dpRetrySet.remove(device);
-                    mHeadsetRetrySet.remove(device);
-                    removeAutoConnectFromA2dpSink(device);
-                    removeAutoConnectFromHeadset(device);
+            if (nextState == BluetoothProfile.STATE_DISCONNECTED) {
+                handleAllProfilesDisconnected(device);
+                if (prevState == BluetoothProfile.STATE_CONNECTING) {
+                    HeadsetService hsService = mFactory.getHeadsetService();
+                    boolean hsDisconnected = hsService == null
+                            || hsService.getConnectionState(device)
+                            == BluetoothProfile.STATE_DISCONNECTED;
+                    A2dpService a2dpService = mFactory.getA2dpService();
+                    boolean a2dpDisconnected = a2dpService == null
+                            || a2dpService.getConnectionState(device)
+                            == BluetoothProfile.STATE_DISCONNECTED;
+                    debugLog("processProfileStateChanged, device=" + device + ", a2dpDisconnected="
+                            + a2dpDisconnected + ", hsDisconnected=" + hsDisconnected);
+                    if (hsDisconnected && a2dpDisconnected) {
+                        //remove a2dp and headset retry set.
+                        mA2dpRetrySet.remove(device);
+                        mHeadsetRetrySet.remove(device);
+                        removeAutoConnectFromA2dpSink(device);
+                        removeAutoConnectFromHeadset(device);
+                    }
                 }
             }
         }
@@ -428,6 +431,51 @@ class PhonePolicy {
                 }
                 break;
         }
+    }
+
+    private boolean handleAllProfilesDisconnected(BluetoothDevice device) {
+        boolean atLeastOneProfileConnectedForDevice = false;
+        boolean allProfilesEmpty = true;
+        HeadsetService hsService = mFactory.getHeadsetService();
+        A2dpService a2dpService = mFactory.getA2dpService();
+        PanService panService = mFactory.getPanService();
+        A2dpSinkService a2dpSinkService = mFactory.getA2dpSinkService();
+
+        if (hsService != null) {
+            List<BluetoothDevice> hsConnDevList = hsService.getConnectedDevices();
+            allProfilesEmpty &= hsConnDevList.isEmpty();
+            atLeastOneProfileConnectedForDevice |= hsConnDevList.contains(device);
+        }
+        if (a2dpService != null) {
+            List<BluetoothDevice> a2dpConnDevList = a2dpService.getConnectedDevices();
+            allProfilesEmpty &= a2dpConnDevList.isEmpty();
+            atLeastOneProfileConnectedForDevice |= a2dpConnDevList.contains(device);
+        }
+        if (a2dpSinkService != null) {
+            List<BluetoothDevice> a2dpSinkConnDevList = a2dpSinkService.getConnectedDevices();
+            allProfilesEmpty &= a2dpSinkConnDevList.isEmpty();
+            atLeastOneProfileConnectedForDevice |= a2dpSinkConnDevList.contains(device);
+        }
+        if (panService != null) {
+            List<BluetoothDevice> panConnDevList = panService.getConnectedDevices();
+            allProfilesEmpty &= panConnDevList.isEmpty();
+            atLeastOneProfileConnectedForDevice |= panConnDevList.contains(device);
+        }
+
+        if (!atLeastOneProfileConnectedForDevice) {
+            // Consider this device as fully disconnected, don't bother connecting others
+            debugLog("handleAllProfilesDisconnected: all profiles disconnected for " + device);
+            mHeadsetRetrySet.remove(device);
+            mA2dpRetrySet.remove(device);
+            if (allProfilesEmpty) {
+                debugLog("handleAllProfilesDisconnected: all profiles disconnected for all"
+                        + " devices");
+                // reset retry status so that in the next round we can start retrying connections
+                resetStates();
+            }
+            return true;
+        }
+        return false;
     }
 
     private void resetStates() {
@@ -577,55 +625,31 @@ class PhonePolicy {
             warnLog("processConnectOtherProfiles, adapter is not ON " + mAdapterService.getState());
             return;
         }
+        if (handleAllProfilesDisconnected(device)) {
+            debugLog("processConnectOtherProfiles: all profiles disconnected for " + device);
+            return;
+        }
+
         HeadsetService hsService = mFactory.getHeadsetService();
         A2dpService a2dpService = mFactory.getA2dpService();
         PanService panService = mFactory.getPanService();
         A2dpSinkService a2dpSinkService = mFactory.getA2dpSinkService();
 
-        boolean a2dpConnected = false;
-        boolean hsConnected = false;
-
-        boolean atLeastOneProfileConnectedForDevice = false;
-        boolean allProfilesEmpty = true;
+        List<BluetoothDevice> hsConnDevList = null;
         List<BluetoothDevice> a2dpConnDevList = null;
         List<BluetoothDevice> a2dpSinkConnDevList = null;
-        List<BluetoothDevice> hsConnDevList = null;
-        List<BluetoothDevice> panConnDevList = null;
-
         if (hsService != null) {
             hsConnDevList = hsService.getConnectedDevices();
-            allProfilesEmpty &= hsConnDevList.isEmpty();
-            atLeastOneProfileConnectedForDevice |= hsConnDevList.contains(device);
         }
         if (a2dpService != null) {
             a2dpConnDevList = a2dpService.getConnectedDevices();
-            allProfilesEmpty &= a2dpConnDevList.isEmpty();
-            atLeastOneProfileConnectedForDevice |= a2dpConnDevList.contains(device);
         }
         if (a2dpSinkService != null) {
             a2dpSinkConnDevList = a2dpSinkService.getConnectedDevices();
-            allProfilesEmpty &= a2dpSinkConnDevList.isEmpty();
-            atLeastOneProfileConnectedForDevice |= a2dpSinkConnDevList.contains(device);
-        }
-        if (panService != null) {
-            panConnDevList = panService.getConnectedDevices();
-            allProfilesEmpty &= panConnDevList.isEmpty();
-            atLeastOneProfileConnectedForDevice |= panConnDevList.contains(device);
         }
 
-        if (!atLeastOneProfileConnectedForDevice) {
-            // Consider this device as fully disconnected, don't bother connecting others
-            debugLog("processConnectOtherProfiles, all profiles disconnected for " + device);
-            mHeadsetRetrySet.remove(device);
-            mA2dpRetrySet.remove(device);
-            if (allProfilesEmpty) {
-                debugLog("processConnectOtherProfiles, all profiles disconnected for all devices");
-                // reset retry status so that in the next round we can start retrying connections
-                resetStates();
-            }
-            return;
-        }
-
+        boolean a2dpConnected = false;
+        boolean hsConnected = false;
         if(a2dpConnDevList != null && !a2dpConnDevList.isEmpty()) {
             for (BluetoothDevice a2dpDevice : a2dpConnDevList)
             {
@@ -635,7 +659,6 @@ class PhonePolicy {
                 }
             }
         }
-
         if(hsConnDevList != null && !hsConnDevList.isEmpty()) {
             for (BluetoothDevice hsDevice : hsConnDevList)
             {
@@ -716,6 +739,7 @@ class PhonePolicy {
             }
         }
         if (panService != null) {
+            List<BluetoothDevice> panConnDevList = panService.getConnectedDevices();
             // TODO: the panConnDevList.isEmpty() check below should be removed once
             // Multi-PAN is supported.
             if (panConnDevList.isEmpty() && (panService.getPriority(device)
