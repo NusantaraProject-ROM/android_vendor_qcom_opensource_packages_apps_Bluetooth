@@ -1331,6 +1331,12 @@ jint JNI_OnLoad(JavaVM *jvm, void *reserved) {
     return JNI_ERR;
   }
 
+  status = android::register_com_android_bluetooth_hfp_vendorhfservice(e);
+  if (status < 0) {
+    ALOGE("jni vendor hfp service registration failure, status: %d", status);
+    return JNI_ERR;
+  }
+
   status = android::register_com_android_bluetooth_hfpclient(e);
   if (status < 0) {
     ALOGE("jni hfp client registration failure, status: %d", status);
