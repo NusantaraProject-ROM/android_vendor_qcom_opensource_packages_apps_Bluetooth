@@ -1017,6 +1017,18 @@ public class A2dpService extends ProfileService {
         }
     }
 
+    private BluetoothCodecStatus getTwsPlusCodecStatus(BluetoothCodecStatus mCodecStatus) {
+        BluetoothCodecConfig mCodecConfig = mCodecStatus.getCodecConfig();
+        BluetoothCodecConfig mNewCodecConfig =
+                    new BluetoothCodecConfig(
+                        BluetoothCodecConfig.SOURCE_CODEC_TYPE_APTX,
+                        mCodecConfig.getCodecPriority(), mCodecConfig.getSampleRate(),
+                        mCodecConfig.getBitsPerSample(), mCodecConfig.getChannelMode(),
+                        mCodecConfig.getCodecSpecific1(), mCodecConfig.getCodecSpecific2(),
+                        mCodecConfig.getCodecSpecific3(), mCodecConfig.getCodecSpecific4());
+        return (new BluetoothCodecStatus(mNewCodecConfig, mCodecStatus.getCodecsLocalCapabilities(),
+                          mCodecStatus.getCodecsSelectableCapabilities()));
+    }
     /**
      * Gets the current codec status (configuration and capability).
      *
@@ -1030,6 +1042,7 @@ public class A2dpService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "getCodecStatus(" + device + ")");
         }
+        A2dpStateMachine sm = null;
         synchronized (mBtA2dpLock) {
             if (device == null) {
                 device = mActiveDevice;
@@ -1037,7 +1050,13 @@ public class A2dpService extends ProfileService {
             if (device == null) {
                 return null;
             }
-            A2dpStateMachine sm = mStateMachines.get(device);
+            if (Objects.equals(device, mDummyDevice)) {
+                sm = mStateMachines.get(mActiveDevice);
+                if (sm != null) {
+                    return getTwsPlusCodecStatus(sm.getCodecStatus());
+                }
+            }
+            sm = mStateMachines.get(device);
             if (sm != null) {
                 return sm.getCodecStatus();
             }
