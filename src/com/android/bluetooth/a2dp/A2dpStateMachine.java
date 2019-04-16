@@ -653,6 +653,7 @@ final class A2dpStateMachine extends StateMachine {
                 if (adapterService.isVendorIntfEnabled() &&
                     adapterService.isTwsPlusDevice(mDevice)) {
                     Log.d(TAG,"TWSP device streaming,not calling reconfig");
+                    mCodecStatus = newCodecStatus;
                     return;
                 }
                 mA2dpService.broadcastReconfigureA2dp();
