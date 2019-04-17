@@ -59,6 +59,7 @@ public class BluetoothOppReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
         if(D) Log.d(TAG, "Action :" + action);
+        if (action == null) return;
         if (action.equals(BluetoothDevicePicker.ACTION_DEVICE_SELECTED)) {
             BluetoothOppManager mOppManager = BluetoothOppManager.getInstance(context);
             BluetoothOppManager.isReadyForFileSharing = false;
