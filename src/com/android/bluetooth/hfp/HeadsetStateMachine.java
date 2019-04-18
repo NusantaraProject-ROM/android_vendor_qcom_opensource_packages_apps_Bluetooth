@@ -173,7 +173,19 @@ public class HeadsetStateMachine extends StateMachine {
     private final HeadsetCallState mStateMachineCallState =
                  new HeadsetCallState(0, 0, 0, "", 0, "");
 
-    private NetworkCallback mDefaultNetworkCallback = new NetworkCallback();
+    private NetworkCallback mDefaultNetworkCallback = new NetworkCallback() {
+        @Override
+        public void onAvailable(Network network) {
+            mIsAvailable = true;
+            Log.d(TAG, "The current Network: "+network+" is avialable: "+mIsAvailable);
+        }
+        @Override
+        public void onLost(Network network) {
+           mIsAvailable = false;
+           Log.d(TAG, "The current Network:"+network+" is lost, mIsAvailable: "
+                 +mIsAvailable);
+        }
+    };
 
     // State machine states
     private final Disconnected mDisconnected = new Disconnected();
@@ -288,19 +300,6 @@ public class HeadsetStateMachine extends StateMachine {
                       " active delay " + CS_CALL_ACTIVE_DELAY_TIME_MSEC);
         }
 
-        NetworkCallback mDefaultNetworkCallback = new NetworkCallback() {
-            @Override
-            public void onAvailable(Network network) {
-                mIsAvailable = true;
-                Log.d(TAG, "The current Network: "+network+" is avialable: "+mIsAvailable);
-            }
-            @Override
-            public void onLost(Network network) {
-               mIsAvailable = false;
-               Log.d(TAG, "The current Network:"+network+" is lost, mIsAvailable: "
-                     +mIsAvailable);
-            }
-        };
 
         mConnectivityManager.registerDefaultNetworkCallback(mDefaultNetworkCallback);
         Log.i(TAG," Exiting HeadsetStateMachine constructor for device :" + device);
@@ -2791,7 +2790,7 @@ public class HeadsetStateMachine extends StateMachine {
             Log.d(TAG, "No default network is currently active");
             return;
         }
-        NetworkCapabilities networkCapabilities = 
+        NetworkCapabilities networkCapabilities =
                                    mConnectivityManager.getNetworkCapabilities(network);
         if (mIsAvailable == false) {
             Log.d(TAG, "No connected/available connectivity network, don't update soc");
