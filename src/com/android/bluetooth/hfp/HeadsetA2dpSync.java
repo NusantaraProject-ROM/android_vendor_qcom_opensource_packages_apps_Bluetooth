@@ -37,6 +37,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Defines methods used for synchronization between HFP and A2DP
@@ -48,8 +49,8 @@ public class HeadsetA2dpSync {
     private HeadsetSystemInterface mSystemInterface;
     private HeadsetService mHeadsetService;
     // Hash for storing the A2DP states
-    private HashMap<BluetoothDevice, Integer> mA2dpConnState =
-                            new HashMap<BluetoothDevice, Integer>();
+    private ConcurrentHashMap<BluetoothDevice, Integer> mA2dpConnState =
+                            new ConcurrentHashMap<BluetoothDevice, Integer>();
 
     // internal variables.
     private int mA2dpSuspendTriggered;// to keep track if A2dp was supended by HFP.
