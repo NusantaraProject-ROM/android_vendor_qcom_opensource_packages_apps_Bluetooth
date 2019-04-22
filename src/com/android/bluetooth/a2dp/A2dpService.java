@@ -243,6 +243,8 @@ public class A2dpService extends ProfileService {
         if (mActiveDevice != null && AvrcpTargetService.get() != null) {
             AvrcpTargetService.get().storeVolumeForDevice(mActiveDevice);
         }
+        if (mActiveDevice != null && mAvrcp_ext != null)
+            mAvrcp_ext.storeVolumeForAllDevice(mActiveDevice);
 
         // Step 9: Clear active device and stop playing audio
         removeActiveDevice(true);
@@ -672,8 +674,7 @@ public class A2dpService extends ProfileService {
 
         if (previousActiveDevice != null && AvrcpTargetService.get() != null) {
             AvrcpTargetService.get().storeVolumeForDevice(previousActiveDevice);
-        } else if (previousActiveDevice != null && mAvrcp_ext != null &&
-                   getConnectionState(previousActiveDevice) == BluetoothProfile.STATE_CONNECTED) {
+        } else if (previousActiveDevice != null && mAvrcp_ext != null) {
             //Store volume only if SHO is triggered or output device other than BT is selected
             mAvrcp_ext.storeVolumeForDevice(previousActiveDevice);
         }
