@@ -89,10 +89,6 @@ public class A2dpService extends ProfileService {
     private static final int[] CONNECTING_CONNECTED_STATES = {
              BluetoothProfile.STATE_CONNECTING, BluetoothProfile.STATE_CONNECTED
              };
-    // A2DP disconnet will be delayed at audioservice,
-    // follwoing flags capture delay and delay time.
-    private int mDisconnectDelay = 0;
-    private long mDisconnectTime = 0;
 
     // Upper limit of all A2DP devices: Bonded or Connected
     private static final int MAX_A2DP_STATE_MACHINES = 50;
@@ -209,8 +205,12 @@ public class A2dpService extends ProfileService {
         mA2dpCodecConfig = new A2dpCodecConfig(this, mA2dpNativeInterface);
 
         // Step 6: Initialize native interface
+        List<BluetoothCodecConfig> mCodecConfigOffload;
+        mCodecConfigOffload = mAudioManager.getHwOffloadEncodingFormatsSupportedForA2DP();
+        BluetoothCodecConfig[] OffloadCodecConfig  = new BluetoothCodecConfig[mCodecConfigOffload.size()];
+        OffloadCodecConfig  = mCodecConfigOffload.toArray(OffloadCodecConfig);
         mA2dpNativeInterface.init(mMaxConnectedAudioDevices,
-                                  mA2dpCodecConfig.codecConfigPriorities());
+                           mA2dpCodecConfig.codecConfigPriorities(),OffloadCodecConfig);
 
         // Step 7: Check if A2DP is in offload mode
         mA2dpOffloadEnabled = mAdapterService.isA2dpOffloadEnabled();
@@ -668,7 +668,7 @@ public class A2dpService extends ProfileService {
                 previousActiveDevice = mDummyDevice;
                 mDummyDevice = null;
             }
-            mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
+            mAudioManager.handleBluetoothA2dpActiveDeviceChange(
                     previousActiveDevice, BluetoothProfile.STATE_DISCONNECTED,
                     BluetoothProfile.A2DP, suppressNoisyIntent, -1);
             // Make sure the Active device in native layer is set to null and audio is off
@@ -851,41 +851,24 @@ public class A2dpService extends ProfileService {
                 }
                 if (mDummyDevice != null &&
                     mAdapterService.isTwsPlusDevice(previousActiveDevice)) {
-                    mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
-                            mDummyDevice, BluetoothProfile.STATE_DISCONNECTED,
-                            BluetoothProfile.A2DP, true, -1);
                     mDummyDevice = null;
-                } else  {
-                    mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
-                            previousActiveDevice, BluetoothProfile.STATE_DISCONNECTED,
-                            BluetoothProfile.A2DP, true, -1);
                 }
-            }
-            // Check if ther is any delay set on audioservice for previous
-            // disconnect, if so then need to serialise disconnect/connect
-            // requests to audioservice, wait till prev disconnect is completed
-            if (mDisconnectDelay > 0) {
-                long currentTime = SystemClock.uptimeMillis();
-                if (mDisconnectDelay > (currentTime - mDisconnectTime)) {
-                    try {
-                        Log.d(TAG, "Enter wait for previous disconnect");
-                        Thread.sleep(mDisconnectDelay - (currentTime - mDisconnectTime));
-                        Log.d(TAG, "Exiting Wait for previous disconnect");
-                    } catch (InterruptedException e) {
-                        Log.e(TAG, "setactive was interrupted");
-                    }
-                }
-                mDisconnectDelay = 0;
-                mDisconnectTime = 0;
             }
 
             if (!isBAActive) {
+                // Make sure the Audio Manager knows the previous
+                // Active device is disconnected, and the new Active
+                // device is connected.
+                // Also, provide information about codec used by
+                // new active device so that Audio Service
+                // can reset accordingly the audio feeding parameters
+                // in the Audio HAL to the Bluetooth stack.
                 if (mDummyDevice == null) {
-                    mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
+                    mAudioManager.handleBluetoothA2dpActiveDeviceChange(
                             mActiveDevice, BluetoothProfile.STATE_CONNECTED, BluetoothProfile.A2DP,
                             true, rememberedVolume);
                 } else {
-                    mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
+                    mAudioManager.handleBluetoothA2dpActiveDeviceChange(
                             mDummyDevice, BluetoothProfile.STATE_CONNECTED, BluetoothProfile.A2DP,
                             true, rememberedVolume);
                 }
@@ -897,7 +880,6 @@ public class A2dpService extends ProfileService {
             String offloadSupported =
                  SystemProperties.get("persist.vendor.btstack.enable.splita2dp");
             if (!(offloadSupported.isEmpty() || "true".equals(offloadSupported))) {
-                mAudioManager.handleBluetoothA2dpDeviceConfigChange(device);
                 if (wasMuted) {
                     mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
                                                      AudioManager.ADJUST_UNMUTE, 0);
@@ -1300,7 +1282,9 @@ public class A2dpService extends ProfileService {
         // so the Audio Service can reset accordingly the audio feeding
         // parameters in the Audio HAL to the Bluetooth stack.
         if (isActiveDevice(device) && !sameAudioFeedingParameters) {
-            mAudioManager.handleBluetoothA2dpDeviceConfigChange(device);
+            mAudioManager.handleBluetoothA2dpActiveDeviceChange(device,
+                    BluetoothProfile.STATE_CONNECTED, BluetoothProfile.A2DP,
+                    true, -1);
         }
     }
     void updateTwsChannelMode(int state, BluetoothDevice device) {
