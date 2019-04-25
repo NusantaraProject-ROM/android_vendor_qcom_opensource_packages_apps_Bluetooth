@@ -658,19 +658,17 @@ public class A2dpService extends ProfileService {
             BATService mBatService = BATService.getBATService();
             isBAActive = (mBatService != null) && (mBatService.isBATActive());
             Log.d(TAG," removeActiveDevice: BA active " + isBAActive);
-            // If BA streaming is ongoing, we don't want to pause music player
-            if(isBAActive) {
-                suppressNoisyIntent = true;
-                Log.d(TAG," BA Active, suppress noisy intent");
-            }
             if (mAdapterService.isTwsPlusDevice(previousActiveDevice) &&
                 mDummyDevice != null) {
                 previousActiveDevice = mDummyDevice;
                 mDummyDevice = null;
             }
-            mAudioManager.handleBluetoothA2dpActiveDeviceChange(
-                    previousActiveDevice, BluetoothProfile.STATE_DISCONNECTED,
-                    BluetoothProfile.A2DP, suppressNoisyIntent, -1);
+            // If BA streaming is ongoing, we don't want to pause music player
+            if(!isBAActive) {
+                mAudioManager.handleBluetoothA2dpActiveDeviceChange(
+                        previousActiveDevice, BluetoothProfile.STATE_DISCONNECTED,
+                        BluetoothProfile.A2DP, suppressNoisyIntent, -1);
+            }
             // Make sure the Active device in native layer is set to null and audio is off
             if (!mA2dpNativeInterface.setActiveDevice(null)) {
                 Log.w(TAG, "setActiveDevice(null): Cannot remove active device in native "
@@ -1012,6 +1010,19 @@ public class A2dpService extends ProfileService {
         return (new BluetoothCodecStatus(mNewCodecConfig, mCodecStatus.getCodecsLocalCapabilities(),
                           mCodecStatus.getCodecsSelectableCapabilities()));
     }
+
+    private BluetoothCodecStatus getBACodecStatus() {
+        BluetoothCodecConfig mNewCodecConfig =
+                    new BluetoothCodecConfig(
+                        BluetoothCodecConfig.SOURCE_CODEC_TYPE_CELT,
+                        BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT,
+                        BluetoothCodecConfig.SAMPLE_RATE_48000,
+                        BluetoothCodecConfig.BITS_PER_SAMPLE_NONE,
+                        BluetoothCodecConfig.CHANNEL_MODE_STEREO,
+                        0, 0, 0, 0);
+        BluetoothCodecConfig[] mBACodecConfig = {mNewCodecConfig};
+        return (new BluetoothCodecStatus(mNewCodecConfig, mBACodecConfig, mBACodecConfig));
+    }
     /**
      * Gets the current codec status (configuration and capability).
      *
@@ -1026,12 +1037,19 @@ public class A2dpService extends ProfileService {
             Log.d(TAG, "getCodecStatus(" + device + ")");
         }
         A2dpStateMachine sm = null;
+        boolean isBAActive = false;
+        BATService mBatService = BATService.getBATService();
+        isBAActive = (mBatService != null) && (mBatService.isBATActive());
         synchronized (mBtA2dpLock) {
             if (device == null) {
                 device = mActiveDevice;
             }
             if (device == null) {
                 return null;
+            }
+            if(isBAActive) {
+                Log.d(TAG, "getBACodecStatus(" + device + ")");
+                return getBACodecStatus();
             }
             if (Objects.equals(device, mDummyDevice)) {
                 sm = mStateMachines.get(mActiveDevice);
