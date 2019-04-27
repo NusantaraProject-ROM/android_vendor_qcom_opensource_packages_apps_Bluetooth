@@ -127,7 +127,6 @@ public class HeadsetService extends ProfileService {
     private boolean mDisconnectAll;
     private boolean mIsTwsPlusEnabled = false;
     private boolean mIsTwsPlusShoEnabled = false;
-    private vendorhfservice  mVendorHf;
 
     @Override
     public IProfileServiceBinder initBinder() {
@@ -141,7 +140,6 @@ public class HeadsetService extends ProfileService {
             throw new IllegalStateException("create() called twice");
         }
         mCreated = true;
-        mVendorHf = new vendorhfservice(this);
     }
 
     @Override
@@ -220,9 +218,6 @@ public class HeadsetService extends ProfileService {
         mStarted = true;
 
         mHfpA2dpSyncInterface = new HeadsetA2dpSync(mSystemInterface, this);
-        if (mVendorHf != null) {
-            mVendorHf.init();
-        }
         Log.i(TAG, " HeadsetService Started ");
         return true;
     }
@@ -303,9 +298,6 @@ public class HeadsetService extends ProfileService {
         Log.i(TAG, "cleanup");
         if (!mCreated) {
             Log.w(TAG, "cleanup() called before create()");
-        }
-        if (mVendorHf != null) {
-            mVendorHf.cleanup();
         }
         mCreated = false;
     }
