@@ -628,11 +628,14 @@ public class A2dpService extends ProfileService {
         if (mFactory.getAvrcpTargetService() != null && mActiveDevice != null) {
             mFactory.getAvrcpTargetService().storeVolumeForDevice(mActiveDevice);
         }
+        if (mActiveDevice != null && mAvrcp_ext != null) {
+            mAvrcp_ext.storeVolumeForDevice(mActiveDevice);
+        }
     }
 
     private void removeActiveDevice(boolean forceStopPlayingAudio) {
         BluetoothDevice previousActiveDevice = mActiveDevice;
-        synchronized (mStateMachines) {
+        synchronized (mBtA2dpLock) {
             // Make sure volume has been store before device been remove from active.
             storeActiveDeviceVolume();
 
@@ -753,8 +756,7 @@ public class A2dpService extends ProfileService {
 
         if (previousActiveDevice != null && AvrcpTargetService.get() != null) {
             AvrcpTargetService.get().storeVolumeForDevice(previousActiveDevice);
-        } else if (previousActiveDevice != null && mAvrcp_ext != null &&
-                   getConnectionState(previousActiveDevice) == BluetoothProfile.STATE_CONNECTED) {
+        } else if (previousActiveDevice != null && mAvrcp_ext != null) {
             //Store volume only if SHO is triggered or output device other than BT is selected
             mAvrcp_ext.storeVolumeForDevice(previousActiveDevice);
         }
@@ -885,7 +887,8 @@ public class A2dpService extends ProfileService {
             }
             if (wasMuted) {
                mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
-                                          AudioManager.ADJUST_UNMUTE, 0);
+                                          AudioManager.ADJUST_UNMUTE,
+                                          mAudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
             }
             if(mAvrcp_ext != null)
                 mAvrcp_ext.setAbsVolumeFlag(device);
