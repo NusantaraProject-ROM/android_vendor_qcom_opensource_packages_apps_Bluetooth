@@ -181,13 +181,22 @@ public class Config {
             return false;
 
         boolean isBAEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bca", false);
-        boolean isSplitA2dpSupported = SystemProperties.
-            getBoolean("persist.vendor.btstack.enable.splita2dp", true);
+
+        // Split A2dp will be enabled by default
+        boolean isSplitA2dpEnabled = true;
+        AdapterService adapterService = AdapterService.getAdapterService();
+
+        if (adapterService != null){
+            isSplitA2dpEnabled = adapterService.isSplitA2dpEnabled();
+            Log.v(TAG,"isSplitA2dpEnabled: " + isSplitA2dpEnabled);
+        } else {
+            Log.e(TAG,"adapterService is null");
+        }
 
         if(serviceName.equals("BATService")) {
             Log.d(TAG," isBAEnabled = " + isBAEnabled
-                          + " isSplitEnabled " + isSplitA2dpSupported);
-            return isBAEnabled && isSplitA2dpSupported;
+                          + " isSplitEnabled " + isSplitA2dpEnabled);
+            return isBAEnabled && isSplitA2dpEnabled;
         }
         // always return true for other profiles
         return true;

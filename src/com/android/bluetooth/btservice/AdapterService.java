@@ -314,6 +314,18 @@ public class AdapterService extends Service {
         mVendor.voipNetworkWifiInformation(isVoipStarted, isNetworkWifi);
     }
 
+    public String getSocName() {
+        return mVendor.getSocName();
+    }
+
+    public String getA2apOffloadCapability() {
+        return mVendor.getA2apOffloadCapability();
+    }
+
+    public boolean isSplitA2dpEnabled() {
+        return mVendor.isSplitA2dpEnabled();
+    }
+
     private static final int MESSAGE_PROFILE_SERVICE_STATE_CHANGED = 1;
     private static final int MESSAGE_PROFILE_SERVICE_REGISTERED = 2;
     private static final int MESSAGE_PROFILE_SERVICE_UNREGISTERED = 3;
@@ -1879,7 +1891,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean setMetadata(BluetoothDevice device, int key, String value) {
+        public boolean setMetadata(BluetoothDevice device, int key, byte[] value) {
             AdapterService service = getService();
             if (service == null) {
                 return false;
@@ -1888,7 +1900,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public String getMetadata(BluetoothDevice device, int key) {
+        public byte[] getMetadata(BluetoothDevice device, int key) {
             AdapterService service = getService();
             if (service == null) {
                 return null;
@@ -2917,7 +2929,7 @@ public class AdapterService extends Service {
      * @return true if Split A2DP Source LDAC  is enabled
      */
     public boolean isSplitA2DPSourceLDAC() {
-        String BT_SOC = SystemProperties.get("vendor.bluetooth.soc");
+        String BT_SOC = getSocName();
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         return (!mAdapterProperties.isAddonFeaturesCmdSupported() && BT_SOC.equals("cherokee")) ||
             mAdapterProperties.isSplitA2DPSourceLDAC();
@@ -2939,7 +2951,7 @@ public class AdapterService extends Service {
      * @return true if Split A2DP Source APTX HD  is enabled
      */
     public boolean isSplitA2DPSourceAPTXHD() {
-        String BT_SOC = SystemProperties.get("vendor.bluetooth.soc");
+        String BT_SOC = getSocName();
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         return (!mAdapterProperties.isAddonFeaturesCmdSupported() && BT_SOC.equals("cherokee")) ||
             mAdapterProperties.isSplitA2DPSourceAPTXHD();
@@ -2951,7 +2963,7 @@ public class AdapterService extends Service {
      * @return true if Split A2DP Source APTX ADAPTIVE  is enabled
      */
     public boolean isSplitA2DPSourceAPTXADAPTIVE() {
-        String BT_SOC = SystemProperties.get("vendor.bluetooth.soc");
+        String BT_SOC = getSocName();
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         return (!mAdapterProperties.isAddonFeaturesCmdSupported() && BT_SOC.equals("cherokee")) ||
             mAdapterProperties.isSplitA2DPSourceAPTXADAPTIVE();
@@ -3382,15 +3394,15 @@ public class AdapterService extends Service {
         return true;
     }
 
-    boolean setMetadata(BluetoothDevice device, int key, String value) {
-        if (value.length() > BluetoothDevice.METADATA_MAX_LENGTH) {
-            Log.e(TAG, "setMetadata: value length too long " + value.length());
+    boolean setMetadata(BluetoothDevice device, int key, byte[] value) {
+        if (value.length > BluetoothDevice.METADATA_MAX_LENGTH) {
+            Log.e(TAG, "setMetadata: value length too long " + value.length);
             return false;
         }
         return mDatabaseManager.setCustomMeta(device, key, value);
     }
 
-    String getMetadata(BluetoothDevice device, int key) {
+    byte[] getMetadata(BluetoothDevice device, int key) {
         return mDatabaseManager.getCustomMeta(device, key);
     }
 
@@ -3398,7 +3410,7 @@ public class AdapterService extends Service {
      * Update metadata change to registered listeners
      */
     @VisibleForTesting
-    public void metadataChanged(String address, int key, String value) {
+    public void metadataChanged(String address, int key, byte[] value) {
         BluetoothDevice device = mRemoteDevices.getDevice(Utils.getBytesFromAddress(address));
         if (mMetadataListeners.containsKey(device)) {
             ArrayList<IBluetoothMetadataListener> list = mMetadataListeners.get(device);
