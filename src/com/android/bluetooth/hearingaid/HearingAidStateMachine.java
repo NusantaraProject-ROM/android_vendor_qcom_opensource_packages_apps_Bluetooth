@@ -169,7 +169,8 @@ final class HearingAidStateMachine extends StateMachine {
                     }
                     break;
                 case DISCONNECT:
-                    Log.w(TAG, "Disconnected: DISCONNECT ignored: " + mDevice);
+                    Log.d(TAG, "Disconnected: DISCONNECT: call native disconnect for " + mDevice);
+                    mNativeInterface.disconnectHearingAid(mDevice);
                     break;
                 case STACK_EVENT:
                     HearingAidStackEvent event = (HearingAidStackEvent) message.obj;
@@ -261,6 +262,10 @@ final class HearingAidStateMachine extends StateMachine {
                 case CONNECT_TIMEOUT:
                     Log.w(TAG, "Connecting connection timeout: " + mDevice);
                     mNativeInterface.disconnectHearingAid(mDevice);
+                    if (mService.isConnectedPeerDevices(mDevice)) {
+                        Log.w(TAG, "One side connection timeout: " + mDevice + ". Try whitelist");
+                        mNativeInterface.addToWhiteList(mDevice);
+                    }
                     HearingAidStackEvent disconnectEvent =
                             new HearingAidStackEvent(
                                     HearingAidStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
@@ -476,7 +481,7 @@ final class HearingAidStateMachine extends StateMachine {
         private void processConnectionEvent(int state) {
             switch (state) {
                 case HearingAidStackEvent.CONNECTION_STATE_DISCONNECTED:
-                    Log.i(TAG, "Disconnected from " + mDevice);
+                    Log.i(TAG, "Disconnected from " + mDevice + " but still in Whitelist");
                     transitionTo(mDisconnected);
                     break;
                 case HearingAidStackEvent.CONNECTION_STATE_DISCONNECTING:

@@ -50,10 +50,13 @@ public class A2dpSinkStreamHandlerTest {
     @Mock private Context mMockContext;
 
     @Mock private A2dpSinkService mMockA2dpSink;
+<<<<<<< HEAD
 
     @Mock private A2dpSinkStateMachine mMockA2dpSinkMachine;
 
     @Mock private BluetoothDevice mMockDevice;
+=======
+>>>>>>> e94de994c16aa83274259da3c313a88d57b26b48
 
     @Mock private AudioManager mMockAudioManager;
 

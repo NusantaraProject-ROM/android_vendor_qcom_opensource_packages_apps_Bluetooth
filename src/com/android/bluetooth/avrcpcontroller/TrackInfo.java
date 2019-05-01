@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-
 package com.android.bluetooth.avrcpcontroller;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.MediaMetadata;
+<<<<<<< HEAD
 import android.net.Uri;
 import android.util.Log;
 
@@ -44,7 +44,10 @@ class TrackInfo {
     private static final int TOTAL_TRACKS_INVALID = -1;
     private static final int TOTAL_TRACK_TIME_INVALID = -1;
     private static final String UNPOPULATED_ATTRIBUTE = "";
+=======
+>>>>>>> e94de994c16aa83274259da3c313a88d57b26b48
 
+final class TrackInfo {
     /*
      *Element Id Values for GetMetaData  from JNI
      */
@@ -57,6 +60,7 @@ class TrackInfo {
     private static final int MEDIA_ATTRIBUTE_PLAYING_TIME = 0x07;
     private static final int MEDIA_ATTRIBUTE_COVER_ART_HANDLE = 0x08;
 
+<<<<<<< HEAD
 
     private final String mArtistName;
     private final String mTrackTitle;
@@ -180,8 +184,52 @@ class TrackInfo {
         }
         if (metaData.containsKey(MediaMetadata.METADATA_KEY_TRACK_NUMBER)) {
             sb.append(Long.toString(metaData.getLong(MediaMetadata.METADATA_KEY_DURATION)) + " ");
+=======
+    static MediaMetadata getMetadata(int[] attrIds, String[] attrMap) {
+        MediaMetadata.Builder metaDataBuilder = new MediaMetadata.Builder();
+        int attributeCount = Math.max(attrIds.length, attrMap.length);
+        for (int i = 0; i < attributeCount; i++) {
+            switch (attrIds[i]) {
+                case MEDIA_ATTRIBUTE_TITLE:
+                    metaDataBuilder.putString(MediaMetadata.METADATA_KEY_TITLE, attrMap[i]);
+                    break;
+                case MEDIA_ATTRIBUTE_ARTIST_NAME:
+                    metaDataBuilder.putString(MediaMetadata.METADATA_KEY_ARTIST, attrMap[i]);
+                    break;
+                case MEDIA_ATTRIBUTE_ALBUM_NAME:
+                    metaDataBuilder.putString(MediaMetadata.METADATA_KEY_ALBUM, attrMap[i]);
+                    break;
+                case MEDIA_ATTRIBUTE_TRACK_NUMBER:
+                    try {
+                        metaDataBuilder.putLong(MediaMetadata.METADATA_KEY_TRACK_NUMBER,
+                                Long.valueOf(attrMap[i]));
+                    } catch (java.lang.NumberFormatException e) {
+                        // If Track Number doesn't parse, leave it unset
+                    }
+                    break;
+                case MEDIA_ATTRIBUTE_TOTAL_TRACK_NUMBER:
+                    try {
+                        metaDataBuilder.putLong(MediaMetadata.METADATA_KEY_NUM_TRACKS,
+                                Long.valueOf(attrMap[i]));
+                    } catch (java.lang.NumberFormatException e) {
+                        // If Total Track Number doesn't parse, leave it unset
+                    }
+                    break;
+                case MEDIA_ATTRIBUTE_GENRE:
+                    metaDataBuilder.putString(MediaMetadata.METADATA_KEY_GENRE, attrMap[i]);
+                    break;
+                case MEDIA_ATTRIBUTE_PLAYING_TIME:
+                    try {
+                        metaDataBuilder.putLong(MediaMetadata.METADATA_KEY_DURATION,
+                                Long.valueOf(attrMap[i]));
+                    } catch (java.lang.NumberFormatException e) {
+                        // If Playing Time doesn't parse, leave it unset
+                    }
+                    break;
+            }
+>>>>>>> e94de994c16aa83274259da3c313a88d57b26b48
         }
-        return sb.toString();
+        return metaDataBuilder.build();
     }
 
     String getCoverArtHandle() {
