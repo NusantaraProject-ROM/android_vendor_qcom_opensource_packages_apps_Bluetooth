@@ -1242,6 +1242,7 @@ public class A2dpService extends ProfileService {
                             if (!connectionAllowedCheckMaxDevices(device)) {
                                 Log.e(TAG, "Cannot connect to " + device
                                         + " : too many connected devices");
+                                mA2dpNativeInterface.disconnectA2dp(device);
                                 return;
                             }
                             sm = getOrCreateStateMachine(device);
