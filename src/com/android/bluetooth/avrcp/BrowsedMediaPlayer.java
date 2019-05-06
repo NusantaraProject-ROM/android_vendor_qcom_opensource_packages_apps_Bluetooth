@@ -466,6 +466,10 @@ class BrowsedMediaPlayer {
             mPathStack = null;
         mPathStack = new Stack<String>();
 
+        if (mLocalPathCache != null)
+            mLocalPathCache = null;
+        mLocalPathCache = new Stack<String>();
+
         MediaConnectionCallback callback = new MediaConnectionCallback(packageName);
         MediaBrowser tempBrowser = new MediaBrowser(
                 mContext, new ComponentName(packageName, cls), callback, null);

@@ -39,7 +39,6 @@ class A2dpCodecConfig {
     private Context mContext;
     private A2dpNativeInterface mA2dpNativeInterface;
 
-    private static String BT_SOC;
     private BluetoothCodecConfig[] mCodecConfigPriorities;
     private int mA2dpSourceCodecPrioritySbc = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
     private int mA2dpSourceCodecPriorityAac = BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT;
@@ -175,7 +174,6 @@ class A2dpCodecConfig {
             return null;
         }
 
-        BT_SOC = SystemProperties.get("vendor.bluetooth.soc");
         int value;
         AdapterService mAdapterService = AdapterService.getAdapterService();
         try {
@@ -221,7 +219,7 @@ class A2dpCodecConfig {
             mA2dpSourceCodecPriorityAptxAdaptive = BluetoothCodecConfig.CODEC_PRIORITY_DISABLED;
         }
 
-        if(BT_SOC.equals("cherokee")) {
+        if(mAdapterService.isSplitA2DPSourceAPTXHD()) {
             try {
                 value = resources.getInteger(R.integer.a2dp_source_codec_priority_aptx_hd);
             } catch (NotFoundException e) {
@@ -236,7 +234,7 @@ class A2dpCodecConfig {
         }
 
 
-        if(BT_SOC.equals("cherokee")) {
+        if(mAdapterService.isSplitA2DPSourceLDAC()) {
             try {
                 value = resources.getInteger(R.integer.a2dp_source_codec_priority_ldac);
             } catch (NotFoundException e) {
