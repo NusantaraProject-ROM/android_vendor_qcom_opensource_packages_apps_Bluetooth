@@ -642,22 +642,14 @@ final class A2dpStateMachine extends StateMachine {
         BluetoothCodecStatus prevCodecStatus = mCodecStatus;
 
         int new_codec_type = newCodecStatus.getCodecConfig().getCodecType();
-
-        // Split A2dp will be enabled by default
-        boolean isSplitA2dpEnabled = true;
-        AdapterService adapterService = AdapterService.getAdapterService();
-
-        if (adapterService != null){
-            isSplitA2dpEnabled = adapterService.isSplitA2dpEnabled();
-            Log.v(TAG,"isSplitA2dpEnabled: " + isSplitA2dpEnabled);
-        } else {
-            Log.e(TAG,"adapterService is null");
-        }
-
+        String offloadSupported =
+                SystemProperties.get("persist.vendor.btstack.enable.splita2dp");
+        if (DBG) Log.d(TAG, "START of A2dpService");
         Log.w(TAG,"processCodecConfigEvent: new_codec_type = " + new_codec_type);
-
-        if (isSplitA2dpEnabled) {
+        // Split A2dp will be enabled by default
+        if (offloadSupported.isEmpty() || "true".equals(offloadSupported)) {
             if (new_codec_type  == BluetoothCodecConfig.SOURCE_CODEC_TYPE_MAX) {
+                AdapterService adapterService = AdapterService.getAdapterService();
                 if (adapterService.isVendorIntfEnabled() &&
                     adapterService.isTwsPlusDevice(mDevice)) {
                     Log.d(TAG,"TWSP device streaming,not calling reconfig");
@@ -715,7 +707,7 @@ final class A2dpStateMachine extends StateMachine {
             return;
         }
 
-        if (!isSplitA2dpEnabled) {
+        if (!(offloadSupported.isEmpty() || "true".equals(offloadSupported))) {
             boolean isUpdateRequired = false;
             if ((prevCodecConfig != null) && (prevCodecConfig.getCodecType() != new_codec_type)) {
                 Log.d(TAG, "previous codec is differs from new codec");

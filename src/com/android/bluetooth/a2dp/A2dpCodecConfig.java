@@ -26,9 +26,9 @@ import android.os.SystemProperties;
 import android.util.Log;
 import com.android.bluetooth.R;
 import com.android.bluetooth.btservice.AdapterService;
+
 import java.util.Arrays;
 import java.util.Objects;
-
 /*
  * A2DP Codec Configuration setup.
  */
@@ -175,14 +175,7 @@ class A2dpCodecConfig {
             return null;
         }
 
-        AdapterService adapterService = AdapterService.getAdapterService();
-        if (adapterService != null){
-            BT_SOC = adapterService.getSocName();
-            Log.e(TAG,"assignCodecConfigPriorities: soc name:" + BT_SOC);
-        } else {
-            Log.e(TAG,"assignCodecConfigPriorities: adapterService is null");
-        }
-
+        BT_SOC = SystemProperties.get("vendor.bluetooth.soc");
         int value;
         AdapterService mAdapterService = AdapterService.getAdapterService();
         try {
