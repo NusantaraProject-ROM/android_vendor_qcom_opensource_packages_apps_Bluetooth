@@ -737,11 +737,7 @@ public class A2dpService extends ProfileService {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
 
         if(mAvrcp_ext != null) {
-            if (mAvrcp_ext.startSHO(device, false) == false) {
-                return startSHO(device);
-            } else {
-                return true;
-            }
+            return mAvrcp_ext.startSHO(device, false);
         }
 
         return false;
