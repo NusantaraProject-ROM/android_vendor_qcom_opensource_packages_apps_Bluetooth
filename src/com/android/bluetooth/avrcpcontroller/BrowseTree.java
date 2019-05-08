@@ -16,7 +16,6 @@
 
 package com.android.bluetooth.avrcpcontroller;
 
-import android.bluetooth.BluetoothDevice;
 import android.media.MediaDescription;
 import android.media.browse.MediaBrowser;
 import android.media.browse.MediaBrowser.MediaItem;
@@ -26,7 +25,6 @@ import android.util.Log;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.UUID;
 
 // Browsing hierarchy.
 // Root:
@@ -41,13 +39,8 @@ import java.util.UUID;
 //      ....
 public class BrowseTree {
     private static final String TAG = "BrowseTree";
-<<<<<<< HEAD
     private static final boolean DBG = false;
     private static final boolean VDBG = AvrcpControllerService.VDBG;
-=======
-    private static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
-    private static final boolean VDBG = Log.isLoggable(TAG, Log.VERBOSE);
->>>>>>> e94de994c16aa83274259da3c313a88d57b26b48
 
     public static final String ROOT = "__ROOT__";
     public static final String UP = "__UP__";
@@ -64,28 +57,25 @@ public class BrowseTree {
     final BrowseNode mNavigateUpNode;
     final BrowseNode mNowPlayingNode;
 
-    BrowseTree(BluetoothDevice device) {
-        if (device == null) {
-            mRootNode = new BrowseNode(new MediaItem(new MediaDescription.Builder()
-                    .setMediaId(ROOT).setTitle(ROOT).build(), MediaItem.FLAG_BROWSABLE));
-            mRootNode.setCached(true);
-        } else {
-            mRootNode = new BrowseNode(new MediaItem(new MediaDescription.Builder()
-                    .setMediaId(ROOT + device.getAddress().toString()).setTitle(
-                            device.getName()).build(), MediaItem.FLAG_BROWSABLE));
-            mRootNode.mDevice = device;
-
-        }
+    BrowseTree() {
+        Bundle mdBundle = new Bundle();
+        mdBundle.putString(AvrcpControllerService.MEDIA_ITEM_UID_KEY, ROOT);
+        mRootNode = new BrowseNode(new MediaItem(new MediaDescription.Builder().setExtras(mdBundle)
+              .setMediaId(ROOT).setTitle(ROOT).build(), MediaItem.FLAG_BROWSABLE));
         mRootNode.mBrowseScope = AvrcpControllerService.BROWSE_SCOPE_PLAYER_LIST;
         mRootNode.setExpectedChildren(255);
 
+        Bundle upnodeBundle = new Bundle();
+        upnodeBundle.putString(AvrcpControllerService.MEDIA_ITEM_UID_KEY, UP);
         mNavigateUpNode = new BrowseNode(new MediaItem(new MediaDescription.Builder()
-                .setMediaId(UP).setTitle(UP).build(),
-                MediaItem.FLAG_BROWSABLE));
+              .setExtras(upnodeBundle).setMediaId(UP).setTitle(UP).build(),
+              MediaItem.FLAG_BROWSABLE));
 
+        Bundle nowPlayingBundle = new Bundle();
+        nowPlayingBundle.putString(AvrcpControllerService.MEDIA_ITEM_UID_KEY, NOW_PLAYING_PREFIX);
         mNowPlayingNode = new BrowseNode(new MediaItem(new MediaDescription.Builder()
-                .setMediaId(NOW_PLAYING_PREFIX)
-                .setTitle(NOW_PLAYING_PREFIX).build(), MediaItem.FLAG_BROWSABLE));
+              .setExtras(nowPlayingBundle).setMediaId(NOW_PLAYING_PREFIX)
+              .setTitle(NOW_PLAYING_PREFIX).build(), MediaItem.FLAG_BROWSABLE));
         mNowPlayingNode.mBrowseScope = AvrcpControllerService.BROWSE_SCOPE_NOW_PLAYING;
         mNowPlayingNode.setExpectedChildren(255);
         mBrowseMap.put(ROOT, mRootNode);
@@ -99,22 +89,10 @@ public class BrowseTree {
         mBrowseMap.clear();
     }
 
-    void onConnected(BluetoothDevice device) {
-        BrowseNode browseNode = new BrowseNode(device);
-        mRootNode.addChild(browseNode);
-    }
-
-    BrowseNode getTrackFromNowPlayingList(int trackNumber) {
-        return mNowPlayingNode.mChildren.get(trackNumber);
-    }
-
     // Each node of the tree is represented by Folder ID, Folder Name and the children.
     class BrowseNode {
         // MediaItem to store the media related details.
         MediaItem mItem;
-
-        BluetoothDevice mDevice;
-        long mBluetoothId;
 
         // Type of this browse node.
         // Since Media APIs do not define the player separately we define that
@@ -125,7 +103,7 @@ public class BrowseTree {
         // without doing another fetch.
         boolean mCached = false;
 
-        byte mBrowseScope = AvrcpControllerService.BROWSE_SCOPE_VFS;
+        int mBrowseScope = AvrcpControllerService.BROWSE_SCOPE_VFS;
 
         // List of children.
         private BrowseNode mParent;
@@ -134,10 +112,6 @@ public class BrowseTree {
 
         BrowseNode(MediaItem item) {
             mItem = item;
-            Bundle extras = mItem.getDescription().getExtras();
-            if (extras != null) {
-                mBluetoothId = extras.getLong(AvrcpControllerService.MEDIA_ITEM_UID_KEY);
-            }
         }
 
         BrowseNode(AvrcpPlayer player) {
@@ -145,29 +119,22 @@ public class BrowseTree {
 
             // Transform the player into a item.
             MediaDescription.Builder mdb = new MediaDescription.Builder();
+            Bundle mdExtra = new Bundle();
             String playerKey = PLAYER_PREFIX + player.getId();
-            mBluetoothId = player.getId();
-
-            mdb.setMediaId(UUID.randomUUID().toString());
+            mdExtra.putString(AvrcpControllerService.MEDIA_ITEM_UID_KEY, playerKey);
+            mdb.setExtras(mdExtra);
+            mdb.setMediaId(playerKey);
             mdb.setTitle(player.getName());
             int mediaItemFlags = player.supportsFeature(AvrcpPlayer.FEATURE_BROWSING)
                     ? MediaBrowser.MediaItem.FLAG_BROWSABLE : 0;
             mItem = new MediaBrowser.MediaItem(mdb.build(), mediaItemFlags);
         }
 
-        BrowseNode(BluetoothDevice device) {
-            boolean mIsPlayer = true;
-            mDevice = device;
-            MediaDescription.Builder mdb = new MediaDescription.Builder();
-            String playerKey = PLAYER_PREFIX + device.getAddress().toString();
-            mdb.setMediaId(playerKey);
-            mdb.setTitle(device.getName());
-            int mediaItemFlags = MediaBrowser.MediaItem.FLAG_BROWSABLE;
-            mItem = new MediaBrowser.MediaItem(mdb.build(), mediaItemFlags);
-        }
-
         private BrowseNode(String name) {
             MediaDescription.Builder mdb = new MediaDescription.Builder();
+            Bundle mdExtra = new Bundle();
+            mdExtra.putString(AvrcpControllerService.MEDIA_ITEM_UID_KEY, name);
+            mdb.setExtras(mdExtra);
             mdb.setMediaId(name);
             mdb.setTitle(name);
             mItem = new MediaBrowser.MediaItem(mdb.build(), MediaBrowser.MediaItem.FLAG_BROWSABLE);
@@ -189,30 +156,13 @@ public class BrowseTree {
                 } else if (child instanceof AvrcpPlayer) {
                     currentNode = new BrowseNode((AvrcpPlayer) child);
                 }
-                addChild(currentNode);
+                if (currentNode != null) {
+                    currentNode.mParent = this;
+                    mChildren.add(currentNode);
+                    mBrowseMap.put(currentNode.getID(), currentNode);
+                }
             }
             return newChildren.size();
-        }
-
-        synchronized boolean addChild(BrowseNode node) {
-            if (node != null) {
-                node.mParent = this;
-                if (this.mBrowseScope == AvrcpControllerService.BROWSE_SCOPE_NOW_PLAYING) {
-                    node.mBrowseScope = this.mBrowseScope;
-                }
-                if (node.mDevice == null) {
-                    node.mDevice = this.mDevice;
-                }
-                mChildren.add(node);
-                mBrowseMap.put(node.getID(), node);
-                return true;
-            }
-            return false;
-        }
-
-        synchronized void removeChild(BrowseNode node) {
-            mChildren.remove(node);
-            mBrowseMap.remove(node.getID());
         }
 
         synchronized int getChildrenCount() {
@@ -228,7 +178,7 @@ public class BrowseTree {
         }
 
         synchronized List<MediaItem> getContents() {
-            if (mChildren.size() > 0 || mCached) {
+            if (mChildren != null) {
                 List<MediaItem> contents = new ArrayList<MediaItem>(mChildren.size());
                 for (BrowseNode child : mChildren) {
                     contents.add(child.getMediaItem());
@@ -271,7 +221,7 @@ public class BrowseTree {
             return Integer.parseInt(getID().replace(PLAYER_PREFIX, ""));
         }
 
-        synchronized byte getScope() {
+        synchronized int getScope() {
             return mBrowseScope;
         }
 
@@ -279,11 +229,9 @@ public class BrowseTree {
         // This may not be unique hence this combined with direction will define the
         // browsing here.
         synchronized String getFolderUID() {
-            return getID();
-        }
-
-        synchronized long getBluetoothID() {
-            return mBluetoothId;
+            return mItem.getDescription()
+                    .getExtras()
+                    .getString(AvrcpControllerService.MEDIA_ITEM_UID_KEY);
         }
 
         synchronized MediaItem getMediaItem() {
@@ -308,20 +256,14 @@ public class BrowseTree {
         }
 
         @Override
-        public synchronized String toString() {
+        public String toString() {
             if (VDBG) {
-                String serialized = "[ Name: " + mItem.getDescription().getTitle()
-                        + " Scope:" + mBrowseScope + " expected Children: "
+                return "[ Name: " + mItem.getDescription().getTitle() + " expected Children: "
                         + mExpectedChildrenCount + "] ";
-                for (BrowseNode node : mChildren) {
-                    serialized += node.toString();
-                }
-                return serialized;
             } else {
                 return "ID: " + getID();
             }
         }
-
         // Returns true if target is a descendant of this.
         synchronized boolean isDescendant(BrowseNode target) {
             return getEldestChild(this, target) == null ? false : true;
@@ -370,7 +312,6 @@ public class BrowseTree {
         for (Integer level = 0; level < depth; level++) {
             BrowseNode dummyNode = new BrowseNode(level.toString());
             dummyNode.mParent = mCurrentBrowseNode;
-            dummyNode.mBrowseScope = AvrcpControllerService.BROWSE_SCOPE_VFS;
             mCurrentBrowseNode = dummyNode;
         }
         mCurrentBrowseNode.setExpectedChildren(items);
@@ -401,11 +342,7 @@ public class BrowseTree {
 
     @Override
     public String toString() {
-        String serialized = "Size: " + mBrowseMap.size();
-        if (VDBG) {
-            serialized += mRootNode.toString();
-        }
-        return serialized;
+        return "Size: " + mBrowseMap.size();
     }
 
     // Calculates the path to target node.
@@ -436,14 +373,21 @@ public class BrowseTree {
                 return nextChild;
             }
         }
+          /*
+          if (mCurrentBrowseNode.isDescendant(target)) {
+            return getEldestChild(mCurrentBrowseNode, target);
+        } else {
+            if (DBG) Log.d(TAG, "NAVIGATING UP");
+            return mNavigateUpNode;
+        }
+        */
     }
 
-    static BrowseNode getEldestChild(BrowseNode ancestor, BrowseNode target) {
+    BrowseNode getEldestChild(BrowseNode ancestor, BrowseNode target) {
         // ancestor is an ancestor of target
         BrowseNode descendant = target;
         if (DBG) {
-            Log.d(TAG, "NAVIGATING ancestor" + ancestor.toString() + "Target"
-                    + target.toString());
+            Log.d(TAG, "NAVIGATING ancestor" + ancestor.toString() + "Target" + target.toString());
         }
         while (!ancestor.equals(descendant.mParent)) {
             descendant = descendant.mParent;

@@ -13,34 +13,55 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/**
+ * Bluetooth A2dp Sink StateMachine
+ *                      (Disconnected)
+ *                           |    ^
+ *                   CONNECT |    | DISCONNECTED
+ *                           V    |
+ *                         (Pending)
+ *                           |    ^
+ *                 CONNECTED |    | CONNECT
+ *                           V    |
+ *                        (Connected -- See A2dpSinkStreamHandler)
+ */
 package com.android.bluetooth.a2dpsink;
 
 import android.bluetooth.BluetoothA2dpSink;
+import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothAudioConfig;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.BluetoothUuid;
+import android.content.Context;
 import android.content.Intent;
 import android.media.AudioFormat;
-<<<<<<< HEAD
 import android.media.AudioManager;
 import android.media.AudioSystem;
 import android.os.Handler;
 import android.os.Looper;
-=======
->>>>>>> e94de994c16aa83274259da3c313a88d57b26b48
 import android.os.Message;
+import android.os.ParcelUuid;
+import android.os.PowerManager;
 import android.util.Log;
 
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.Utils;
+import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
+import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.btservice.ProfileService;
+import com.android.internal.util.IState;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Set;
 
 public class A2dpSinkStateMachine extends StateMachine {
-<<<<<<< HEAD
     private static final boolean DBG = false;
 
     static final int CONNECT = 1;
@@ -101,41 +122,6 @@ public class A2dpSinkStateMachine extends StateMachine {
 
         if (Looper.myLooper() == null)
             Looper.prepare();
-=======
-    static final String TAG = "A2DPSinkStateMachine";
-    static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
-
-    //0->99 Events from Outside
-    public static final int CONNECT = 1;
-    public static final int DISCONNECT = 2;
-
-    //100->199 Internal Events
-    protected static final int CLEANUP = 100;
-    private static final int CONNECT_TIMEOUT = 101;
-
-    //200->299 Events from Native
-    static final int STACK_EVENT = 200;
-
-    static final int CONNECT_TIMEOUT_MS = 5000;
-
-    protected final BluetoothDevice mDevice;
-    protected final byte[] mDeviceAddress;
-    protected final A2dpSinkService mService;
-    protected final Disconnected mDisconnected;
-    protected final Connecting mConnecting;
-    protected final Connected mConnected;
-    protected final Disconnecting mDisconnecting;
-
-    protected int mMostRecentState = BluetoothProfile.STATE_DISCONNECTED;
-    protected BluetoothAudioConfig mAudioConfig = null;
-
-    A2dpSinkStateMachine(BluetoothDevice device, A2dpSinkService service) {
-        super(TAG);
-        mDevice = device;
-        mDeviceAddress = Utils.getByteAddress(mDevice);
-        mService = service;
-        if (DBG) Log.d(TAG, device.toString());
->>>>>>> e94de994c16aa83274259da3c313a88d57b26b48
 
         mDisconnected = new Disconnected();
         mConnecting = new Connecting();
@@ -147,7 +133,6 @@ public class A2dpSinkStateMachine extends StateMachine {
         addState(mConnected);
         addState(mDisconnecting);
 
-<<<<<<< HEAD
         if (mAdapter != null) {
             String bdAddr = mAdapter.getAddress();
             AudioSystem.setParameters(BT_ADDR_KEY + "=" + bdAddr);
@@ -183,78 +168,17 @@ public class A2dpSinkStateMachine extends StateMachine {
 
     public void cleanup() {
         mAudioConfigs.clear();
-=======
-        setInitialState(mDisconnected);
     }
 
-    protected String getConnectionStateChangedIntent() {
-        return BluetoothA2dpSink.ACTION_CONNECTION_STATE_CHANGED;
-    }
-
-    /**
-     * Get the current connection state
-     *
-     * @return current State
-     */
-    public int getState() {
-        return mMostRecentState;
-    }
-
-    /**
-     * get current audio config
-     */
-    BluetoothAudioConfig getAudioConfig() {
-        return mAudioConfig;
-    }
-
-    /**
-     * Get the underlying device tracked by this state machine
-     *
-     * @return device in focus
-     */
-    public synchronized BluetoothDevice getDevice() {
-        return mDevice;
-    }
-
-    /**
-     * send the Connect command asynchronously
-     */
-    public final void connect() {
-        sendMessage(CONNECT);
->>>>>>> e94de994c16aa83274259da3c313a88d57b26b48
-    }
-
-    /**
-     * send the Disconnect command asynchronously
-     */
-    public final void disconnect() {
-        sendMessage(DISCONNECT);
-    }
-
-    /**
-     * Dump the current State Machine to the string builder.
-     * @param sb output string
-     */
     public void dump(StringBuilder sb) {
-<<<<<<< HEAD
         ProfileService.println(sb, "mDevice: " + mDevice);
         ProfileService.println(sb, "StateMachine: " + this.toString());
         ProfileService.println(sb, "isPlaying: " + mIsPlaying);
-=======
-        ProfileService.println(sb, "mDevice: " + mDevice.getAddress() + "("
-                + mDevice.getName() + ") " + this.toString());
     }
 
-    @Override
-    protected void unhandledMessage(Message msg) {
-        Log.w(TAG, "unhandledMessage in state " + getCurrentState() + "msg.what=" + msg.what);
->>>>>>> e94de994c16aa83274259da3c313a88d57b26b48
-    }
-
-    class Disconnected extends State {
+    private class Disconnected extends State {
         @Override
         public void enter() {
-<<<<<<< HEAD
             log("Enter Disconnected (Device: " + mDevice + ") : " + getCurrentMessage().what);
             mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
             if (mIsPlaying) {
@@ -268,18 +192,10 @@ public class A2dpSinkStateMachine extends StateMachine {
                 broadcastConnectionState(mDevice, mConnectionState, mLastConnectionState);
                 mService.removeStateMachine(mDevice);
             }
-=======
-            if (DBG) Log.d(TAG, "Enter Disconnected");
-            if (mMostRecentState != BluetoothProfile.STATE_DISCONNECTED) {
-                sendMessage(CLEANUP);
-            }
-            onConnectionStateChanged(BluetoothProfile.STATE_DISCONNECTED);
->>>>>>> e94de994c16aa83274259da3c313a88d57b26b48
         }
 
         @Override
         public boolean processMessage(Message message) {
-<<<<<<< HEAD
             log("Disconnected (Device: " + mDevice + ") Process Message: " + message.what);
 
             boolean retValue = HANDLED;
@@ -301,21 +217,23 @@ public class A2dpSinkStateMachine extends StateMachine {
                 case DISCONNECT:
                     // ignore
                     break;
-=======
-            switch (message.what) {
->>>>>>> e94de994c16aa83274259da3c313a88d57b26b48
                 case STACK_EVENT:
-                    processStackEvent((StackEvent) message.obj);
-                    return true;
-                case CONNECT:
-                    if (DBG) Log.d(TAG, "Connect");
-                    transitionTo(mConnecting);
-                    return true;
-                case CLEANUP:
-                    mService.removeStateMachine(A2dpSinkStateMachine.this);
-                    return true;
+                    StackEvent event = (StackEvent) message.obj;
+                    switch (event.type) {
+                        case EVENT_TYPE_CONNECTION_STATE_CHANGED:
+                            processConnectionEvent(event.device, event.valueInt);
+                            break;
+                        case EVENT_TYPE_AUDIO_CONFIG_CHANGED:
+                            processAudioConfigEvent(event.device, event.audioConfig);
+                            break;
+                        default:
+                            loge("Unexpected stack event: " + event.type);
+                            break;
+                    }
+                    break;
+                default:
+                    return NOT_HANDLED;
             }
-<<<<<<< HEAD
             return retValue;
         }
 
@@ -354,27 +272,18 @@ public class A2dpSinkStateMachine extends StateMachine {
                         //reject the connection and stay in Disconnected state itself
                         logi("Incoming A2DP rejected");
                         A2dpSinkService.disconnectA2dpNative(getByteAddress(device));
-=======
-            return false;
-        }
-
-        void processStackEvent(StackEvent event) {
-            switch (event.mType) {
-                case StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED:
-                    switch (event.mState) {
-                        case StackEvent.CONNECTION_STATE_CONNECTED:
-                            transitionTo(mConnected);
-                            break;
-                        case StackEvent.CONNECTION_STATE_DISCONNECTED:
-                            sendMessage(CLEANUP);
-                            break;
->>>>>>> e94de994c16aa83274259da3c313a88d57b26b48
                     }
+                    break;
+                case CONNECTION_STATE_DISCONNECTING:
+                    logw("Ignore HF DISCONNECTING event, device: " + device);
+                    break;
+                default:
+                    loge("Incorrect state: " + state);
+                    break;
             }
         }
     }
 
-<<<<<<< HEAD
     private class Connecting extends State {
         @Override
         public void enter() {
@@ -387,27 +296,10 @@ public class A2dpSinkStateMachine extends StateMachine {
         public void exit() {
             log("Exit CONNECTING: " + getCurrentMessage().what);
             mLastConnectionState = BluetoothProfile.STATE_CONNECTING;
-=======
-    class Connecting extends State {
-        boolean mIncommingConnection = false;
-
-        @Override
-        public void enter() {
-            if (DBG) Log.d(TAG, "Enter Connecting");
-            onConnectionStateChanged(BluetoothProfile.STATE_CONNECTING);
-            sendMessageDelayed(CONNECT_TIMEOUT, CONNECT_TIMEOUT_MS);
-
-            if (!mIncommingConnection) {
-                mService.connectA2dpNative(mDeviceAddress);
-            }
-
-            super.enter();
->>>>>>> e94de994c16aa83274259da3c313a88d57b26b48
         }
 
         @Override
         public boolean processMessage(Message message) {
-<<<<<<< HEAD
             log("SM STATE: CONNECTING (" + mDevice + ") process message: " + message.what);
 
             boolean retValue = HANDLED;
@@ -428,33 +320,26 @@ public class A2dpSinkStateMachine extends StateMachine {
                     A2dpSinkService.disconnectA2dpNative(getByteAddress(mDevice)); //
                     transitionTo(mDisconnected);
                     break;
-=======
-            switch (message.what) {
->>>>>>> e94de994c16aa83274259da3c313a88d57b26b48
                 case STACK_EVENT:
-                    processStackEvent((StackEvent) message.obj);
-                    return true;
-                case CONNECT_TIMEOUT:
-                    transitionTo(mDisconnected);
-                    return true;
-            }
-            return false;
-        }
-
-        void processStackEvent(StackEvent event) {
-            switch (event.mType) {
-                case StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED:
-                    switch (event.mState) {
-                        case StackEvent.CONNECTION_STATE_CONNECTED:
-                            transitionTo(mConnected);
+                    StackEvent event = (StackEvent) message.obj;
+                    log("STACK_EVENT " + event.type);
+                    switch (event.type) {
+                        case EVENT_TYPE_CONNECTION_STATE_CHANGED:
+                            processConnectionEvent(event.device, event.valueInt);
                             break;
-                        case StackEvent.CONNECTION_STATE_DISCONNECTED:
-                            transitionTo(mDisconnected);
+                        case EVENT_TYPE_AUDIO_CONFIG_CHANGED:
+                            processAudioConfigEvent(event.device, event.audioConfig);
+                            break;
+                        default:
+                            loge("Unexpected stack event: " + event.type);
                             break;
                     }
+                    break;
+                default:
+                    return NOT_HANDLED;
             }
+            return retValue;
         }
-<<<<<<< HEAD
 
         // in Pending state
         private void processConnectionEvent(BluetoothDevice device, int state) {
@@ -498,8 +383,6 @@ public class A2dpSinkStateMachine extends StateMachine {
             broadcastConnectionState(mDevice, mConnectionState, mLastConnectionState);
         }
 
-=======
->>>>>>> e94de994c16aa83274259da3c313a88d57b26b48
         @Override
         public boolean processMessage(Message message) {
             log("DISCONNECTING (" + mDevice + ") process message: " + message.what);
@@ -542,7 +425,6 @@ public class A2dpSinkStateMachine extends StateMachine {
             return retValue;
         }
 
-<<<<<<< HEAD
         // in Pending state
         private void processConnectionEvent(BluetoothDevice device, int state) {
             log("processConnectionEvent state " + state);
@@ -580,14 +462,11 @@ public class A2dpSinkStateMachine extends StateMachine {
             log("Exit Disconnecting: (" + mDevice + "): " + getCurrentMessage().what);
             mLastConnectionState = BluetoothProfile.STATE_DISCONNECTING;
         }
-=======
->>>>>>> e94de994c16aa83274259da3c313a88d57b26b48
     }
 
-    class Connected extends State {
+    private class Connected extends State {
         @Override
         public void enter() {
-<<<<<<< HEAD
             log("Enter Connected (Device: "+ mDevice + ") " + getCurrentMessage().what);
             // Upon connected, the audio starts out as stopped
             mConnectionState = BluetoothProfile.STATE_CONNECTED;
@@ -606,10 +485,6 @@ public class A2dpSinkStateMachine extends StateMachine {
             if (mStreaming.getAudioFocus() == AudioManager.AUDIOFOCUS_NONE) {
                 A2dpSinkService.informAudioFocusStateNative(0);
             }
-=======
-            if (DBG) Log.d(TAG, "Enter Connected");
-            onConnectionStateChanged(BluetoothProfile.STATE_CONNECTED);
->>>>>>> e94de994c16aa83274259da3c313a88d57b26b48
         }
 
         @Override
@@ -620,7 +495,6 @@ public class A2dpSinkStateMachine extends StateMachine {
 
         @Override
         public boolean processMessage(Message message) {
-<<<<<<< HEAD
             log("Connected (Device: "+ mDevice + ") process message: " + message.what);
             if (mDevice == null) {
                 loge("ERROR: Current Device is null in Connected");
@@ -685,21 +559,10 @@ public class A2dpSinkStateMachine extends StateMachine {
 
                 default:
                     return NOT_HANDLED;
-=======
-            switch (message.what) {
-                case DISCONNECT:
-                    transitionTo(mDisconnecting);
-                    mService.disconnectA2dpNative(mDeviceAddress);
-                    return true;
-                case STACK_EVENT:
-                    processStackEvent((StackEvent) message.obj);
-                    return true;
->>>>>>> e94de994c16aa83274259da3c313a88d57b26b48
             }
-            return false;
+            return HANDLED;
         }
 
-<<<<<<< HEAD
         // in Connected state
         private void processConnectionEvent(BluetoothDevice device, int state) {
             if (mDevice != null && device != null && !mDevice.equals(device)) {
@@ -747,31 +610,17 @@ public class A2dpSinkStateMachine extends StateMachine {
                         mStreaming.obtainMessage(A2dpSinkStreamHandler.SRC_STR_STOP).sendToTarget();
                     } else {
                         Log.d(TAG, "other than streaming device. Ignore");
-=======
-        void processStackEvent(StackEvent event) {
-            switch (event.mType) {
-                case StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED:
-                    switch (event.mState) {
-                        case StackEvent.CONNECTION_STATE_DISCONNECTING:
-                            transitionTo(mDisconnecting);
-                            break;
-                        case StackEvent.CONNECTION_STATE_DISCONNECTED:
-                            transitionTo(mDisconnected);
-                            break;
->>>>>>> e94de994c16aa83274259da3c313a88d57b26b48
                     }
                     broadcastAudioState(device, BluetoothA2dpSink.STATE_NOT_PLAYING,
                             BluetoothA2dpSink.STATE_PLAYING);
                     break;
-                case StackEvent.EVENT_TYPE_AUDIO_CONFIG_CHANGED:
-                    mAudioConfig = new BluetoothAudioConfig(event.mSampleRate, event.mChannelCount,
-                            AudioFormat.ENCODING_PCM_16BIT);
+                default:
+                    loge("Audio State Device: " + device + " bad state: " + state);
                     break;
             }
         }
     }
 
-<<<<<<< HEAD
     private void processAudioConfigEvent(BluetoothDevice device, BluetoothAudioConfig audioConfig) {
         log("processAudioConfigEvent: " + device);
         mAudioConfigs.put(device, audioConfig);
@@ -922,37 +771,8 @@ public class A2dpSinkStateMachine extends StateMachine {
         } else {
             log("passthru command not sent, connection unavailable");
             return false;
-=======
-    protected class Disconnecting extends State {
-        @Override
-        public void enter() {
-            if (DBG) Log.d(TAG, "Enter Disconnecting");
-            onConnectionStateChanged(BluetoothProfile.STATE_DISCONNECTING);
-            transitionTo(mDisconnected);
         }
     }
-
-    protected void onConnectionStateChanged(int currentState) {
-        if (mMostRecentState == currentState) {
-            return;
-        }
-        if (currentState == BluetoothProfile.STATE_CONNECTED) {
-            MetricsLogger.logProfileConnectionEvent(BluetoothMetricsProto.ProfileId.A2DP_SINK);
-        }
-        if (DBG) {
-            Log.d(TAG, "Connection state " + mDevice + ": " + mMostRecentState + "->"
-                    + currentState);
->>>>>>> e94de994c16aa83274259da3c313a88d57b26b48
-        }
-        Intent intent = new Intent(BluetoothA2dpSink.ACTION_CONNECTION_STATE_CHANGED);
-        intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, mMostRecentState);
-        intent.putExtra(BluetoothProfile.EXTRA_STATE, currentState);
-        intent.putExtra(BluetoothDevice.EXTRA_DEVICE, mDevice);
-        intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
-        mMostRecentState = currentState;
-        mService.sendBroadcast(intent, ProfileService.BLUETOOTH_PERM);
-    }
-<<<<<<< HEAD
 
     BluetoothDevice getDevice() {
         return mDevice;
@@ -977,6 +797,4 @@ public class A2dpSinkStateMachine extends StateMachine {
     static final int AUDIO_STATE_STOPPED = 1;
     static final int AUDIO_STATE_STARTED = 2;
 
-=======
->>>>>>> e94de994c16aa83274259da3c313a88d57b26b48
 }
