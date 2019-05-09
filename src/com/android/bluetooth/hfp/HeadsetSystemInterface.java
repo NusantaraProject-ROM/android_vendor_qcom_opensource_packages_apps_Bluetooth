@@ -108,11 +108,6 @@ public class HeadsetSystemInterface {
             // Synchronization should make sure unbind can be successful
             mHeadsetService.unbindService(mPhoneProxyConnection);
         }
-        //sometimes when BT is turned off while in call,
-        // we don't get a chance to move out of AudioOn state
-
-        mAudioManager.setParameters("BT_SCO=off");
-        mAudioManager.setBluetoothScoOn(false);
         mHeadsetPhoneState.cleanup();
     }
 
