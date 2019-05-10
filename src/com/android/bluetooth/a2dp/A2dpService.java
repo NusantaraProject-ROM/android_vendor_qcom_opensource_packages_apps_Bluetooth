@@ -1026,13 +1026,24 @@ public class A2dpService extends ProfileService {
 
     private BluetoothCodecStatus getTwsPlusCodecStatus(BluetoothCodecStatus mCodecStatus) {
         BluetoothCodecConfig mCodecConfig = mCodecStatus.getCodecConfig();
-        BluetoothCodecConfig mNewCodecConfig =
-                    new BluetoothCodecConfig(
+        BluetoothCodecConfig mNewCodecConfig;
+        Log.d(TAG, "Return TWS codec status with " + mCodecConfig.getCodecName() + " codec");
+        if(mCodecConfig.getCodecType() == BluetoothCodecConfig.SOURCE_CODEC_TYPE_APTX_ADAPTIVE) {
+            mNewCodecConfig = new BluetoothCodecConfig(
+                        BluetoothCodecConfig.SOURCE_CODEC_TYPE_APTX_ADAPTIVE,
+                        BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT,
+                        BluetoothCodecConfig.SAMPLE_RATE_48000,
+                        BluetoothCodecConfig.BITS_PER_SAMPLE_NONE,
+                        BluetoothCodecConfig.CHANNEL_MODE_STEREO,
+                        0, 0, 0, 0);
+        } else {
+            mNewCodecConfig = new BluetoothCodecConfig(
                         BluetoothCodecConfig.SOURCE_CODEC_TYPE_APTX,
                         mCodecConfig.getCodecPriority(), mCodecConfig.getSampleRate(),
                         mCodecConfig.getBitsPerSample(), mCodecConfig.getChannelMode(),
                         mCodecConfig.getCodecSpecific1(), mCodecConfig.getCodecSpecific2(),
                         mCodecConfig.getCodecSpecific3(), mCodecConfig.getCodecSpecific4());
+        }
         return (new BluetoothCodecStatus(mNewCodecConfig, mCodecStatus.getCodecsLocalCapabilities(),
                           mCodecStatus.getCodecsSelectableCapabilities()));
     }
@@ -1049,6 +1060,7 @@ public class A2dpService extends ProfileService {
         BluetoothCodecConfig[] mBACodecConfig = {mNewCodecConfig};
         return (new BluetoothCodecStatus(mNewCodecConfig, mBACodecConfig, mBACodecConfig));
     }
+
     /**
      * Gets the current codec status (configuration and capability).
      *
