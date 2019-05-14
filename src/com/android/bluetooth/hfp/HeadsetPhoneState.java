@@ -83,7 +83,7 @@ public class HeadsetPhoneState {
     // SIM is present
     private int SIM_PRESENT = 1;
     // Array to keep the SIM status
-    private int[] mSimStatus = {0, 0};
+    private int[] mSimStatus;
 
     private final HashMap<BluetoothDevice, Integer> mDeviceEventMap = new HashMap<>();
     private PhoneStateListener mPhoneStateListener;
@@ -106,16 +106,17 @@ public class HeadsetPhoneState {
         mSubscriptionManager.addOnSubscriptionsChangedListener(mOnSubscriptionsChangedListener);
         IntentFilter simStateChangedFilter =
                         new IntentFilter(TelephonyIntents.ACTION_SIM_STATE_CHANGED);
+        mSimStatus = new int [mTelephonyManager.getPhoneCount()];
         //Record the SIM states upon BT reset
         try {
-            for (int slotIndex = 0; slotIndex < mSimStatus.length; slotIndex++) {
-                if (mTelephonyManager.getSimState(slotIndex) ==
+            for (int i = 0; i < mSimStatus.length; i++) {
+                if (mTelephonyManager.getSimState(i) ==
                         TelephonyManager.SIM_STATE_READY) {
-                    Log.d(TAG, "The sim in slotIndex: " + slotIndex + " is present");
-                    mSimStatus[slotIndex] = SIM_PRESENT;
+                    Log.d(TAG, "The sim in i: " + i + " is present");
+                    mSimStatus[i] = SIM_PRESENT;
                 } else {
-                    Log.d(TAG, "The sim in slotIndex: " + slotIndex + " is absent");
-                    mSimStatus[slotIndex] = SIM_ABSENT;
+                    Log.d(TAG, "The sim in i: " + i + " is absent");
+                    mSimStatus[i] = SIM_ABSENT;
                 }
             }
             mHeadsetService.registerReceiver(mPhoneStateChangeReceiver, simStateChangedFilter);
@@ -239,6 +240,10 @@ public class HeadsetPhoneState {
         mPhoneStateListener = null;
     }
 
+    public boolean isValidPhoneId(int phoneId) {
+        return phoneId >= 0 && phoneId < mTelephonyManager.getPhoneCount();
+    }
+
     private final BroadcastReceiver mPhoneStateChangeReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -253,29 +258,29 @@ public class HeadsetPhoneState {
                 // because of this case's possibility from the caller, but the current root
                 // cause is as of yet unidentified
                 if (IccCardConstants.INTENT_VALUE_ICC_LOADED.equals(stateExtra)) {
-                    final int slotId = intent.getIntExtra(PhoneConstants.SLOT_KEY,
+                    final int phoneId = intent.getIntExtra(PhoneConstants.PHONE_KEY,
                                        SubscriptionManager.getDefaultVoicePhoneId());
-                    if (slotId == -1) {
-                        Log.d(TAG, "Received invalid value (-1) for slotId for SIM loaded, no action");
+                    if (isValidPhoneId(phoneId) != true) {
+                        Log.d(TAG, "Received invalid phoneId " + phoneId +" for SIM loaded, no action");
                         return;
                     }
-                    Log.d(TAG, "SIM loaded, making mIsSimStateLoaded to true for slotId = "
-                               + slotId);
-                    mSimStatus[slotId] = SIM_PRESENT;
+                    Log.d(TAG, "SIM loaded, making mIsSimStateLoaded to true for phoneId = "
+                               + phoneId);
+                    mSimStatus[phoneId] = SIM_PRESENT;
                     mIsSimStateLoaded = true;
                     sendDeviceStateChanged();
                 } else if (IccCardConstants.INTENT_VALUE_ICC_ABSENT.equals(stateExtra)
                            || IccCardConstants.INTENT_VALUE_ICC_UNKNOWN.equals(stateExtra)
                            || IccCardConstants.INTENT_VALUE_ICC_CARD_IO_ERROR.equals(stateExtra)) {
-                    final int slotId = intent.getIntExtra(PhoneConstants.SLOT_KEY,
+                    final int phoneId = intent.getIntExtra(PhoneConstants.PHONE_KEY,
                                        SubscriptionManager.getDefaultVoicePhoneId());
-                    if (slotId == -1) {
-                        Log.d(TAG, "Received invalid value (-1) for slotId for SIM unloaded, no action");
+                    if (isValidPhoneId(phoneId) != true) {
+                        Log.d(TAG, "Received invalid phoneId " + phoneId +" for SIM unloaded, no action");
                         return;
                     }
-                    Log.d(TAG, "SIM unloaded, making mIsSimStateLoaded to false for slotId = "
-                               + slotId);
-                    mSimStatus[slotId] = SIM_ABSENT;
+                    Log.d(TAG, "SIM unloaded, making mIsSimStateLoaded to false for phoneId = "
+                               + phoneId);
+                    mSimStatus[phoneId] = SIM_ABSENT;
                     mIsSimStateLoaded = false;
                     for (int i = 0; i < mSimStatus.length; i++) {
                         if (mSimStatus[i] == SIM_PRESENT) {
