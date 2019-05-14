@@ -544,19 +544,6 @@ public class A2dpSinkService extends ProfileService {
         return mStreamingDevice;
     }
 
-    public void displayToast(final Context context,
-        final String msg) {
-        if (context != null && msg != null) {
-            new Handler(mStateMachinesThread.getLooper()).post(new Runnable() {
-                @Override
-                public void run() {
-                    Log.d(TAG, "Displaying new Device Connected message with suggestion");
-                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show();
-                }
-            });
-        }
-    }
-
     /* This API performs all the operations required for doing soft-Handoff */
     public synchronized void initiateHandoffOperations(BluetoothDevice device) {
         if (mStreamingDevice != null && !mStreamingDevice.equals(device)) {
@@ -613,6 +600,17 @@ public class A2dpSinkService extends ProfileService {
             mStreamingDevice = null;
         }
 
+        // Intiate Handoff operations when state has been connectiond
+        if (state == BluetoothProfile.STATE_CONNECTED) {
+            if (mStreamingDevice != null && !mStreamingDevice.equals(device)) {
+                Log.d(TAG, "current connected device: " + device + "is different from previous device");
+                initiateHandoffOperations(device);
+                mStreamingDevice = device;
+            } else if (device != null) {
+                mStreamingDevice = device;
+            }
+        }
+
         A2dpSinkStateMachine.StackEvent event =
                 sm.new StackEvent(A2dpSinkStateMachine.EVENT_TYPE_CONNECTION_STATE_CHANGED);
         event.device = device;
@@ -648,17 +646,6 @@ public class A2dpSinkService extends ProfileService {
         A2dpSinkStateMachine sm = mStateMachines.get(device);
         if (sm == null) {
             return;
-        }
-        // Intiate Handoff operations if AUDIO Config Change is received for new incoming device
-        if (mStreamingDevice != null && !mStreamingDevice.equals(device)) {
-            initiateHandoffOperations(device);
-            mStreamingDevice = device;
-            String toastMsg = "Streaming Device Changed.\n"
-                + "For Better Stream Switching experience between connected phones, disable"
-                + "\nTouch/Vibration/Dialpad/Locking Sounds from Settings->Sounds->Adavanced";
-            displayToast(this, toastMsg);
-        } else if (device != null) {
-            mStreamingDevice = device;
         }
 
         A2dpSinkStateMachine.StackEvent event =
