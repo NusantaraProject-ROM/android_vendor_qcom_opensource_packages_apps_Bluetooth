@@ -26,7 +26,7 @@ import java.util.Arrays;
  */
 class AvrcpPlayer {
     private static final String TAG = "AvrcpPlayer";
-    private static final boolean DBG = false;
+    private static final boolean DBG = true;
     private static final boolean VDBG = false;
 
     public static final int INVALID_ID = -1;
