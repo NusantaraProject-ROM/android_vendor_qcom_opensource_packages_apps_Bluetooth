@@ -1399,6 +1399,18 @@ public class HeadsetStateMachine extends StateMachine {
                                   + " or A2Dp is playing, not allowing SCO, device=" + mDevice);
                         break;
                     }
+
+                    if (mHeadsetService.isSwbEnabled() && mHeadsetService.isSwbPmEnabled()) {
+                        if (!mHeadsetService.isVirtualCallStarted() &&
+                             mSystemInterface.isHighDefCallInProgress()) {
+                           log("CONNECT_AUDIO: enable SWB for HD call ");
+                           mHeadsetService.enableSwbCodec(true);
+                        } else {
+                           log("CONNECT_AUDIO: disable SWB for non-HD or Voip calls");
+                           mHeadsetService.enableSwbCodec(false);
+                        }
+                    }
+
                     if (!mNativeInterface.connectAudio(mDevice)) {
                         stateLogE("Failed to connect SCO audio for " + mDevice);
                         // No state change involved, fire broadcast immediately
@@ -2183,6 +2195,22 @@ public class HeadsetStateMachine extends StateMachine {
                 + callState.mNumHeld + " mCallState: " + callState.mCallState);
         log("processCallState: mNumber: " + callState.mNumber + " mType: " + callState.mType);
 
+        if (mHeadsetService.isSwbEnabled() && mHeadsetService.isSwbPmEnabled()) {
+            if (mHeadsetService.isVirtualCallStarted()) {
+                 log("processCallState: enable SWB for all voip calls ");
+                 mHeadsetService.enableSwbCodec(true);
+            } else if((callState.mCallState == HeadsetHalConstants.CALL_STATE_DIALING) ||
+               (callState.mCallState == HeadsetHalConstants.CALL_STATE_INCOMING)) {
+                 if (!mSystemInterface.isHighDefCallInProgress()) {
+                    log("processCallState: disable SWB for non-HD call ");
+                    mHeadsetService.enableSwbCodec(false);
+                 } else {
+                    log("processCallState: enable SWB for HD call ");
+                    mHeadsetService.enableSwbCodec(true);
+                 }
+            }
+        }
+
         processA2dpState(callState);
     }
 
@@ -2299,6 +2327,9 @@ public class HeadsetStateMachine extends StateMachine {
         switch (wbsConfig) {
             case HeadsetHalConstants.BTHF_WBS_YES:
                 mAudioParams.put(HEADSET_WBS, HEADSET_AUDIO_FEATURE_ON);
+                if (mHeadsetService.isSwbEnabled()) {
+                    mAudioParams.put(HEADSET_SWB, HEADSET_SWB_DISABLE);
+                }
                 break;
             case HeadsetHalConstants.BTHF_WBS_NO:
             case HeadsetHalConstants.BTHF_WBS_NONE:
@@ -2315,6 +2346,7 @@ public class HeadsetStateMachine extends StateMachine {
     private void processSWBEvent(int swbConfig) {
         if (swbConfig < HEADSET_SWB_MAX_CODEC_IDS) {
                 mAudioParams.put(HEADSET_SWB, "0");
+                mAudioParams.put(HEADSET_WBS, HEADSET_AUDIO_FEATURE_OFF);
         } else {
                 mAudioParams.put(HEADSET_SWB, HEADSET_SWB_DISABLE);
         }
