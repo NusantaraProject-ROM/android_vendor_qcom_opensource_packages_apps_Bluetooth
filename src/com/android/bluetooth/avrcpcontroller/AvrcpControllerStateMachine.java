@@ -394,7 +394,10 @@ class AvrcpControllerStateMachine extends StateMachine {
                         // Music start playing automatically and update Metadata
                         boolean updateTrack =
                                 mAddressedPlayer.updateCurrentTrack((TrackInfo) msg.obj);
-                        if (updateTrack) {
+                        if (DBG) Log.d(TAG, "updateTrack = " + updateTrack);
+                        if (updateTrack &&
+                            mCoveArtUtils.msgTrackChanged(mContext, mBipStateMachine,
+                            mAddressedPlayer,mRemoteDevice)) {
                             broadcastMetaDataChanged(
                                     mAddressedPlayer.getCurrentTrack().getMediaMetaData());
                         }
@@ -409,7 +412,9 @@ class AvrcpControllerStateMachine extends StateMachine {
 
                     case MESSAGE_PROCESS_PLAY_STATUS_CHANGED:
                         int status = msg.arg1;
+                        if (DBG) Log.d(TAG, "status = " + status);
                         mAddressedPlayer.setPlayStatus(status);
+                        broadcastPlayBackStateChanged(getCurrentPlayBackState());
                         if (status == PlaybackState.STATE_PLAYING) {
                             a2dpSinkService.informTGStatePlaying(mRemoteDevice.mBTDevice, true);
                         } else if (status == PlaybackState.STATE_PAUSED

@@ -724,7 +724,7 @@ public class AvrcpControllerService extends ProfileService {
         Log.i(TAG, " getRcFeatures caPsm :" + caPsm);
         BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address);
         AvrcpControllerStateMachine mAvrcpCtSm = getAvrcpCtStateMachine(device);
-        if (mAvrcpCtSm == null)
+        if ((caPsm <= 0) || (mAvrcpCtSm == null))
             return;
         Message msg = mAvrcpCtSm.obtainMessage(
             AvrcpControllerStateMachine.MESSAGE_PROCESS_RC_FEATURES, features, caPsm, device);
