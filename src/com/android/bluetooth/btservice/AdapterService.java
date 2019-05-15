@@ -117,7 +117,6 @@ import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.NetworkInfo;
 
-import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.io.FileDescriptor;
@@ -2404,18 +2403,6 @@ public class AdapterService extends Service {
         }
     }
 
-    /**
-     * Update device UUID changed to {@link BondStateMachine}
-     *
-     * @param device remote device of interest
-     */
-    public void deviceUuidUpdated(BluetoothDevice device) {
-        // Notify BondStateMachine for SDP complete / UUID changed.
-        Message msg = mBondStateMachine.obtainMessage(BondStateMachine.UUID_UPDATE);
-        msg.obj = device;
-        mBondStateMachine.sendMessage(msg);
-    }
-
     boolean cancelBondProcess(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
         byte[] addr = Utils.getBytesFromAddress(device.getAddress());
@@ -3558,10 +3545,14 @@ public class AdapterService extends Service {
      *  Obfuscate Bluetooth MAC address into a PII free ID string
      *
      *  @param device Bluetooth device whose MAC address will be obfuscated
-     *  @return a {@link ByteString} that is unique to this MAC address on this device
+     *  @return a byte array that is unique to this MAC address on this device,
+     *          or empty byte array when either device is null or obfuscateAddressNative fails
      */
-    public ByteString obfuscateAddress(BluetoothDevice device) {
-        return ByteString.copyFrom(obfuscateAddressNative(Utils.getByteAddress(device)));
+    public byte[] obfuscateAddress(BluetoothDevice device) {
+         if (device == null) {
+           return new byte[0];
+         }
+         return obfuscateAddressNative(Utils.getByteAddress(device));
     }
 
     static native void classInitNative();

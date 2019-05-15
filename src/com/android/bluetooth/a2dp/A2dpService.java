@@ -547,18 +547,24 @@ public class A2dpService extends ProfileService {
         }
 
         // Check priority and accept or reject the connection.
+        // Note: Logic can be simplified, but keeping it this way for readability
         int priority = getPriority(device);
         int bondState = mAdapterService.getBondState(device);
-        // Allow this connection only if the device is bonded. Any attempt to connect while
-        // bonding would potentially lead to an unauthorized connection.
-        if (bondState != BluetoothDevice.BOND_BONDED) {
-            Log.w(TAG, "okToConnect: return false, bondState=" + bondState);
-            return false;
-        } else if (priority != BluetoothProfile.PRIORITY_UNDEFINED
-                && priority != BluetoothProfile.PRIORITY_ON
-                && priority != BluetoothProfile.PRIORITY_AUTO_CONNECT) {
-            // Otherwise, reject the connection if priority is not valid.
-            Log.w(TAG, "okToConnect: return false, priority=" + priority);
+        // If priority is undefined, it is likely that service discovery has not completed and peer
+        // initiated the connection. Allow this connection only if the device is bonded or bonding
+        boolean serviceDiscoveryPending = (priority == BluetoothProfile.PRIORITY_UNDEFINED)
+                && (bondState == BluetoothDevice.BOND_BONDING
+                || bondState == BluetoothDevice.BOND_BONDED);
+        // Also allow connection when device is bonded/bonding and priority is ON/AUTO_CONNECT.
+        boolean isEnabled = (priority == BluetoothProfile.PRIORITY_ON
+                || priority == BluetoothProfile.PRIORITY_AUTO_CONNECT)
+                && (bondState == BluetoothDevice.BOND_BONDED
+                || bondState == BluetoothDevice.BOND_BONDING);
+        if (!serviceDiscoveryPending && !isEnabled) {
+            // Otherwise, reject the connection if no service discovery is pending and priority is
+            // neither PRIORITY_ON nor PRIORITY_AUTO_CONNECT
+            Log.w(TAG, "okToConnect: return false, priority=" + priority + ", bondState="
+                    + bondState);
             return false;
         }
         return true;
@@ -1469,6 +1475,10 @@ public class A2dpService extends ProfileService {
             if (sm.getConnectionState() != BluetoothProfile.STATE_DISCONNECTED) {
                 return;
             }
+            if (mFactory.getAvrcpTargetService() != null) {
+                mFactory.getAvrcpTargetService().removeStoredVolumeForDevice(device);
+            }
+
             removeStateMachine(device);
         }
     }
@@ -1554,18 +1564,14 @@ public class A2dpService extends ProfileService {
             if (toState == BluetoothProfile.STATE_CONNECTED) {
                 MetricsLogger.logProfileConnectionEvent(BluetoothMetricsProto.ProfileId.A2DP);
             }
-            // Set the active device if only one connected device is supported and it was connected
-            if (toState == BluetoothProfile.STATE_CONNECTED && (mMaxConnectedAudioDevices == 1)) {
-                setActiveDevice(device);
-            }
-            // Check if the active device is not connected anymore
-            if (isActiveDevice(device) && (fromState == BluetoothProfile.STATE_CONNECTED)) {
-                setActiveDevice(null);
-            }
             // Check if the device is disconnected - if unbond, remove the state machine
             if (toState == BluetoothProfile.STATE_DISCONNECTED) {
                 int bondState = mAdapterService.getBondState(device);
                 if (bondState == BluetoothDevice.BOND_NONE) {
+                    if (mFactory.getAvrcpTargetService() != null) {
+                        mFactory.getAvrcpTargetService().removeStoredVolumeForDevice(device);
+                    }
+
                     removeStateMachine(device);
                 }
             }
