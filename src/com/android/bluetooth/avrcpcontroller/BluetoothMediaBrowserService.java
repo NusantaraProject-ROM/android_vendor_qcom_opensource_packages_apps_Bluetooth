@@ -85,8 +85,6 @@ public class BluetoothMediaBrowserService extends MediaBrowserService {
     private static final int MSG_DEVICE_BROWSE_DISCONNECT = 8;
     // Message sent when folder list is fetched.
     private static final int MSG_FOLDER_LIST = 9;
-    // Message sent when streaming device is updated after soft-handoff
-    private static final int MSG_DEVICE_UPDATED = 10;
 
     // Custom actions for PTS testing.
     private static final String CUSTOM_ACTION_VOL_UP =
@@ -111,9 +109,6 @@ public class BluetoothMediaBrowserService extends MediaBrowserService {
 
     // Browsing related structures.
     private List<MediaSession.QueueItem> mMediaQueue = new ArrayList<>();
-
-    public static final String ACTION_DEVICE_UPDATED =
-            "android.bluetooth.a2dp.mbs.action.DeviceUpdated";
 
     private static final class AvrcpCommandQueueHandler extends Handler {
         WeakReference<BluetoothMediaBrowserService> mInst;
@@ -158,8 +153,6 @@ public class BluetoothMediaBrowserService extends MediaBrowserService {
                 case MSG_FOLDER_LIST:
                     inst.msgFolderList((Intent) msg.obj);
                     break;
-                case MSG_DEVICE_UPDATED:
-                    inst.msgDeviceUpdated((BluetoothDevice) msg.obj);
                 default:
                     Log.e(TAG, "Message not handled " + msg);
             }
@@ -199,7 +192,6 @@ public class BluetoothMediaBrowserService extends MediaBrowserService {
         filter.addAction(AvrcpControllerService.ACTION_BROWSE_CONNECTION_STATE_CHANGED);
         filter.addAction(AvrcpControllerService.ACTION_TRACK_EVENT);
         filter.addAction(AvrcpControllerService.ACTION_FOLDER_LIST);
-        filter.addAction(BluetoothMediaBrowserService.ACTION_DEVICE_UPDATED);
         registerReceiver(mBtReceiver, filter);
 
         synchronized (this) {
@@ -428,8 +420,6 @@ public class BluetoothMediaBrowserService extends MediaBrowserService {
                         new Pair<PlaybackState, MediaMetadata>(pbb, mmd)).sendToTarget();
             } else if (AvrcpControllerService.ACTION_FOLDER_LIST.equals(action)) {
                 mAvrcpCommandQueue.obtainMessage(MSG_FOLDER_LIST, intent).sendToTarget();
-            } else if (ACTION_DEVICE_UPDATED.equals(action)) {
-                 mAvrcpCommandQueue.obtainMessage(MSG_DEVICE_UPDATED, btDev).sendToTarget();
             }
         }
     };
@@ -446,22 +436,6 @@ public class BluetoothMediaBrowserService extends MediaBrowserService {
         refreshInitialPlayingState();
     }
 
-    private synchronized void msgDeviceUpdated(BluetoothDevice device) {
-        if (device != null && device.equals(mA2dpDevice)) {
-            return;
-        }
-        Log.d(TAG, "msgDeviceUpdated. Previous: " + mA2dpDevice + " New: " + device);
-        // We are connected to a new device via A2DP now.
-        mA2dpDevice = device;
-        mAvrcpCtrlSrvc = AvrcpControllerService.getAvrcpControllerService();
-        if (mAvrcpCtrlSrvc == null) {
-            Log.e(TAG, "!!!AVRCP Controller cannot be null");
-            return;
-        }
-        if (mAvrcpCtrlSrvc.isBrowsingConnected(device))
-            notifyChildrenChanged("__ROOT__");
-        refreshInitialPlayingState();
-    }
 
     // Refresh the UI if we have a connected device and AVRCP is initialized.
     private synchronized void refreshInitialPlayingState() {
@@ -476,10 +450,11 @@ public class BluetoothMediaBrowserService extends MediaBrowserService {
             return;
         }
 
-        if (mA2dpDevice != null && !devices.contains(mA2dpDevice)) {
+        if (mA2dpDevice != null && !mA2dpDevice.equals(devices.get(0))) {
             Log.w(TAG, "A2dp device : " + mA2dpDevice + " avrcp device " + devices.get(0));
             return;
         }
+        mA2dpDevice = devices.get(0);
         mA2dpSinkService = A2dpSinkService.getA2dpSinkService();
 
         PlaybackState playbackState = mAvrcpCtrlSrvc.getPlaybackState(mA2dpDevice);

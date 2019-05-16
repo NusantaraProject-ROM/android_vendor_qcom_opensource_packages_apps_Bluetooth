@@ -100,11 +100,11 @@ class AvrcpControllerStateMachine extends StateMachine {
 
     private static final String TAG = "AvrcpControllerSM";
     private static final boolean DBG = true;
-    private static final boolean VDBG = AvrcpControllerService.VDBG;
+    private static final boolean VDBG = false;
 
     private final Context mContext;
     private final AudioManager mAudioManager;
-    private AvrcpControllerBipStateMachine mBipStateMachine;
+    private static AvrcpControllerBipStateMachine mBipStateMachine;
     private static CoverArtUtils mCoveArtUtils;
     private final State mDisconnected;
     private final State mConnected;
@@ -128,14 +128,9 @@ class AvrcpControllerStateMachine extends StateMachine {
     // Browse tree.
     private BrowseTree mBrowseTree = new BrowseTree();
 
-    private final BluetoothDevice mDevice;
-    protected boolean mBrowsingConnected = false;
-    protected int prevState = -1;
-
-    AvrcpControllerStateMachine(Context context, BluetoothDevice device) {
+    AvrcpControllerStateMachine(Context context) {
         super(TAG);
         mContext = context;
-        mDevice = device;
 
         mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
         IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
@@ -166,18 +161,8 @@ class AvrcpControllerStateMachine extends StateMachine {
     class Disconnected extends State {
 
         @Override
-        public void enter() {
-            Log.d(TAG, "Enter State: Disconnected mDevice: " + mDevice);
-            mBrowsingConnected = false;
-            if (prevState != -1) {
-                AvrcpControllerService.removeStateMachine(mDevice);
-           }
-        }
-
-        @Override
         public boolean processMessage(Message msg) {
-            if (DBG) Log.d(TAG, " HandleMessage: " + dumpMessageString(msg.what)
-                    + ", mDevice: " + mDevice);
+            if (DBG) Log.d(TAG, " HandleMessage: " + dumpMessageString(msg.what));
             switch (msg.what) {
                 case MESSAGE_PROCESS_CONNECTION_CHANGE:
                     if (msg.arg1 == BluetoothProfile.STATE_CONNECTED) {
@@ -208,12 +193,6 @@ class AvrcpControllerStateMachine extends StateMachine {
                     return false;
             }
             return true;
-        }
-
-        @Override
-        public void exit() {
-            prevState = BluetoothProfile.STATE_DISCONNECTED;
-            log("Exit State: Disconnected: ");
         }
     }
 
@@ -316,13 +295,9 @@ class AvrcpControllerStateMachine extends StateMachine {
                         if (msg.arg1 == 1) {
                             intent.putExtra(BluetoothProfile.EXTRA_STATE,
                                     BluetoothProfile.STATE_CONNECTED);
-                            mBrowsingConnected = true;
                         } else if (msg.arg1 == 0) {
                             intent.putExtra(BluetoothProfile.EXTRA_STATE,
                                     BluetoothProfile.STATE_DISCONNECTED);
-                            // If browse is disconnected, the next time we connect we should
-                            // be at the ROOT.
-                            mBrowsingConnected = false;
                         } else {
                             Log.w(TAG, "Incorrect browse state " + msg.arg1);
                         }
@@ -456,12 +431,6 @@ class AvrcpControllerStateMachine extends StateMachine {
                 }
             }
             return true;
-        }
-
-        @Override
-        public void exit() {
-            prevState = BluetoothProfile.STATE_CONNECTED;
-            log("Exit State: Connected: " + mDevice + ", currentMsg: " + getCurrentMessage().what);
         }
     }
 
@@ -889,22 +858,6 @@ class AvrcpControllerStateMachine extends StateMachine {
     private void setAbsVolume(int absVol, int label) {
         int maxVolume = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
         int currIndex = mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
-        /* If SetAbsVolume Control Cmd is received from non-Streaming device then the
-         * requested volume level will not be set fot rendering and current Abs vol level
-         *  at DUT (sink: rendering device) will be sent in response. */
-        Log.d(TAG, "Streaming device: " + A2dpSinkService.getCurrentStreamingDevice()
-                + " Device:" + mDevice + "absVol " + absVol + "label " + label);
-        if (!mDevice.equals(A2dpSinkService.getCurrentStreamingDevice())) {
-            Log.w(TAG, "Volume change request came from non-streaming device," +
-                    "respond with current absVol: " + absVol);
-            AvrcpControllerService.sendAbsVolRspNative(mRemoteDevice.getBluetoothAddress(), absVol,
-                label);
-            int percentageVol = getVolumePercentage();
-            AvrcpControllerService.sendRegisterAbsVolRspNative(mRemoteDevice.getBluetoothAddress(),
-                NOTIFICATION_RSP_TYPE_CHANGED, percentageVol, mRemoteDevice.getNotificationLabel());
-            mPreviousPercentageVol = percentageVol;
-            return;
-        }
         // Ignore first volume command since phone may not know difference between stream volume
         // and amplifier volume.
         if (mRemoteDevice.getFirstAbsVolCmdRecvd()) {
@@ -992,14 +945,5 @@ class AvrcpControllerStateMachine extends StateMachine {
                 break;
         }
         return str;
-    }
-
-    BluetoothDevice getDevice() {
-        return mDevice;
-    }
-
-    boolean isBrowsingConnected() {
-        Log.d(TAG, "mBrowsingConnected = " + mBrowsingConnected);
-        return mBrowsingConnected;
     }
 }

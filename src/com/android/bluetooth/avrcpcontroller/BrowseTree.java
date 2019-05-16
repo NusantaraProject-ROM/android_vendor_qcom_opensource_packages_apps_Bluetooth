@@ -40,7 +40,7 @@ import java.util.List;
 public class BrowseTree {
     private static final String TAG = "BrowseTree";
     private static final boolean DBG = false;
-    private static final boolean VDBG = AvrcpControllerService.VDBG;
+    private static final boolean VDBG = false;
 
     public static final String ROOT = "__ROOT__";
     public static final String UP = "__UP__";

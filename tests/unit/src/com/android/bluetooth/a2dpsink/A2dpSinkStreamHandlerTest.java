@@ -18,7 +18,6 @@ package com.android.bluetooth.a2dpsink;
 
 import static org.mockito.Mockito.*;
 
-import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
@@ -49,11 +48,7 @@ public class A2dpSinkStreamHandlerTest {
 
     @Mock private Context mMockContext;
 
-    @Mock private A2dpSinkService mMockA2dpSink;
-
-    @Mock private A2dpSinkStateMachine mMockA2dpSinkMachine;
-
-    @Mock private BluetoothDevice mMockDevice;
+    @Mock private A2dpSinkStateMachine mMockA2dpSink;
 
     @Mock private AudioManager mMockAudioManager;
 
@@ -86,8 +81,7 @@ public class A2dpSinkStreamHandlerTest {
         when(mMockContext.getPackageManager()).thenReturn(mMockPackageManager);
         when(mMockPackageManager.hasSystemFeature(any())).thenReturn(false);
 
-        mStreamHandler = spy(new A2dpSinkStreamHandler(mMockA2dpSinkMachine, mMockContext,
-                                             mMockDevice));
+        mStreamHandler = spy(new A2dpSinkStreamHandler(mMockA2dpSink, mMockContext));
     }
 
     @Test

@@ -54,7 +54,7 @@ import java.util.List;
  * restored.
  */
 public class A2dpSinkStreamHandler extends Handler {
-    private static final boolean DBG = true;
+    private static final boolean DBG = false;
     private static final String TAG = "A2dpSinkStreamHandler";
 
     // Configuration Variables
@@ -72,7 +72,6 @@ public class A2dpSinkStreamHandler extends Handler {
     public static final int AUDIO_FOCUS_CHANGE = 7; // Audio focus callback with associated change
     public static final int REQUEST_FOCUS = 8; // Request focus when the media service is active
     public static final int DELAYED_PAUSE = 9; // If a call just started allow stack time to settle
-    public static final int RELEASE_FOCUS = 10; // Release focus when requested
 
     // Used to indicate focus lost
     private static final int STATE_FOCUS_LOST = 0;
@@ -88,7 +87,6 @@ public class A2dpSinkStreamHandler extends Handler {
     private boolean mSentPause = false;
     // Keep track of the relevant audio focus (None, Transient, Gain)
     private int mAudioFocus = AudioManager.AUDIOFOCUS_NONE;
-    private BluetoothDevice mDevice;
 
     // In order for Bluetooth to be considered as an audio source capable of receiving media key
     // events (In the eyes of MediaSessionService), we need an active MediaPlayer in addition to a
@@ -112,20 +110,18 @@ public class A2dpSinkStreamHandler extends Handler {
         }
     };
 
-    public A2dpSinkStreamHandler(A2dpSinkStateMachine a2dpSinkSm, Context context,
-            BluetoothDevice device) {
+    public A2dpSinkStreamHandler(A2dpSinkStateMachine a2dpSinkSm, Context context) {
         mA2dpSinkSm = a2dpSinkSm;
         mContext = context;
-        mDevice = device;
         mAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
     }
 
     @Override
     public void handleMessage(Message message) {
         if (DBG) {
-            Log.d(TAG, " process message: " + message.what + ", device:" + mDevice);
+            Log.d(TAG, " process message: " + message.what);
+            Log.d(TAG, " audioFocus =  " + mAudioFocus);
         }
-
         switch (message.what) {
             case SRC_STR_START:
                 if (isTvDevice() || shouldRequestFocus()) {
@@ -170,10 +166,6 @@ public class A2dpSinkStreamHandler extends Handler {
 
             case REQUEST_FOCUS:
                 requestAudioFocusIfNone();
-                break;
-
-            case RELEASE_FOCUS:
-                abandonAudioFocus();
                 break;
 
             case DISCONNECT:
@@ -252,7 +244,6 @@ public class A2dpSinkStreamHandler extends Handler {
     }
 
     private synchronized int requestAudioFocus() {
-        if (DBG) Log.d(TAG, "requestAudioFocus()");
         // Bluetooth A2DP may carry Music, Audio Books, Navigation, or other sounds so mark content
         // type unknown.
         AudioAttributes streamAttributes =
@@ -268,7 +259,6 @@ public class A2dpSinkStreamHandler extends Handler {
                         .setOnAudioFocusChangeListener(mAudioFocusListener, this)
                         .build();
         int focusRequestStatus = mAudioManager.requestAudioFocus(focusRequest);
-        Log.d(TAG, "focusRequestStatus = " + focusRequestStatus);
         // If the request is granted begin streaming immediately and schedule an upgrade.
         if (focusRequestStatus == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
             startFluorideStreaming();
@@ -335,16 +325,16 @@ public class A2dpSinkStreamHandler extends Handler {
     }
 
     private void startFluorideStreaming() {
-        A2dpSinkService.informAudioFocusStateNative(STATE_FOCUS_GRANTED);
-        A2dpSinkService.informAudioTrackGainNative(1.0f);
+        mA2dpSinkSm.informAudioFocusStateNative(STATE_FOCUS_GRANTED);
+        mA2dpSinkSm.informAudioTrackGainNative(1.0f);
     }
 
     private void stopFluorideStreaming() {
-        A2dpSinkService.informAudioFocusStateNative(STATE_FOCUS_LOST);
+        mA2dpSinkSm.informAudioFocusStateNative(STATE_FOCUS_LOST);
     }
 
     private void setFluorideAudioTrackGain(float gain) {
-        A2dpSinkService.informAudioTrackGainNative(gain);
+        mA2dpSinkSm.informAudioTrackGainNative(gain);
     }
 
     private void sendAvrcpPause() {
