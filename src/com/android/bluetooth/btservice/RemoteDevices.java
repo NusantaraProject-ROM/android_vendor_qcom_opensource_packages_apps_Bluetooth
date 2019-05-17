@@ -637,6 +637,7 @@ final class RemoteDevices {
                             intent.putExtra(BluetoothDevice.EXTRA_DEVICE, bdDevice);
                             intent.putExtra(BluetoothDevice.EXTRA_NAME, device.mName);
                             intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
+                            intent.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
                             sAdapterService.sendBroadcast(intent, sAdapterService.BLUETOOTH_PERM);
                             debugLog("Remote Device name is: " + device.mName);
                             break;
