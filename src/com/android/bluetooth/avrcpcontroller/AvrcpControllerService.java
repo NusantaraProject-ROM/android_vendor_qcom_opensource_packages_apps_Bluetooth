@@ -45,8 +45,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AvrcpControllerService extends ProfileService {
     static final String TAG = "AvrcpControllerService";
     static final int MAXIMUM_CONNECTED_DEVICES = 5;
-    static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
-    static final boolean VDBG = Log.isLoggable(TAG, Log.VERBOSE);
+    static final boolean DBG = true;
+    static final boolean VDBG = true;
 
     public static final String MEDIA_ITEM_UID_KEY = "media-item-uid-key";
     /*
@@ -89,6 +89,13 @@ public class AvrcpControllerService extends ProfileService {
     /* Key State Variables */
     public static final int KEY_STATE_PRESSED = 0;
     public static final int KEY_STATE_RELEASED = 1;
+
+    public static final String ACTION_TRACK_EVENT =
+             "android.bluetooth.avrcp-controller.profile.action.TRACK_EVENT";
+    public static final String EXTRA_PLAYBACK =
+            "android.bluetooth.avrcp-controller.profile.extra.PLAYBACK";
+
+
 
     static BrowseTree sBrowseTree;
     private static AvrcpControllerService sService;
@@ -303,17 +310,12 @@ public class AvrcpControllerService extends ProfileService {
     }
 
     // Called by JNI to notify Avrcp of features supported by the Remote device.
-/*
     private void getRcFeatures(byte[] address, int features, int caPsm) {
-        Log.i(TAG, " getRcFeatures caPsm :" + caPsm);
+        /*Log.i(TAG, " getRcFeatures caPsm :" + caPsm);
         BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address);
         Message msg = mAvrcpCtSm.obtainMessage(
             AvrcpControllerStateMachine.MESSAGE_PROCESS_RC_FEATURES, features, caPsm, device);
-        mAvrcpCtSm.sendMessage(msg);
-*/
-    private void getRcFeatures(byte[] address, int features) {
-        /* Do Nothing. */
-
+        mAvrcpCtSm.sendMessage(msg); */
     }
 
     // Called by JNI
@@ -362,6 +364,11 @@ public class AvrcpControllerService extends ProfileService {
         }
 
     }
+
+     private void onElementAttributeUpdate(byte[] address, byte numAttributes, int[] attributes,
+            String[] attribVals) {
+
+     }
 
     // Called by JNI periodically based upon timer to update play position
     private synchronized void onPlayPositionChanged(byte[] address, int songLen,
@@ -695,6 +702,15 @@ public class AvrcpControllerService extends ProfileService {
                 : stateMachine.getState();
     }
 
+    public void onDeviceUpdated(BluetoothDevice device) {
+        AvrcpControllerStateMachine stateMachine = mDeviceStateMap.get(device);
+        if (stateMachine != null) {
+            Log.d(TAG, "Send device: " + device + " updated meassage to Avrcpstatemachine");
+            stateMachine.sendMessage(AvrcpControllerStateMachine.MSG_DEVICE_UPDATED,
+                    device);
+        }
+    }
+
     @Override
     public void dump(StringBuilder sb) {
         super.dump(sb);
@@ -715,7 +731,7 @@ public class AvrcpControllerService extends ProfileService {
 
     private native void cleanupNative();
 
-    static native boolean sendPassThroughCommandNative(byte[] address, int keyCode, int keyState);
+    public native boolean sendPassThroughCommandNative(byte[] address, int keyCode, int keyState);
 
     static native boolean sendGroupNavigationCommandNative(byte[] address, int keyCode,
             int keyState);

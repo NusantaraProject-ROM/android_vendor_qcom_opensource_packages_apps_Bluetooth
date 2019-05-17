@@ -45,7 +45,7 @@ import java.util.List;
  */
 public class BluetoothMediaBrowserService extends MediaBrowserService {
     private static final String TAG = "BluetoothMediaBrowserService";
-    private static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
+    private static final boolean DBG = true;
 
     private static BluetoothMediaBrowserService sBluetoothMediaBrowserService;
 
@@ -53,6 +53,7 @@ public class BluetoothMediaBrowserService extends MediaBrowserService {
 
     // Browsing related structures.
     private List<MediaSession.QueueItem> mMediaQueue = new ArrayList<>();
+
 
     /**
      * Initialize this BluetoothMediaBrowserService, creating our MediaSession, MediaPlayer and

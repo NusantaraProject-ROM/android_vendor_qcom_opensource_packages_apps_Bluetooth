@@ -33,12 +33,14 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.media.AudioManager;
+import android.media.AudioAttributes;
 import android.media.AudioPlaybackConfiguration;
 import android.media.MediaDescription;
 import android.media.MediaMetadata;
 import android.media.session.MediaSession;
 import android.media.session.MediaSessionManager;
 import android.media.session.PlaybackState;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -349,6 +351,8 @@ public final class Avrcp {
                 NotificationManager.IMPORTANCE_DEFAULT);
         mChannel.setDescription(mContext.getString(R.string.bluetooth_advanced_feat_description));
         mChannel.enableLights(true);
+        mChannel.enableVibration(false);
+        mChannel.setSound(Uri.EMPTY, Notification.AUDIO_ATTRIBUTES_DEFAULT);
         mChannel.setLightColor(Color.GREEN);
         mNotificationManager.createNotificationChannel(mChannel);
 
@@ -558,13 +562,12 @@ public final class Avrcp {
 
                     if ((mFeatures & BTRC_FEAT_AVRC_UI_UPDATE) != 0) {
                         int NOTIFICATION_ID = android.R.drawable.stat_sys_data_bluetooth;
-                        Notification notification = new Notification.Builder(mContext)
+                        Notification notification = new Notification.Builder(mContext, AVRCP_NOTIFICATION_ID)
                             .setContentTitle(mContext.getString(R.string.bluetooth_rc_feat_title))
                             .setContentText(mContext.getString(R.string.bluetooth_rc_feat_content))
                             .setSubText(mContext.getString(R.string.bluetooth_rc_feat_subtext))
                             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
                             .setChannelId(AVRCP_NOTIFICATION_ID)
-                            .setDefaults(Notification.DEFAULT_ALL)
                             .build();
 
                         if (mNotificationManager != null )
