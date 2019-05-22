@@ -1784,6 +1784,14 @@ public class HeadsetStateMachine extends StateMachine {
         return mConnectingTimestampMs;
     }
 
+    public boolean isPendingRetryConnect() {
+        if((getConnectionState() == BluetoothHeadset.STATE_DISCONNECTED) &&
+            (retryConnectCount > 0) && hasMessages(CONNECT)) {
+            return true;
+        }
+        return false;
+    }
+
     /*
      * Put the AT command, company ID, arguments, and device in an Intent and broadcast it.
      */

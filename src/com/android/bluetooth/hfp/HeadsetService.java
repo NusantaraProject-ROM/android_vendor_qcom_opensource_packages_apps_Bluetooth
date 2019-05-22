@@ -900,6 +900,7 @@ public class HeadsetService extends ProfileService {
             }
             List<BluetoothDevice> connectingConnectedDevices =
                     getAllDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES);
+            addAllDevicesPendingRetryConnect(connectingConnectedDevices);
             boolean disconnectExisting = false;
             mDisconnectAll = false;
             if (connectingConnectedDevices.size() == 0) {
@@ -977,6 +978,21 @@ public class HeadsetService extends ProfileService {
             }
         }
         return devices;
+    }
+
+    private void addAllDevicesPendingRetryConnect(List<BluetoothDevice> devices) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        Log.d(TAG, " add all devices pending retry connect");
+        synchronized (mStateMachines) {
+            for (HeadsetStateMachine stateMachine : mStateMachines.values()) {
+                BluetoothDevice device = stateMachine.getDevice();
+                if ((stateMachine.isPendingRetryConnect() == true) &&
+                    (!devices.contains(device))) {
+                    devices.add(device);
+                    Log.d(TAG, " add pending retry connect device: " + device);
+                }
+            }
+        }
     }
 
     /**
@@ -2101,6 +2117,7 @@ public class HeadsetService extends ProfileService {
         }
         List<BluetoothDevice> connectingConnectedDevices =
                 getAllDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES);
+        addAllDevicesPendingRetryConnect(connectingConnectedDevices);
         if (!isConnectionAllowed(device, connectingConnectedDevices)) {
             Log.w(TAG, "Maximum number of connections " + mMaxHeadsetConnections
                     + " was reached, rejecting connection from " + device);
