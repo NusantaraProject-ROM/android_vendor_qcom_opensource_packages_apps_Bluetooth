@@ -214,7 +214,7 @@ public class BluetoothOppSendFileInfo {
                 }
             } catch (FileNotFoundException e) {
                 // Ignore
-            } catch (IllegalStateException e) {
+            } catch (SecurityException | IllegalStateException e) {
                 Log.e(TAG, "Error generateFileInfo ", e);
                 return SEND_FILE_INFO_ERROR;
             }
