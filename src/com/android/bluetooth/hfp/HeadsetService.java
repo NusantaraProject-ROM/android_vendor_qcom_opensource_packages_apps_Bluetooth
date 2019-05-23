@@ -127,6 +127,9 @@ public class HeadsetService extends ProfileService {
     private boolean mDisconnectAll;
     private boolean mIsTwsPlusEnabled = false;
     private boolean mIsTwsPlusShoEnabled = false;
+    private vendorhfservice  mVendorHf;
+    private boolean mIsSwbEnabled = false;
+    private boolean mIsSwbPmEnabled = false;
 
     @Override
     public IProfileServiceBinder initBinder() {
@@ -140,6 +143,7 @@ public class HeadsetService extends ProfileService {
             throw new IllegalStateException("create() called twice");
         }
         mCreated = true;
+        mVendorHf = new vendorhfservice(this);
     }
 
     @Override
@@ -164,6 +168,8 @@ public class HeadsetService extends ProfileService {
             String twsPlusEnabled = SystemProperties.get("persist.vendor.btstack.enable.twsplus");
             String twsPlusShoEnabled =
                SystemProperties.get("persist.vendor.btstack.enable.twsplussho");
+            String swbEnabled = SystemProperties.get("persist.vendor.btstack.enable.swb");
+            String swbPmEnabled = SystemProperties.get("persist.vendor.btstack.enable.swbpm");
             if (!twsPlusEnabled.isEmpty() && "true".equals(twsPlusEnabled)) {
                 mIsTwsPlusEnabled = true;
             }
@@ -175,8 +181,16 @@ public class HeadsetService extends ProfileService {
                     mIsTwsPlusShoEnabled = false;
                 }
             }
+            if (!swbEnabled.isEmpty() && "true".equals(swbEnabled)) {
+                mIsSwbEnabled = true;
+            }
+            if (!swbPmEnabled.isEmpty() && "true".equals(swbPmEnabled)) {
+                mIsSwbPmEnabled = true;
+            }
             Log.i(TAG, "mIsTwsPlusEnabled: " + mIsTwsPlusEnabled);
             Log.i(TAG, "mIsTwsPlusShoEnabled: " + mIsTwsPlusShoEnabled);
+            Log.i(TAG, "mIsSwbEnabled: " + mIsSwbEnabled);
+            Log.i(TAG, "mIsSwbPmEnabled: " + mIsSwbPmEnabled);
             if (mIsTwsPlusEnabled && mMaxHeadsetConnections < 2){
                //set MaxConn to 2 if TWSPLUS enabled
                mMaxHeadsetConnections = 2;
@@ -218,6 +232,11 @@ public class HeadsetService extends ProfileService {
         mStarted = true;
 
         mHfpA2dpSyncInterface = new HeadsetA2dpSync(mSystemInterface, this);
+        if (mVendorHf != null) {
+            mVendorHf.init();
+            mVendorHf.enableSwb(mIsSwbEnabled);
+        }
+
         Log.i(TAG, " HeadsetService Started ");
         return true;
     }
@@ -298,6 +317,9 @@ public class HeadsetService extends ProfileService {
         Log.i(TAG, "cleanup");
         if (!mCreated) {
             Log.w(TAG, "cleanup() called before create()");
+        }
+        if (mVendorHf != null) {
+            mVendorHf.cleanup();
         }
         mCreated = false;
     }
@@ -430,8 +452,8 @@ public class HeadsetService extends ProfileService {
                                 + ", scale=" + scale);
                         return;
                     }
-                    batteryLevel = batteryLevel * 5 / scale;
-                    mSystemInterface.getHeadsetPhoneState().setCindBatteryCharge(batteryLevel);
+                    int cindBatteryLevel = Math.round(batteryLevel * 5 / ((float) scale));
+                    mSystemInterface.getHeadsetPhoneState().setCindBatteryCharge(cindBatteryLevel);
                     break;
                 }
                 case AudioManager.VOLUME_CHANGED_ACTION: {
@@ -1215,6 +1237,7 @@ public class HeadsetService extends ProfileService {
                 stateMachine.sendMessage(HeadsetStateMachine.VOICE_RECOGNITION_START, device);
             }
         }
+        enableSwbCodec(true);
         return true;
     }
 
@@ -1856,6 +1879,7 @@ public class HeadsetService extends ProfileService {
             if (!mSystemInterface.getVoiceRecognitionWakeLock().isHeld()) {
                 mSystemInterface.getVoiceRecognitionWakeLock().acquire(sStartVrTimeoutMs);
             }
+            enableSwbCodec(true);
             return true;
         }
     }
@@ -2264,18 +2288,24 @@ public class HeadsetService extends ProfileService {
         }
         if(!isPts) {
             // Check priority and accept or reject the connection.
+            // Note: Logic can be simplified, but keeping it this way for readability
             int priority = getPriority(device);
             int bondState = mAdapterService.getBondState(device);
-            // Allow this connection only if the device is bonded. Any attempt to connect while
-            // bonding would potentially lead to an unauthorized connection.
-            if (bondState != BluetoothDevice.BOND_BONDED) {
-                Log.w(TAG, "okToAcceptConnection: return false, bondState=" + bondState);
-                return false;
-            } else if (priority != BluetoothProfile.PRIORITY_UNDEFINED
-                    && priority != BluetoothProfile.PRIORITY_ON
-                    && priority != BluetoothProfile.PRIORITY_AUTO_CONNECT) {
-                // Otherwise, reject the connection if priority is not valid.
-                Log.w(TAG, "okToAcceptConnection: return false, priority=" + priority);
+            // If priority is undefined, it is likely that service discovery has not completed and peer
+            // initiated the connection. Allow this connection only if the device is bonded or bonding
+            boolean serviceDiscoveryPending = (priority == BluetoothProfile.PRIORITY_UNDEFINED) && (
+                    bondState == BluetoothDevice.BOND_BONDING
+                            || bondState == BluetoothDevice.BOND_BONDED);
+            // Also allow connection when device is bonded/bonding and priority is ON/AUTO_CONNECT.
+            boolean isEnabled = (priority == BluetoothProfile.PRIORITY_ON
+                    || priority == BluetoothProfile.PRIORITY_AUTO_CONNECT) && (
+                    bondState == BluetoothDevice.BOND_BONDED
+                            || bondState == BluetoothDevice.BOND_BONDING);
+            if (!serviceDiscoveryPending && !isEnabled) {
+                // Otherwise, reject the connection if no service discovery is pending and priority is
+                // neither PRIORITY_ON nor PRIORITY_AUTO_CONNECT
+                Log.w(TAG,
+                        "okToConnect: return false, priority=" + priority + ", bondState=" + bondState);
                 return false;
             }
         }
@@ -2391,6 +2421,18 @@ public class HeadsetService extends ProfileService {
                 stateMachine.dump(sb);
             }
         }
+    }
+
+    public void enableSwbCodec(boolean enable) {
+        mVendorHf.enableSwb(enable);
+    }
+
+    public boolean isSwbEnabled() {
+        return mIsSwbEnabled;
+    }
+
+    public boolean isSwbPmEnabled() {
+        return mIsSwbPmEnabled;
     }
 
     private static void logD(String message) {

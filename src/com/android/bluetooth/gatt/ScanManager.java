@@ -50,6 +50,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -624,9 +625,13 @@ public class ScanManager {
                         if (mBatchClients.isEmpty()) {
                             return;
                         }
-                        // Note this actually flushes all pending batch data.
-                        if (mBatchClients.iterator().hasNext()) {
-                            flushBatchScanResults(mBatchClients.iterator().next());
+                        try {
+                            // Note this actually flushes all pending batch data.
+                            if (mBatchClients.iterator().hasNext()) {
+                                flushBatchScanResults(mBatchClients.iterator().next());
+                            }
+                        } catch (NoSuchElementException e) {
+                            Log.e(TAG, "Element not found: " + e);
                         }
                     }
                 }

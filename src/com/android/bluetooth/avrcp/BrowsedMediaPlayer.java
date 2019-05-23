@@ -51,7 +51,7 @@ class BrowsedMediaPlayer {
     private static final int BROWSED_ITEM_ID_INDEX = 2;
     private static final int BROWSED_FOLDER_ID_INDEX = 4;
     private static final String[] ROOT_FOLDER = {"root"};
-
+    private static boolean mPlayerRoot = false;
     /*  package and service name of target Media Player which is set for browsing */
     private String mPackageName;
     private String mConnectingPackageName;
@@ -342,6 +342,9 @@ class BrowsedMediaPlayer {
                         Log.d(TAG,"external path length: " + ExternalPath.length);
                         if (ExternalPath.length == 1) {
                             mLocalPathCache.push(mMediaId);
+                        } else if (ExternalPath.length == 0 && mMediaId.equals("/")) {
+                            mPlayerRoot = true;
+                            mLocalPathCache.push(mMediaId);
                         } else {
                             //to trim the root in GMP which comes as "com.google.android.music.generic/root"
                             mLocalPathCache.push(ExternalPath[ExternalPath.length - 1]);
@@ -377,6 +380,7 @@ class BrowsedMediaPlayer {
            mFolderItems = null;
            mMediaId = null;
            mRootFolderUid = null;
+           mPlayerRoot = false;
            /*
             * create stack to store the navigation trail (current folder ID). This
             * will be required while navigating up the folder
@@ -402,16 +406,24 @@ class BrowsedMediaPlayer {
                     String path = mPathStack.peek();
                     mPathStack.push(top);
                     String [] ExternalPath = path.split("/");
-                    if(ExternalPath != null && ExternalPath.length > 1) {
-                       Log.d(TAG,"external path length: " + ExternalPath.length);
-                       String [] folderPath = new String[ExternalPath.length - 1];
-                       for (int i = 0; i < (ExternalPath.length - 1); i++) {
-                            folderPath[i] = ExternalPath[i + 1];
-                            Log.d(TAG,"folderPath[" + i + "] = " + folderPath[i]);
+                    if (!mPlayerRoot && ExternalPath != null && ExternalPath.length > 1) {
+                        Log.d(TAG,"external path length: " + ExternalPath.length);
+                        String [] folderPath = new String[ExternalPath.length - 1];
+                        for (int i = 0; i < (ExternalPath.length - 1); i++) {
+                             folderPath[i] = ExternalPath[i + 1];
+                             Log.d(TAG,"folderPath[" + i + "] = " + folderPath[i]);
                         }
                         mMediaInterface.setBrowsedPlayerRsp(mBDAddr, rsp_status,
                             (byte)folder_depth, mFolderItems.size(), folderPath);
-                    } else if (mLocalPathCache.size() > 1 && ExternalPath.length == 1) {
+                    } else if (!mPlayerRoot && mLocalPathCache.size() > 1 && ExternalPath.length == 1) {
+                        String [] folderPath = new String[mLocalPathCache.size() - 1];
+                        folderPath = mLocalPathCache.toArray(folderPath);
+                        for (int i = 0; i < mLocalPathCache.size() - 1; i++) {
+                             Log.d(TAG,"folderPath[" + i + "] = " + folderPath[i]);
+                        }
+                        mMediaInterface.setBrowsedPlayerRsp(mBDAddr, rsp_status,
+                            (byte)folder_depth, mFolderItems.size(), folderPath);
+                    } else if (mPlayerRoot && mLocalPathCache.size() > 1) {
                         String [] folderPath = new String[mLocalPathCache.size() - 1];
                         folderPath = mLocalPathCache.toArray(folderPath);
                         for (int i = 0; i < mLocalPathCache.size() - 1; i++) {
@@ -448,10 +460,15 @@ class BrowsedMediaPlayer {
         mFolderItems = null;
         mMediaId = null;
         mRootFolderUid = null;
+        mPlayerRoot = false;
 
         if (mPathStack != null)
             mPathStack = null;
         mPathStack = new Stack<String>();
+
+        if (mLocalPathCache != null)
+            mLocalPathCache = null;
+        mLocalPathCache = new Stack<String>();
 
         MediaConnectionCallback callback = new MediaConnectionCallback(packageName);
         MediaBrowser tempBrowser = new MediaBrowser(
@@ -483,6 +500,7 @@ class BrowsedMediaPlayer {
         mMediaBrowser = null;
         mPathStack = null;
         mLocalPathCache = null;
+        mPlayerRoot = false;
     }
 
     public boolean isPlayerConnected() {

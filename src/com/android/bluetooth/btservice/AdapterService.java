@@ -117,7 +117,6 @@ import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.NetworkInfo;
 
-import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.io.FileDescriptor;
@@ -312,6 +311,18 @@ public class AdapterService extends Service {
         Log.i(TAG, "In voipNetworkWifiInfo, isVoipStarted: " + isVoipStarted +
                     ", isNetworkWifi: " + isNetworkWifi);
         mVendor.voipNetworkWifiInformation(isVoipStarted, isNetworkWifi);
+    }
+
+    public String getSocName() {
+        return mVendor.getSocName();
+    }
+
+    public String getA2apOffloadCapability() {
+        return mVendor.getA2apOffloadCapability();
+    }
+
+    public boolean isSplitA2dpEnabled() {
+        return mVendor.isSplitA2dpEnabled();
     }
 
     private static final int MESSAGE_PROFILE_SERVICE_STATE_CHANGED = 1;
@@ -1879,7 +1890,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean setMetadata(BluetoothDevice device, int key, String value) {
+        public boolean setMetadata(BluetoothDevice device, int key, byte[] value) {
             AdapterService service = getService();
             if (service == null) {
                 return false;
@@ -1888,7 +1899,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public String getMetadata(BluetoothDevice device, int key) {
+        public byte[] getMetadata(BluetoothDevice device, int key) {
             AdapterService service = getService();
             if (service == null) {
                 return null;
@@ -2390,18 +2401,6 @@ public class AdapterService extends Service {
         for (BluetoothDevice device : bondedDevices) {
             mRemoteDevices.updateUuids(device);
         }
-    }
-
-    /**
-     * Update device UUID changed to {@link BondStateMachine}
-     *
-     * @param device remote device of interest
-     */
-    public void deviceUuidUpdated(BluetoothDevice device) {
-        // Notify BondStateMachine for SDP complete / UUID changed.
-        Message msg = mBondStateMachine.obtainMessage(BondStateMachine.UUID_UPDATE);
-        msg.obj = device;
-        mBondStateMachine.sendMessage(msg);
     }
 
     boolean cancelBondProcess(BluetoothDevice device) {
@@ -2917,8 +2916,10 @@ public class AdapterService extends Service {
      * @return true if Split A2DP Source LDAC  is enabled
      */
     public boolean isSplitA2DPSourceLDAC() {
+        String BT_SOC = getSocName();
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
-        return mAdapterProperties.isSplitA2DPSourceLDAC();
+        return (!mAdapterProperties.isAddonFeaturesCmdSupported() && BT_SOC.equals("cherokee")) ||
+            mAdapterProperties.isSplitA2DPSourceLDAC();
     }
 
     /**
@@ -2937,8 +2938,10 @@ public class AdapterService extends Service {
      * @return true if Split A2DP Source APTX HD  is enabled
      */
     public boolean isSplitA2DPSourceAPTXHD() {
+        String BT_SOC = getSocName();
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
-        return mAdapterProperties.isSplitA2DPSourceAPTXHD();
+        return (!mAdapterProperties.isAddonFeaturesCmdSupported() && BT_SOC.equals("cherokee")) ||
+            mAdapterProperties.isSplitA2DPSourceAPTXHD();
     }
 
     /**
@@ -2947,9 +2950,10 @@ public class AdapterService extends Service {
      * @return true if Split A2DP Source APTX ADAPTIVE  is enabled
      */
     public boolean isSplitA2DPSourceAPTXADAPTIVE() {
-        String BT_SOC = SystemProperties.get("vendor.bluetooth.soc");
+        String BT_SOC = getSocName();
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
-        return BT_SOC.equals("cherokee") || mAdapterProperties.isSplitA2DPSourceAPTXADAPTIVE();
+        return (!mAdapterProperties.isAddonFeaturesCmdSupported() && BT_SOC.equals("cherokee")) ||
+            mAdapterProperties.isSplitA2DPSourceAPTXADAPTIVE();
     }
 
     /**
@@ -3377,15 +3381,15 @@ public class AdapterService extends Service {
         return true;
     }
 
-    boolean setMetadata(BluetoothDevice device, int key, String value) {
-        if (value.length() > BluetoothDevice.METADATA_MAX_LENGTH) {
-            Log.e(TAG, "setMetadata: value length too long " + value.length());
+    boolean setMetadata(BluetoothDevice device, int key, byte[] value) {
+        if (value.length > BluetoothDevice.METADATA_MAX_LENGTH) {
+            Log.e(TAG, "setMetadata: value length too long " + value.length);
             return false;
         }
         return mDatabaseManager.setCustomMeta(device, key, value);
     }
 
-    String getMetadata(BluetoothDevice device, int key) {
+    byte[] getMetadata(BluetoothDevice device, int key) {
         return mDatabaseManager.getCustomMeta(device, key);
     }
 
@@ -3393,7 +3397,7 @@ public class AdapterService extends Service {
      * Update metadata change to registered listeners
      */
     @VisibleForTesting
-    public void metadataChanged(String address, int key, String value) {
+    public void metadataChanged(String address, int key, byte[] value) {
         BluetoothDevice device = mRemoteDevices.getDevice(Utils.getBytesFromAddress(address));
         if (mMetadataListeners.containsKey(device)) {
             ArrayList<IBluetoothMetadataListener> list = mMetadataListeners.get(device);
@@ -3541,10 +3545,14 @@ public class AdapterService extends Service {
      *  Obfuscate Bluetooth MAC address into a PII free ID string
      *
      *  @param device Bluetooth device whose MAC address will be obfuscated
-     *  @return a {@link ByteString} that is unique to this MAC address on this device
+     *  @return a byte array that is unique to this MAC address on this device,
+     *          or empty byte array when either device is null or obfuscateAddressNative fails
      */
-    public ByteString obfuscateAddress(BluetoothDevice device) {
-        return ByteString.copyFrom(obfuscateAddressNative(Utils.getByteAddress(device)));
+    public byte[] obfuscateAddress(BluetoothDevice device) {
+         if (device == null) {
+           return new byte[0];
+         }
+         return obfuscateAddressNative(Utils.getByteAddress(device));
     }
 
     static native void classInitNative();

@@ -108,11 +108,6 @@ public class HeadsetSystemInterface {
             // Synchronization should make sure unbind can be successful
             mHeadsetService.unbindService(mPhoneProxyConnection);
         }
-        //sometimes when BT is turned off while in call,
-        // we don't get a chance to move out of AudioOn state
-
-        mAudioManager.setParameters("BT_SCO=off");
-        mAudioManager.setBluetoothScoOn(false);
         mHeadsetPhoneState.cleanup();
     }
 
@@ -238,6 +233,23 @@ public class HeadsetSystemInterface {
             }
         } else {
             Log.e(TAG, "Handsfree phone proxy null for sending DTMF");
+        }
+        return false;
+    }
+
+    /**
+     * Check for HD codec for voice call
+     */
+    @VisibleForTesting
+    public boolean isHighDefCallInProgress() {
+        if (mPhoneProxy != null) {
+            try {
+                return mPhoneProxy.isHighDefCallInProgress();
+            } catch (RemoteException e) {
+                Log.e(TAG, Log.getStackTraceString(new Throwable()));
+            }
+        } else {
+            Log.e(TAG, "Handsfree phone proxy null");
         }
         return false;
     }
