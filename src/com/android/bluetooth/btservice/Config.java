@@ -103,7 +103,7 @@ public class Config {
                     com.android.internal.R.bool.config_hearing_aid_profile_supported,
                     (1 << BluetoothProfile.HEARING_AID)),
             new ProfileConfig(BATService.class, R.bool.profile_supported_ba,
-                    (1 << BluetoothProfile.BA_TRANSMITTER))
+                    (1 << BATService.BA_TRANSMITTER))
     };
 
     private static Class[] sSupportedProfiles = new Class[0];
