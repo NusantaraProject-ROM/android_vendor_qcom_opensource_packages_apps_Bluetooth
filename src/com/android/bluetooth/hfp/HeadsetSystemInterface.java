@@ -238,6 +238,23 @@ public class HeadsetSystemInterface {
     }
 
     /**
+     * Check for HD codec for voice call
+     */
+    @VisibleForTesting
+    public boolean isHighDefCallInProgress() {
+        if (mPhoneProxy != null) {
+            try {
+                return mPhoneProxy.isHighDefCallInProgress();
+            } catch (RemoteException e) {
+                Log.e(TAG, Log.getStackTraceString(new Throwable()));
+            }
+        } else {
+            Log.e(TAG, "Handsfree phone proxy null");
+        }
+        return false;
+    }
+
+    /**
      * Get the the alphabetic name of current registered operator.
      *
      * @return null on error, empty string if not available
