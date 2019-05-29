@@ -28,7 +28,6 @@ import android.media.browse.MediaBrowser;
 import android.media.browse.MediaBrowser.MediaItem;
 import android.media.session.PlaybackState;
 import android.os.Bundle;
-import android.os.HandlerThread;
 import android.os.Message;
 import android.os.SystemProperties;
 import android.util.Log;
@@ -227,8 +226,7 @@ public class AvrcpControllerService extends ProfileService {
 
     @Override
     protected boolean start() {
-        HandlerThread thread = new HandlerThread("BluetoothAvrcpHandler");
-        thread.start();
+        Log.d(TAG, "start()");
 
         mAdapterService = Objects.requireNonNull(AdapterService.getAdapterService(),
                                 "AdapterService cansinkstatenot be null when A2dpService starts");
