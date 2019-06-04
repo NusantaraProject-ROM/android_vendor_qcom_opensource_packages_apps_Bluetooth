@@ -1237,7 +1237,10 @@ public class HeadsetService extends ProfileService {
                 stateMachine.sendMessage(HeadsetStateMachine.VOICE_RECOGNITION_START, device);
             }
         }
-        enableSwbCodec(true);
+        /* VR calls always use SWB if supported on remote*/
+        if(isSwbEnabled()) {
+            enableSwbCodec(true);
+        }
         return true;
     }
 
@@ -1879,7 +1882,10 @@ public class HeadsetService extends ProfileService {
             if (!mSystemInterface.getVoiceRecognitionWakeLock().isHeld()) {
                 mSystemInterface.getVoiceRecognitionWakeLock().acquire(sStartVrTimeoutMs);
             }
-            enableSwbCodec(true);
+            /* VR calls always use SWB if supported on remote*/
+            if(isSwbEnabled()) {
+                enableSwbCodec(true);
+            }
             return true;
         }
     }
