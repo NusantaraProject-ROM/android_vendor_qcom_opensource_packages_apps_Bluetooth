@@ -1302,7 +1302,7 @@ public class A2dpService extends ProfileService {
         }
     }
 
-    private void updateOptionalCodecsSupport(BluetoothDevice device) {
+    public void updateOptionalCodecsSupport(BluetoothDevice device) {
         int previousSupport = getSupportsOptionalCodecs(device);
         boolean supportsOptional = false;
 

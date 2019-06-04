@@ -632,6 +632,7 @@ final class A2dpStateMachine extends StateMachine {
     // NOTE: This event is processed in any state
     private void processCodecConfigEvent(BluetoothCodecStatus newCodecStatus) {
         BluetoothCodecConfig prevCodecConfig = null;
+        BluetoothCodecStatus prevCodecStatus = mCodecStatus;
         int new_codec_type = newCodecStatus.getCodecConfig().getCodecType();
         String offloadSupported =
                 SystemProperties.get("persist.vendor.btstack.enable.splita2dp");
@@ -668,6 +669,14 @@ final class A2dpStateMachine extends StateMachine {
                      newCodecStatus.getCodecsSelectableCapabilities()) {
                 Log.d(TAG, "A2DP Codec Selectable Capability: " + codecConfig);
             }
+        }
+
+        if (isConnected() && !sameSelectableCodec(prevCodecStatus, mCodecStatus)) {
+             // Remote selectable codec could be changed if codec config changed
+             // in connected state, we need to re-check optional codec status
+             // for this codec change event.
+             Log.d(TAG,"updating optional codec support as previous and current codec are different.");
+             mA2dpService.updateOptionalCodecsSupport(mDevice);
         }
 
         if (mA2dpOffloadEnabled) {
@@ -769,6 +778,16 @@ final class A2dpStateMachine extends StateMachine {
                 break;
         }
         return Integer.toString(what);
+    }
+
+    private static boolean sameSelectableCodec(BluetoothCodecStatus prevCodecStatus,
+                                      BluetoothCodecStatus newCodecStatus) {
+        if (prevCodecStatus == null) {
+            return false;
+        }
+        return BluetoothCodecStatus.sameCapabilities(
+                prevCodecStatus.getCodecsSelectableCapabilities(),
+                newCodecStatus.getCodecsSelectableCapabilities());
     }
 
     private static String profileStateToString(int state) {
