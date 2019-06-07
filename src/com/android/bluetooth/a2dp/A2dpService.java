@@ -905,7 +905,7 @@ public class A2dpService extends ProfileService {
             if (!isSplitA2dpEnabled) {
                 if (wasMuted) {
                     mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
-                                                     AudioManager.ADJUST_UNMUTE, 0);
+                                AudioManager.ADJUST_UNMUTE, AudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
                 }
             }
             if (wasMuted) {
