@@ -677,11 +677,6 @@ public class A2dpService extends ProfileService {
             BATService mBatService = BATService.getBATService();
             isBAActive = (mBatService != null) && (mBatService.isBATActive());
             Log.d(TAG," removeActiveDevice: BA active " + isBAActive);
-            if (mAdapterService.isTwsPlusDevice(previousActiveDevice) &&
-                mDummyDevice != null) {
-                previousActiveDevice = mDummyDevice;
-                mDummyDevice = null;
-            }
             // If BA streaming is ongoing, we don't want to pause music player
             if(!isBAActive) {
                 mAudioManager.handleBluetoothA2dpActiveDeviceChange(
@@ -764,6 +759,7 @@ public class A2dpService extends ProfileService {
         BluetoothCodecStatus codecStatus = null;
         BluetoothDevice previousActiveDevice = mActiveDevice;
         boolean isBAActive = false;
+        boolean tws_switch = false;
         Log.w(TAG, "setActiveDevice(" + device + "): previous is " + previousActiveDevice);
 
         if (previousActiveDevice != null && AvrcpTargetService.get() != null) {
@@ -830,13 +826,13 @@ public class A2dpService extends ProfileService {
         updateAndBroadcastActiveDevice(device);
         Log.d(TAG, "setActiveDevice(" + device + "): completed");
 
-        if (deviceChanged &&
-            (mDummyDevice == null || !mAdapterService.isTwsPlusDevice(mActiveDevice))) {
+        if (deviceChanged) {
             if(mAvrcp_ext != null)
                 mAvrcp_ext.setActiveDevice(device);
-            if (mAdapterService.isTwsPlusDevice(device) && mDummyDevice == null) {
-                Log.d(TAG,"set dummy device for tws+");
-                mDummyDevice = mAdapter.getRemoteDevice("FA:CE:FA:CE:FA:CE");
+            if (mAdapterService.isTwsPlusDevice(device) &&
+                (previousActiveDevice != null && mAdapterService.isTwsPlusDevice(previousActiveDevice))) {
+                Log.d(TAG,"TWS+ active device disconnected, setting other pair as active");
+                tws_switch = true;
             }
             // Send an intent with the active device codec config
             if (codecStatus != null) {
@@ -854,16 +850,12 @@ public class A2dpService extends ProfileService {
             // and the new Active device is connected.
             // Also, mute and unmute the output during the switch to avoid audio glitches.
             boolean wasMuted = false;
-            if (previousActiveDevice != null) {
+            if (previousActiveDevice != null && !tws_switch) {
                 if (!mAudioManager.isStreamMute(AudioManager.STREAM_MUSIC)) {
                    mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
                                                  AudioManager.ADJUST_MUTE,
                                                  mAudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
                    wasMuted = true;
-                }
-                if (mDummyDevice != null &&
-                    mAdapterService.isTwsPlusDevice(previousActiveDevice)) {
-                    mDummyDevice = null;
                 }
             }
 
@@ -875,15 +867,9 @@ public class A2dpService extends ProfileService {
                 // new active device so that Audio Service
                 // can reset accordingly the audio feeding parameters
                 // in the Audio HAL to the Bluetooth stack.
-                if (mDummyDevice == null) {
-                    mAudioManager.handleBluetoothA2dpActiveDeviceChange(
-                            mActiveDevice, BluetoothProfile.STATE_CONNECTED, BluetoothProfile.A2DP,
-                            true, rememberedVolume);
-                } else {
-                    mAudioManager.handleBluetoothA2dpActiveDeviceChange(
-                            mDummyDevice, BluetoothProfile.STATE_CONNECTED, BluetoothProfile.A2DP,
-                            true, rememberedVolume);
-                }
+                 mAudioManager.handleBluetoothA2dpActiveDeviceChange(
+                          mActiveDevice, BluetoothProfile.STATE_CONNECTED, BluetoothProfile.A2DP,
+                          true, rememberedVolume);
             }
 
             // Inform the Audio Service about the codec configuration
@@ -913,8 +899,10 @@ public class A2dpService extends ProfileService {
                                           AudioManager.ADJUST_UNMUTE,
                                           mAudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
             }
-            if(mAvrcp_ext != null)
+            if (mAvrcp_ext != null && !tws_switch) {
                 mAvrcp_ext.setAbsVolumeFlag(device);
+            }
+            tws_switch = false;
         }
         return true;
     }

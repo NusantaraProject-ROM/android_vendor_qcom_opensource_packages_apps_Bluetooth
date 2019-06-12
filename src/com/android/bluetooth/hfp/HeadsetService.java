@@ -170,6 +170,23 @@ public class HeadsetService extends ProfileService {
                SystemProperties.get("persist.vendor.btstack.enable.twsplussho");
             String swbEnabled = SystemProperties.get("persist.vendor.btstack.enable.swb");
             String swbPmEnabled = SystemProperties.get("persist.vendor.btstack.enable.swbpm");
+
+            if(mAdapterService.isSWBVoicewithAptxAdaptiveAG()) {
+               Log.d(TAG, "SWB addon feature supported on FW");
+               if (swbEnabled.isEmpty()) {
+                   SystemProperties.set("persist.vendor.btstack.enable.swb", "true");
+                   SystemProperties.set("persist.vendor.btstack.enable.swbpm", "true");
+                   swbEnabled = "true";
+                   swbPmEnabled = "true";
+               }
+            } else {
+               Log.d(TAG, "SWB addon feature not supported on FW");
+               SystemProperties.set("persist.vendor.btstack.enable.swb", "false");
+               SystemProperties.set("persist.vendor.btstack.enable.swbpm", "false");
+               swbEnabled = "false";
+               swbPmEnabled = "false";
+            }
+
             if (!twsPlusEnabled.isEmpty() && "true".equals(twsPlusEnabled)) {
                 mIsTwsPlusEnabled = true;
             }
