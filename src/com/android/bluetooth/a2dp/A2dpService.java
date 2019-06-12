@@ -766,12 +766,6 @@ public class A2dpService extends ProfileService {
         boolean isBAActive = false;
         Log.w(TAG, "setActiveDevice(" + device + "): previous is " + previousActiveDevice);
 
-        if (previousActiveDevice != null && AvrcpTargetService.get() != null) {
-            AvrcpTargetService.get().storeVolumeForDevice(previousActiveDevice);
-        } else if (previousActiveDevice != null && mAvrcp_ext != null) {
-            //Store volume only if SHO is triggered or output device other than BT is selected
-            mAvrcp_ext.storeVolumeForDevice(previousActiveDevice);
-        }
         synchronized (mBtA2dpLock) {
             BATService mBatService = BATService.getBATService();
             isBAActive = (mBatService != null) && (mBatService.isBATActive());
@@ -902,12 +896,6 @@ public class A2dpService extends ProfileService {
             }
 
 
-            if (!isSplitA2dpEnabled) {
-                if (wasMuted) {
-                    mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
-                                AudioManager.ADJUST_UNMUTE, AudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
-                }
-            }
             if (wasMuted) {
                mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
                                           AudioManager.ADJUST_UNMUTE,
