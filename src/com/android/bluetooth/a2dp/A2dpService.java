@@ -1329,7 +1329,8 @@ public class A2dpService extends ProfileService {
                     }
                 } else if ("dual-mono".equals(mTwsPlusChannelMode)) {
                     if ((state == BluetoothA2dp.STATE_PLAYING) &&
-                     (getConnectionState(peerTwsDevice) != BluetoothProfile.STATE_CONNECTED)) {
+                      (getConnectionState(peerTwsDevice) != BluetoothProfile.STATE_CONNECTED
+                          || !isA2dpPlaying(peerTwsDevice))) {
                         Log.d(TAG, "updateTwsChannelMode: send delay message to set mono");
                         Message msg = mHandler.obtainMessage(SET_EBMONO_CFG);
                         mHandler.sendMessageDelayed(msg, MonoCfg_Timeout);
