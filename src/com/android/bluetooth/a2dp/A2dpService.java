@@ -110,9 +110,12 @@ public class A2dpService extends ProfileService {
     private static final int max_tws_connection = 2;
     private static final int min_tws_connection = 1;
 
-    private static final long AptxBLEScanMask = 0x3000;
-    private static final long Aptx_BLEScanEnable = 0x1000;
-    private static final long Aptx_BLEScanDisable = 0x2000;
+    private static final int APTX_HQ = 0x1000;
+    private static final int APTX_LL = 0x2000;
+    private static final int APTX_ULL = 0x6000;
+    private static final long APTX_MODE_MASK = 0x7000;
+    private static final long APTX_SCAN_FILTER_MASK = 0x8000;
+
     private static final int SET_EBMONO_CFG = 1;
     private static final int SET_EBDUALMONO_CFG = 2;
     private static final int MonoCfg_Timeout = 5000;
@@ -1095,18 +1098,25 @@ public class A2dpService extends ProfileService {
             return;
         }
 
-        if((codecConfig.getCodecSpecific4() & AptxBLEScanMask) > 0) {
+        long cs4 = codecConfig.getCodecSpecific4();
             GattService mGattService = GattService.getGattService();
 
-            if(mGattService != null) {
-                long mScanMode = codecConfig.getCodecSpecific4() & AptxBLEScanMask;
-                if(mScanMode == Aptx_BLEScanEnable) {
-                    mGattService.setAptXLowLatencyMode(false);
-                }
-                else if(mScanMode == Aptx_BLEScanDisable) {
-                    Log.w(TAG, "Disable BLE scanning to support aptX LL Mode");
+        if(cs4 > 0 && mGattService != null) {
+            switch((int)(cs4 & APTX_MODE_MASK)) {
+                case APTX_HQ:
+                  mGattService.setAptXLowLatencyMode(false);
+                  break;
+
+                case APTX_LL:
+                case APTX_ULL:
+                  if((cs4 & APTX_SCAN_FILTER_MASK) == APTX_SCAN_FILTER_MASK) {
                     mGattService.setAptXLowLatencyMode(true);
-                }
+                  } else {
+                    mGattService.setAptXLowLatencyMode(false);
+                  }
+                  break;
+                default:
+                  Log.e(TAG, cs4 + " is not a aptX profile mode feedback");
             }
         }
 
