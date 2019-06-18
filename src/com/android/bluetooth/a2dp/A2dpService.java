@@ -680,11 +680,11 @@ public class A2dpService extends ProfileService {
             BATService mBatService = BATService.getBATService();
             isBAActive = (mBatService != null) && (mBatService.isBATActive());
             Log.d(TAG," removeActiveDevice: BA active " + isBAActive);
-            // Make sure the Active device in native layer is set to null and audio is off
-            if (!mA2dpNativeInterface.setActiveDevice(null)) {
-                Log.w(TAG, "setActiveDevice(null): Cannot remove active device in native "
-                        + "layer");
-            }
+        }
+        // Make sure the Active device in native layer is set to null and audio is off
+        if (!mA2dpNativeInterface.setActiveDevice(null)) {
+            Log.w(TAG, "setActiveDevice(null): Cannot remove active device in native "
+                    + "layer");
         }
     }
 
