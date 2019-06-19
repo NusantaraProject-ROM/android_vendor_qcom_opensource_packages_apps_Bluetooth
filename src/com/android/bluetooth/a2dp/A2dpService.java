@@ -1118,6 +1118,11 @@ public class A2dpService extends ProfileService {
             Log.e(TAG, "Codec status is null on " + device);
             return;
         }
+        if (mAdapterService.isTwsPlusDevice(device) && ( cs4 == 0 ||
+             codecConfig.getCodecType() != BluetoothCodecConfig.SOURCE_CODEC_TYPE_APTX_ADAPTIVE )) {
+            Log.w(TAG, "Block un-supportive codec on TWS+ device: " + device);
+            return;
+        }
         mA2dpCodecConfig.setCodecConfigPreference(device, codecStatus, codecConfig);
     }
 
@@ -1774,6 +1779,11 @@ public class A2dpService extends ProfileService {
             A2dpService service = getService();
             if (service == null) {
                 return BluetoothA2dp.OPTIONAL_CODECS_SUPPORT_UNKNOWN;
+            }
+            AdapterService adService = AdapterService.getAdapterService();
+            if(adService.isTwsPlusDevice(device)) {
+                 Log.w(TAG, "Disable optional codec support for TWS+ device");
+                 return BluetoothA2dp.OPTIONAL_CODECS_NOT_SUPPORTED;
             }
             return service.getSupportsOptionalCodecs(device);
         }
