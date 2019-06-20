@@ -1100,7 +1100,7 @@ public class BluetoothMapAppParams {
     public void setFilterConvoId(String id) {
         try {
             mFilterConvoId = SignedLongLong.fromString(id);
-        } catch (UnsupportedEncodingException e) {
+        } catch (UnsupportedEncodingException | NumberFormatException e) {
             Log.w(TAG, "Error creating long from id string", e);
         }
     }
