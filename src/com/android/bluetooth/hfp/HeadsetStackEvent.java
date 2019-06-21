@@ -46,6 +46,7 @@ public class HeadsetStackEvent extends HeadsetMessageObject {
     public static final int EVENT_TYPE_BIEV = 19;
     public static final int EVENT_TYPE_BIA = 20;
     public static final int EVENT_TYPE_SWB = 21;
+    public static final int EVENT_TYPE_TWSP_BATTERY_STATE = 22;
 
     public final int type;
     public final int valueInt;
@@ -180,6 +181,8 @@ public class HeadsetStackEvent extends HeadsetMessageObject {
                 return "EVENT_TYPE_BIA";
             case EVENT_TYPE_SWB:
                 return "EVENT_TYPE_SWB";
+            case EVENT_TYPE_TWSP_BATTERY_STATE:
+                return "EVENT_TYPE_TWSP_BATTERY_STATE";
             default:
                 return "UNKNOWN";
         }
