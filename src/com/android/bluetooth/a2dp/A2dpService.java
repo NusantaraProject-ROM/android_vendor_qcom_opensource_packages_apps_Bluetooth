@@ -680,6 +680,12 @@ public class A2dpService extends ProfileService {
             BATService mBatService = BATService.getBATService();
             isBAActive = (mBatService != null) && (mBatService.isBATActive());
             Log.d(TAG," removeActiveDevice: BA active " + isBAActive);
+            // If BA streaming is ongoing, we don't want to pause music player
+            if(!isBAActive) {
+                mAudioManager.handleBluetoothA2dpActiveDeviceChange(
+                        previousActiveDevice, BluetoothProfile.STATE_DISCONNECTED,
+                        BluetoothProfile.A2DP, suppressNoisyIntent, -1);
+            }
         }
         // Make sure the Active device in native layer is set to null and audio is off
         if (!mA2dpNativeInterface.setActiveDevice(null)) {
@@ -848,6 +854,19 @@ public class A2dpService extends ProfileService {
                                                  mAudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
                    wasMuted = true;
                 }
+            }
+
+            if (!isBAActive) {
+                // Make sure the Audio Manager knows the previous
+                // Active device is disconnected, and the new Active
+                // device is connected.
+                // Also, provide information about codec used by
+                // new active device so that Audio Service
+                // can reset accordingly the audio feeding parameters
+                // in the Audio HAL to the Bluetooth stack.
+                 mAudioManager.handleBluetoothA2dpActiveDeviceChange(
+                          mActiveDevice, BluetoothProfile.STATE_CONNECTED, BluetoothProfile.A2DP,
+                          true, rememberedVolume);
             }
 
             // Inform the Audio Service about the codec configuration
@@ -1302,6 +1321,14 @@ public class A2dpService extends ProfileService {
 
         broadcastCodecConfig(device, codecStatus);
 
+        // Inform the Audio Service about the codec configuration change,
+        // so the Audio Service can reset accordingly the audio feeding
+        // parameters in the Audio HAL to the Bluetooth stack.
+        if (isActiveDevice(device) && !sameAudioFeedingParameters) {
+            mAudioManager.handleBluetoothA2dpActiveDeviceChange(device,
+                    BluetoothProfile.STATE_CONNECTED, BluetoothProfile.A2DP,
+                    true, -1);
+        }
     }
     void updateTwsChannelMode(int state, BluetoothDevice device) {
         if (mIsTwsPlusMonoSupported) {
