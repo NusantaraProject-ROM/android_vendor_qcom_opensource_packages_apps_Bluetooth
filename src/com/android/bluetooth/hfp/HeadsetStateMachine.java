@@ -808,6 +808,10 @@ public class HeadsetStateMachine extends StateMachine {
                         case HeadsetStackEvent.EVENT_TYPE_BIND:
                             processAtBind(event.valueString, event.device);
                             break;
+                        case HeadsetStackEvent.EVENT_TYPE_TWSP_BATTERY_STATE:
+                            processTwsBatteryState(event.valueString,
+                                                  event.device);
+                            break;
                         // Unexpected AT commands, we only handle them for comparability reasons
                         case HeadsetStackEvent.EVENT_TYPE_VR_STATE_CHANGED:
                             stateLogW("Unexpected VR event, device=" + event.device + ", state="
@@ -1269,6 +1273,10 @@ public class HeadsetStateMachine extends StateMachine {
                             break;
                         case HeadsetStackEvent.EVENT_TYPE_BIND:
                             processAtBind(event.valueString, event.device);
+                            break;
+                        case HeadsetStackEvent.EVENT_TYPE_TWSP_BATTERY_STATE:
+                            processTwsBatteryState(event.valueString,
+                                                  event.device);
                             break;
                         case HeadsetStackEvent.EVENT_TYPE_BIEV:
                             processAtBiev(event.valueInt, event.valueInt2, event.device);
@@ -2708,6 +2716,55 @@ public class HeadsetStateMachine extends StateMachine {
                     break;
             }
         }
+    }
+
+   /**
+     * Send TWSP Battery State changed intent
+     *
+     * @param device Device whose Battery State Changed
+     * @param batteryState Charging/Discharging [0/1]
+     * @param batteryLevel battery percentage, -1 means invalid
+     */
+    private void sendTwsBatteryStateIntent(BluetoothDevice device,
+                                         int batteryState, int batteryLevel) {
+        Intent intent = new Intent(
+                        BluetoothHeadset.ACTION_HF_TWSP_BATTERY_STATE_CHANGED);
+        intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+        intent.putExtra(BluetoothHeadset.EXTRA_HF_TWSP_BATTERY_STATE,
+                    batteryState);
+        intent.putExtra(BluetoothHeadset.EXTRA_HF_TWSP_BATTERY_LEVEL,
+                    batteryLevel);
+        mHeadsetService.sendBroadcast(intent, HeadsetService.BLUETOOTH_PERM);
+    }
+
+    private void processTwsBatteryState(String atString, BluetoothDevice device) {
+        log("processTwsBatteryState: " + atString);
+        int batteryState;
+        int batteryLevel;
+
+        String parts[] =  atString.split(",");
+        if (parts.length != 2) {
+            Log.e(TAG, "Invalid battery status event");
+            return;
+        }
+
+        try {
+            batteryState = Integer.parseInt(parts[0]);
+        } catch (NumberFormatException e) {
+            Log.e(TAG, Log.getStackTraceString(new Throwable()));
+            return;
+        }
+
+        try {
+            batteryLevel = Integer.parseInt(parts[1]);
+        } catch (NumberFormatException e) {
+            Log.e(TAG, Log.getStackTraceString(new Throwable()));
+            return;
+        }
+
+        log("processTwsBatteryState: batteryState:" + batteryState
+                                      + "batteryLevel:" + batteryLevel);
+        sendTwsBatteryStateIntent(device, batteryState, batteryLevel);
     }
 
     private void processAtBiev(int indId, int indValue, BluetoothDevice device) {
