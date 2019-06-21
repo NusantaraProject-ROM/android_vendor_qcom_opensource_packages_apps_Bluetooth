@@ -882,7 +882,7 @@ public class BluetoothMapService extends ProfileService {
                     sRemoteDevice.sdpSearch(BluetoothMnsObexClient.BLUETOOTH_UUID_OBEX_MNS);
                     mSdpSearchInitiated = true;
                 }
-            } else if (!sRemoteDevice.equals(remoteDevice)) {
+            } else if (!remoteDevice.equals(sRemoteDevice)) {
                 Log.w(TAG, "Unexpected connection from a second Remote Device received. name: " + (
                         (remoteDevice == null) ? "unknown" : remoteDevice.getName()));
                 return false;

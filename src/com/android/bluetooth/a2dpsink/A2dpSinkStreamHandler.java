@@ -29,8 +29,7 @@ import android.os.Message;
 import android.util.Log;
 
 import com.android.bluetooth.R;
-import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
-import com.android.bluetooth.avrcpcontroller.CoverArtUtils;
+import com.android.bluetooth.avrcpcontroller.BluetoothMediaBrowserService;
 import com.android.bluetooth.hfpclient.HeadsetClientService;
 
 import java.util.List;
@@ -54,8 +53,8 @@ import java.util.List;
  * restored.
  */
 public class A2dpSinkStreamHandler extends Handler {
-    private static final boolean DBG = true;
     private static final String TAG = "A2dpSinkStreamHandler";
+    private static final boolean DBG = true;
 
     // Configuration Variables
     private static final int DEFAULT_DUCK_PERCENT = 25;
@@ -72,7 +71,7 @@ public class A2dpSinkStreamHandler extends Handler {
     public static final int AUDIO_FOCUS_CHANGE = 7; // Audio focus callback with associated change
     public static final int REQUEST_FOCUS = 8; // Request focus when the media service is active
     public static final int DELAYED_PAUSE = 9; // If a call just started allow stack time to settle
-    public static final int RELEASE_FOCUS = 10; // Release focus when requested
+    public static final int RELEASE_FOCUS = 10;
 
     // Used to indicate focus lost
     private static final int STATE_FOCUS_LOST = 0;
@@ -80,7 +79,7 @@ public class A2dpSinkStreamHandler extends Handler {
     private static final int STATE_FOCUS_GRANTED = 1;
 
     // Private variables.
-    private A2dpSinkStateMachine mA2dpSinkSm;
+    private A2dpSinkService mA2dpSinkService;
     private Context mContext;
     private AudioManager mAudioManager;
     // Keep track if the remote device is providing audio
@@ -88,7 +87,6 @@ public class A2dpSinkStreamHandler extends Handler {
     private boolean mSentPause = false;
     // Keep track of the relevant audio focus (None, Transient, Gain)
     private int mAudioFocus = AudioManager.AUDIOFOCUS_NONE;
-    private BluetoothDevice mDevice;
 
     // In order for Bluetooth to be considered as an audio source capable of receiving media key
     // events (In the eyes of MediaSessionService), we need an active MediaPlayer in addition to a
@@ -112,25 +110,41 @@ public class A2dpSinkStreamHandler extends Handler {
         }
     };
 
-    public A2dpSinkStreamHandler(A2dpSinkStateMachine a2dpSinkSm, Context context,
-            BluetoothDevice device) {
-        mA2dpSinkSm = a2dpSinkSm;
+    public A2dpSinkStreamHandler(A2dpSinkService a2dpSinkService, Context context) {
+        mA2dpSinkService = a2dpSinkService;
         mContext = context;
-        mDevice = device;
         mAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+    }
+
+    void requestAudioFocus(boolean request) {
+        obtainMessage(REQUEST_FOCUS, request).sendToTarget();
+    }
+
+    int getFocusState() {
+        return mAudioFocus;
+    }
+
+    boolean isPlaying() {
+        return (mStreamAvailable
+                && (mAudioFocus == AudioManager.AUDIOFOCUS_GAIN
+                || mAudioFocus == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK));
     }
 
     @Override
     public void handleMessage(Message message) {
         if (DBG) {
-            Log.d(TAG, " process message: " + message.what + ", device:" + mDevice);
+            Log.d(TAG, " process message: " + message.what);
+            Log.d(TAG, " audioFocus =  " + mAudioFocus);
         }
-
         switch (message.what) {
             case SRC_STR_START:
+                mStreamAvailable = true;
+                Log.d(TAG, " isTvDevice =  " + isTvDevice() +
+                          "shouldRequestFocus = " + shouldRequestFocus());
                 if (isTvDevice() || shouldRequestFocus()) {
                     requestAudioFocusIfNone();
                 }
+
                 // Audio stream has started, stop it if we don't have focus.
                 if (mAudioFocus == AudioManager.AUDIOFOCUS_NONE) {
                     requestAudioFocus();
@@ -158,6 +172,8 @@ public class A2dpSinkStreamHandler extends Handler {
                     requestAudioFocusIfNone();
                     break;
                 }
+
+                // Audio stream has started, stop it if we don't have focus.
                 if (mAudioFocus == AudioManager.AUDIOFOCUS_NONE) {
                     requestAudioFocus();
                 }
@@ -244,6 +260,7 @@ public class A2dpSinkStreamHandler extends Handler {
     private void requestAudioFocusIfNone() {
         if (DBG) Log.d(TAG, "requestAudioFocusIfNone()");
         if (mAudioFocus == AudioManager.AUDIOFOCUS_NONE) {
+            Log.d(TAG, " mAudioFocus =  " + mAudioFocus);
             requestAudioFocus();
         }
         // On the off change mMediaPlayer errors out and dies, we want to make sure we retry this.
@@ -252,9 +269,9 @@ public class A2dpSinkStreamHandler extends Handler {
     }
 
     private synchronized int requestAudioFocus() {
-        if (DBG) Log.d(TAG, "requestAudioFocus()");
         // Bluetooth A2DP may carry Music, Audio Books, Navigation, or other sounds so mark content
         // type unknown.
+        Log.d(TAG, " requestAudioFocus() ");
         AudioAttributes streamAttributes =
                 new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
                         .setContentType(AudioAttributes.CONTENT_TYPE_UNKNOWN)
@@ -268,7 +285,8 @@ public class A2dpSinkStreamHandler extends Handler {
                         .setOnAudioFocusChangeListener(mAudioFocusListener, this)
                         .build();
         int focusRequestStatus = mAudioManager.requestAudioFocus(focusRequest);
-        Log.d(TAG, "focusRequestStatus = " + focusRequestStatus);
+        Log.d(TAG, " focusRequestStatus =  " + focusRequestStatus +
+                                 " focusRequest: " + focusRequest);
         // If the request is granted begin streaming immediately and schedule an upgrade.
         if (focusRequestStatus == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
             startFluorideStreaming();
@@ -308,29 +326,26 @@ public class A2dpSinkStreamHandler extends Handler {
         });
 
         mMediaPlayer.start();
+        BluetoothMediaBrowserService.setActive(true);
     }
 
     private synchronized void abandonAudioFocus() {
-        if (DBG) Log.d(TAG, "abandonAudioFocus()");
         stopFluorideStreaming();
         if (mAudioFocus != AudioManager.AUDIOFOCUS_NONE) {
             Log.d(TAG, "abandoning audio focus");
-          AudioAttributes streamAttributes =
+            AudioAttributes streamAttributes =
                   new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
                           .setContentType(AudioAttributes.CONTENT_TYPE_UNKNOWN)
                           .build();
-          AudioFocusRequest mfocusRequest =
+            AudioFocusRequest mfocusRequest =
                   new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN).setAudioAttributes(
                           streamAttributes)
                           .setWillPauseWhenDucked(true)
                           .setOnAudioFocusChangeListener(mAudioFocusListener, this)
                           .build();
-          releaseMediaKeyFocus();
-          mAudioManager.abandonAudioFocusRequest(mfocusRequest);
-          mAudioFocus = AudioManager.AUDIOFOCUS_NONE;
+            mAudioManager.abandonAudioFocusRequest(mfocusRequest);
+            mAudioFocus = AudioManager.AUDIOFOCUS_NONE;
         }
-        mAudioManager.abandonAudioFocus(mAudioFocusListener);
-        mAudioFocus = AudioManager.AUDIOFOCUS_NONE;
     }
 
     /**
@@ -342,87 +357,41 @@ public class A2dpSinkStreamHandler extends Handler {
         if (mMediaPlayer == null) {
             return;
         }
+        BluetoothMediaBrowserService.setActive(false);
         mMediaPlayer.stop();
         mMediaPlayer.release();
         mMediaPlayer = null;
     }
 
     private void startFluorideStreaming() {
-        A2dpSinkService.informAudioFocusStateNative(STATE_FOCUS_GRANTED);
-        A2dpSinkService.informAudioTrackGainNative(1.0f);
+        mA2dpSinkService.informAudioFocusStateNative(STATE_FOCUS_GRANTED);
+        mA2dpSinkService.informAudioTrackGainNative(1.0f);
     }
 
     private void stopFluorideStreaming() {
-        A2dpSinkService.informAudioFocusStateNative(STATE_FOCUS_LOST);
+        mA2dpSinkService.informAudioFocusStateNative(STATE_FOCUS_LOST);
     }
 
     private void setFluorideAudioTrackGain(float gain) {
-        A2dpSinkService.informAudioTrackGainNative(gain);
+        mA2dpSinkService.informAudioTrackGainNative(gain);
     }
 
     private void sendAvrcpPause() {
-        // Since AVRCP gets started after A2DP we may need to request it later in cycle.
-        AvrcpControllerService avrcpService = AvrcpControllerService.getAvrcpControllerService();
-
-        if (DBG) {
-            Log.d(TAG, "sendAvrcpPause");
-        }
-        if (avrcpService != null) {
-            List<BluetoothDevice> connectedDevices = avrcpService.getConnectedDevices();
-            if (!connectedDevices.isEmpty()) {
-                BluetoothDevice targetDevice = connectedDevices.get(0);
-                if (DBG) {
-                    Log.d(TAG, "Pausing AVRCP.");
-                }
-                avrcpService.sendPassThroughCmd(targetDevice,
-                        AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE,
-                        AvrcpControllerService.KEY_STATE_PRESSED);
-                avrcpService.sendPassThroughCmd(targetDevice,
-                        AvrcpControllerService.PASS_THRU_CMD_ID_PAUSE,
-                        AvrcpControllerService.KEY_STATE_RELEASED);
-            }
-        } else {
-            Log.e(TAG, "Passthrough not sent, connection un-available.");
-        }
+        BluetoothMediaBrowserService.pause();
     }
 
     private void sendAvrcpPlay() {
-        // Since AVRCP gets started after A2DP we may need to request it later in cycle.
-        AvrcpControllerService avrcpService = AvrcpControllerService.getAvrcpControllerService();
-
-        if (DBG) {
-            Log.d(TAG, "sendAvrcpPlay");
-        }
-        if (avrcpService != null) {
-            List<BluetoothDevice> connectedDevices = avrcpService.getConnectedDevices();
-            if (!connectedDevices.isEmpty()) {
-                BluetoothDevice targetDevice = connectedDevices.get(0);
-                if (DBG) {
-                    Log.d(TAG, "Playing AVRCP.");
-                }
-                avrcpService.sendPassThroughCmd(targetDevice,
-                        AvrcpControllerService.PASS_THRU_CMD_ID_PLAY,
-                        AvrcpControllerService.KEY_STATE_PRESSED);
-                avrcpService.sendPassThroughCmd(targetDevice,
-                        AvrcpControllerService.PASS_THRU_CMD_ID_PLAY,
-                        AvrcpControllerService.KEY_STATE_RELEASED);
-            }
-        } else {
-            Log.e(TAG, "Passthrough not sent, connection un-available.");
-        }
+        BluetoothMediaBrowserService.play();
     }
 
     private boolean inCallFromStreamingDevice() {
-        AvrcpControllerService avrcpService = AvrcpControllerService.getAvrcpControllerService();
         BluetoothDevice targetDevice = null;
-        if (avrcpService != null) {
-            List<BluetoothDevice> connectedDevices = avrcpService.getConnectedDevices();
-            if (!connectedDevices.isEmpty()) {
-                targetDevice = connectedDevices.get(0);
-            }
+        List<BluetoothDevice> connectedDevices = mA2dpSinkService.getConnectedDevices();
+        if (!connectedDevices.isEmpty()) {
+            targetDevice = connectedDevices.get(0);
         }
         HeadsetClientService headsetClientService = HeadsetClientService.getHeadsetClientService();
-        if (targetDevice != null  && headsetClientService != null) {
+        if (targetDevice != null && headsetClientService != null) {
             return headsetClientService.getCurrentCalls(targetDevice).size() > 0;
         }
         return false;
@@ -442,7 +411,7 @@ public class A2dpSinkStreamHandler extends Handler {
 
     private boolean shouldRequestFocus() {
         return mContext.getResources()
-            .getBoolean(R.bool.a2dp_sink_automatically_request_audio_focus);
+                .getBoolean(R.bool.a2dp_sink_automatically_request_audio_focus);
     }
 
 }

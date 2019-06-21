@@ -72,6 +72,7 @@ public class A2dpService extends ProfileService {
     private Avrcp mAvrcp;
     private Avrcp_ext mAvrcp_ext;
     private final Object mBtA2dpLock = new Object();
+    private final Object mBtTwsLock = new Object();
     private final Object mBtAvrcpLock = new Object();
     private final Object mActiveDeviceLock = new Object();
 
@@ -113,21 +114,30 @@ public class A2dpService extends ProfileService {
     private static final long Aptx_BLEScanEnable = 0x1000;
     private static final long Aptx_BLEScanDisable = 0x2000;
     private static final int SET_EBMONO_CFG = 1;
+    private static final int SET_EBDUALMONO_CFG = 2;
     private static final int MonoCfg_Timeout = 5000;
+    private static final int DualMonoCfg_Timeout = 3000;
 
     private Handler mHandler = new Handler() {
         @Override
        public void handleMessage(Message msg)
        {
+         synchronized(mBtTwsLock) {
            switch (msg.what) {
                case SET_EBMONO_CFG:
                    Log.d(TAG, "setparameters to Mono");
                    mAudioManager.setParameters("TwsChannelConfig=mono");
                    mTwsPlusChannelMode = "mono";
                    break;
+               case SET_EBDUALMONO_CFG:
+                   Log.d(TAG, "setparameters to Dual-Mono");
+                   mAudioManager.setParameters("TwsChannelConfig=dual-mono");
+                   mTwsPlusChannelMode = "dual-mono";
+                   break;
               default:
                    break;
            }
+         }
        }
     };
 
@@ -737,11 +747,7 @@ public class A2dpService extends ProfileService {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
 
         if(mAvrcp_ext != null) {
-            if (mAvrcp_ext.startSHO(device, false) == false) {
-                return startSHO(device);
-            } else {
-                return true;
-            }
+            return mAvrcp_ext.startSHO(device, false);
         }
 
         return false;
@@ -899,7 +905,7 @@ public class A2dpService extends ProfileService {
             if (!isSplitA2dpEnabled) {
                 if (wasMuted) {
                     mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
-                                                     AudioManager.ADJUST_UNMUTE, 0);
+                                AudioManager.ADJUST_UNMUTE, AudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
                 }
             }
             if (wasMuted) {
@@ -1020,13 +1026,24 @@ public class A2dpService extends ProfileService {
 
     private BluetoothCodecStatus getTwsPlusCodecStatus(BluetoothCodecStatus mCodecStatus) {
         BluetoothCodecConfig mCodecConfig = mCodecStatus.getCodecConfig();
-        BluetoothCodecConfig mNewCodecConfig =
-                    new BluetoothCodecConfig(
+        BluetoothCodecConfig mNewCodecConfig;
+        Log.d(TAG, "Return TWS codec status with " + mCodecConfig.getCodecName() + " codec");
+        if(mCodecConfig.getCodecType() == BluetoothCodecConfig.SOURCE_CODEC_TYPE_APTX_ADAPTIVE) {
+            mNewCodecConfig = new BluetoothCodecConfig(
+                        BluetoothCodecConfig.SOURCE_CODEC_TYPE_APTX_ADAPTIVE,
+                        BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT,
+                        BluetoothCodecConfig.SAMPLE_RATE_48000,
+                        BluetoothCodecConfig.BITS_PER_SAMPLE_NONE,
+                        BluetoothCodecConfig.CHANNEL_MODE_STEREO,
+                        0, 0, 0, 0);
+        } else {
+            mNewCodecConfig = new BluetoothCodecConfig(
                         BluetoothCodecConfig.SOURCE_CODEC_TYPE_APTX,
                         mCodecConfig.getCodecPriority(), mCodecConfig.getSampleRate(),
                         mCodecConfig.getBitsPerSample(), mCodecConfig.getChannelMode(),
                         mCodecConfig.getCodecSpecific1(), mCodecConfig.getCodecSpecific2(),
                         mCodecConfig.getCodecSpecific3(), mCodecConfig.getCodecSpecific4());
+        }
         return (new BluetoothCodecStatus(mNewCodecConfig, mCodecStatus.getCodecsLocalCapabilities(),
                           mCodecStatus.getCodecsSelectableCapabilities()));
     }
@@ -1043,6 +1060,7 @@ public class A2dpService extends ProfileService {
         BluetoothCodecConfig[] mBACodecConfig = {mNewCodecConfig};
         return (new BluetoothCodecStatus(mNewCodecConfig, mBACodecConfig, mBACodecConfig));
     }
+
     /**
      * Gets the current codec status (configuration and capability).
      *
@@ -1248,6 +1266,7 @@ public class A2dpService extends ProfileService {
                             if (!connectionAllowedCheckMaxDevices(device)) {
                                 Log.e(TAG, "Cannot connect to " + device
                                         + " : too many connected devices");
+                                mA2dpNativeInterface.disconnectA2dp(device);
                                 return;
                             }
                             sm = getOrCreateStateMachine(device);
@@ -1326,36 +1345,51 @@ public class A2dpService extends ProfileService {
         }
     }
     void updateTwsChannelMode(int state, BluetoothDevice device) {
-       if (mIsTwsPlusMonoSupported) {
-         BluetoothDevice peerTwsDevice = mAdapterService.getTwsPlusPeerDevice(device);
-         Log.d(TAG, "TwsChannelMode: " + mTwsPlusChannelMode);
-         if ((state == BluetoothA2dp.STATE_PLAYING) && ("mono".equals(mTwsPlusChannelMode))) {
-             if ((peerTwsDevice!= null) && peerTwsDevice.isConnected() && isA2dpPlaying(peerTwsDevice)) {
-                 Log.d(TAG, "setparameters to Dual-Mono");
-                 mAudioManager.setParameters("TwsChannelConfig=dual-mono");
-                mTwsPlusChannelMode = "dual-mono";
-             }
-         } else if ("dual-mono".equals(mTwsPlusChannelMode)) {
-            if ((state == BluetoothA2dp.STATE_PLAYING) && (getConnectionState(peerTwsDevice) != BluetoothProfile.STATE_CONNECTED)) {
-               Log.d(TAG, "updateTwsChannelMode: send delay message ");
-               Message msg = mHandler.obtainMessage(SET_EBMONO_CFG);
-               mHandler.sendMessageDelayed(msg, MonoCfg_Timeout);
+        if (mIsTwsPlusMonoSupported) {
+            BluetoothDevice peerTwsDevice = mAdapterService.getTwsPlusPeerDevice(device);
+            Log.d(TAG, "TwsChannelMode: " + mTwsPlusChannelMode);
+            synchronized(mBtTwsLock) {
+                if ("mono".equals(mTwsPlusChannelMode)) {
+                    if ((state == BluetoothA2dp.STATE_PLAYING) && (peerTwsDevice!= null)
+                         && peerTwsDevice.isConnected() && isA2dpPlaying(peerTwsDevice)) {
+                        Log.d(TAG, "updateTwsChannelMode: send delay message to set dual-mono ");
+                        Message msg = mHandler.obtainMessage(SET_EBDUALMONO_CFG);
+                        mHandler.sendMessageDelayed(msg, DualMonoCfg_Timeout);
+                    } else if (state == BluetoothA2dp.STATE_PLAYING) {
+                        Log.d(TAG, "setparameters to Mono");
+                        mAudioManager.setParameters("TwsChannelConfig=mono");
+                    }
+                    if ((state == BluetoothA2dp.STATE_NOT_PLAYING) &&
+                           isA2dpPlaying(peerTwsDevice)) {
+                        if (mHandler.hasMessages(SET_EBDUALMONO_CFG)) {
+                            Log.d(TAG, "updateTwsChannelMode:remove delay message for dual-mono");
+                            mHandler.removeMessages(SET_EBDUALMONO_CFG);
+                        }
+                    }
+                } else if ("dual-mono".equals(mTwsPlusChannelMode)) {
+                    if ((state == BluetoothA2dp.STATE_PLAYING) &&
+                     (getConnectionState(peerTwsDevice) != BluetoothProfile.STATE_CONNECTED)) {
+                        Log.d(TAG, "updateTwsChannelMode: send delay message to set mono");
+                        Message msg = mHandler.obtainMessage(SET_EBMONO_CFG);
+                        mHandler.sendMessageDelayed(msg, MonoCfg_Timeout);
+                    }
+                    if ((state == BluetoothA2dp.STATE_PLAYING) && isA2dpPlaying(peerTwsDevice)) {
+                        if (mHandler.hasMessages(SET_EBMONO_CFG)) {
+                            Log.d(TAG, "updateTwsChannelMode: remove delay message to set mono");
+                            mHandler.removeMessages(SET_EBMONO_CFG);
+                        }
+                    }
+                    if ((state == BluetoothA2dp.STATE_NOT_PLAYING)
+                          && isA2dpPlaying(peerTwsDevice)) {
+                        Log.d(TAG, "setparameters to Mono");
+                        mAudioManager.setParameters("TwsChannelConfig=mono");
+                        mTwsPlusChannelMode = "mono";
+                    }
+                }
             }
-            if ((state == BluetoothA2dp.STATE_PLAYING) && isA2dpPlaying(peerTwsDevice)) {
-               if (mHandler.hasMessages(SET_EBMONO_CFG)) {
-                 Log.d(TAG, "updateTwsChannelMode: remove delay message ");
-                 mHandler.removeMessages(SET_EBMONO_CFG);
-               }
-            }
-            if ((state == BluetoothA2dp.STATE_NOT_PLAYING) && isA2dpPlaying(peerTwsDevice)) {
-               Log.d(TAG, "setparameters to Mono");
-               mAudioManager.setParameters("TwsChannelConfig=mono");
-               mTwsPlusChannelMode = "mono";
-            }
-         }
-       } else {
+        } else {
            Log.d(TAG,"TWS+ L/R to M feature not supported");
-       }
+        }
     }
 
     public void broadcastReconfigureA2dp() {

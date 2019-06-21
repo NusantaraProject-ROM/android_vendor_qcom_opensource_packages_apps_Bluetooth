@@ -245,6 +245,10 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
     @Override
     public boolean stop() {
         if (D) Log.d(TAG," stop");
+        if (sBluetoothOppService == null) {
+            Log.w(TAG, "stop() called before start()");
+            return true;
+        }
         setBluetoothOppService(null);
         mHandler.sendMessage(mHandler.obtainMessage(STOP_LISTENER));
         return true;

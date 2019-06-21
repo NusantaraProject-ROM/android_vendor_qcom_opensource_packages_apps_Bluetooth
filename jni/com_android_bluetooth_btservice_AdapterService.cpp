@@ -699,7 +699,8 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
   }
 }
 
-static bool initNative(JNIEnv* env, jobject obj) {
+static bool initNative(JNIEnv* env, jobject obj, jboolean isGuest,
+                       jboolean isSingleUserMode) {
   ALOGV("%s", __func__);
 
   android_bluetooth_UidTraffic.clazz =
@@ -713,7 +714,9 @@ static bool initNative(JNIEnv* env, jobject obj) {
     return JNI_FALSE;
   }
 
-  int ret = sBluetoothInterface->init(&sBluetoothCallbacks);
+  int ret = sBluetoothInterface->init(&sBluetoothCallbacks,
+                                      isGuest == JNI_TRUE ? 1 : 0,
+                                      isSingleUserMode == JNI_TRUE ? 1 : 0);
   if (ret != BT_STATUS_SUCCESS && ret != BT_STATUS_DONE) {
     ALOGE("Error while setting the callbacks: %d\n", ret);
     sBluetoothInterface = NULL;
@@ -770,11 +773,11 @@ static bool cleanupNative(JNIEnv* env, jobject obj) {
   return JNI_TRUE;
 }
 
-static jboolean enableNative(JNIEnv* env, jobject obj, jboolean isGuest) {
+static jboolean enableNative(JNIEnv* env, jobject obj) {
   ALOGV("%s", __func__);
 
   if (!sBluetoothInterface) return JNI_FALSE;
-  int ret = sBluetoothInterface->enable(isGuest == JNI_TRUE ? 1 : 0);
+  int ret = sBluetoothInterface->enable();
   return (ret == BT_STATUS_SUCCESS || ret == BT_STATUS_DONE) ? JNI_TRUE
                                                              : JNI_FALSE;
 }
@@ -1262,9 +1265,9 @@ static jbyteArray obfuscateAddressNative(JNIEnv* env, jobject obj,
 static JNINativeMethod sMethods[] = {
     /* name, signature, funcPtr */
     {"classInitNative", "()V", (void*)classInitNative},
-    {"initNative", "()Z", (void*)initNative},
+    {"initNative", "(ZZ)Z", (void*)initNative},
     {"cleanupNative", "()V", (void*)cleanupNative},
-    {"enableNative", "(Z)Z", (void*)enableNative},
+    {"enableNative", "()Z", (void*)enableNative},
     {"disableNative", "()Z", (void*)disableNative},
     {"setAdapterPropertyNative", "(I[B)Z", (void*)setAdapterPropertyNative},
     {"getAdapterPropertiesNative", "()Z", (void*)getAdapterPropertiesNative},

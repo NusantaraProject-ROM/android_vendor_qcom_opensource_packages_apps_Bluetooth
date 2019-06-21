@@ -191,6 +191,11 @@ final class AdapterState extends StateMachine {
                     transitionTo(mTurningBleOnState);
                     break;
 
+                case BT_FORCEKILL_TIMEOUT:
+                    errorLog("Killing the process to force a restart as part of cleanup");
+                    android.os.Process.killProcess(android.os.Process.myPid());
+                    break;
+
                 default:
                     infoLog("Unhandled message - " + messageString(msg.what));
                     return false;
@@ -218,6 +223,12 @@ final class AdapterState extends StateMachine {
                     transitionTo(mTurningBleOffState);
                     break;
 
+                case BT_FORCEKILL_TIMEOUT:
+                    transitionTo(mOffState);
+                    errorLog("Killing the process to force a restart as part of cleanup");
+                    android.os.Process.killProcess(android.os.Process.myPid());
+                    break;
+
                 default:
                     infoLog("Unhandled message - " + messageString(msg.what));
                     return false;
@@ -238,6 +249,12 @@ final class AdapterState extends StateMachine {
             switch (msg.what) {
                 case USER_TURN_OFF:
                     transitionTo(mTurningOffState);
+                    break;
+
+                case BT_FORCEKILL_TIMEOUT:
+                    transitionTo(mOffState);
+                    errorLog("Killing the process to force a restart as part of cleanup");
+                    android.os.Process.killProcess(android.os.Process.myPid());
                     break;
 
                 default:
