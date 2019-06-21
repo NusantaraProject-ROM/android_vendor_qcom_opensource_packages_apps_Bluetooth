@@ -450,7 +450,7 @@ public class A2dpService extends ProfileService {
                     break;
                 }
             }
-        } else {
+        } else if (!connectingConnectedDevices.isEmpty()) {
             mConnDev = connectingConnectedDevices.get(0);
         }
         if (mA2dpStackEvent == A2dpStackEvent.CONNECTION_STATE_CONNECTING ||
