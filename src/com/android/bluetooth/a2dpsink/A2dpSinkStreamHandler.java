@@ -323,8 +323,6 @@ public class A2dpSinkStreamHandler extends Handler {
             Log.e(TAG, "stopAvrcpUpdates failed because of connection.");
         }
 
-        CoverArtUtils coverArt = new CoverArtUtils();
-        coverArt.broadcastInValidHandle(mContext ,avrcpService, mStreamAvailable);
     }
 
     private void sendAvrcpPause() {
