@@ -34,6 +34,8 @@ import android.util.Log;
 import android.widget.Toast;
 
 import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.a2dp.A2dpService;
+import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.a2dpsink.mbs.A2dpMediaBrowserService;
 import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
@@ -63,6 +65,9 @@ public class A2dpSinkService extends ProfileService {
 
     private A2dpSinkStateMachine mStateMachine;
     private static A2dpSinkService sA2dpSinkService;
+    private static A2dpService sA2dpService;
+    private static HeadsetService sHeadsetService;
+    private static boolean mA2dpSrcSnkConcurrency;
     protected static BluetoothDevice mStreamingDevice;
 
     private static int mMaxA2dpSinkConnections = 1;
@@ -94,6 +99,11 @@ public class A2dpSinkService extends ProfileService {
         mMaxA2dpSinkConnections = Math.min(
                 SystemProperties.getInt("persist.vendor.bt.a2dp.sink_conn", 1),
                 MAX_ALLOWED_SINK_CONNECTIONS);
+        mA2dpSrcSnkConcurrency= SystemProperties.getBoolean(
+                                "persist.vendor.service.bt.a2dp_concurrency", false);
+        if (DBG) {
+            Log.d(TAG, "A2DP concurrency set to " + mA2dpSrcSnkConcurrency);
+        }
         // Start the media browser service.
         Intent startIntent = new Intent(this, A2dpMediaBrowserService.class);
         startService(startIntent);
@@ -190,12 +200,28 @@ public class A2dpSinkService extends ProfileService {
             } else if (sm == null) {
                 return false;
             }
+
+            if (mA2dpSrcSnkConcurrency) {
+                sA2dpService = A2dpService.getA2dpService();
+                List<BluetoothDevice> snkDevs = sA2dpService.getConnectedDevices();
+                for( BluetoothDevice snk : snkDevs ) {
+                    Log.d(TAG, "calling src disconnect to " + snk);
+                    sA2dpService.disconnect(snk);
+                }
+                sHeadsetService = HeadsetService.getHeadsetService();
+                List<BluetoothDevice> hsDevs = sHeadsetService.getConnectedDevices();
+                for ( BluetoothDevice hs : hsDevs ) {
+                    Log.d(TAG, "calling headset disconnect to " + hs);
+                    sHeadsetService.disconnect(hs);
+                }
+            }
+
             sm.sendMessage(A2dpSinkStateMachine.CONNECT);
         }
         return true;
     }
 
-    boolean disconnect(BluetoothDevice device) {
+    public boolean disconnect(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
 
         if (DBG) {
@@ -615,6 +641,21 @@ public class A2dpSinkService extends ProfileService {
                 sm.new StackEvent(A2dpSinkStateMachine.EVENT_TYPE_CONNECTION_STATE_CHANGED);
         event.device = device;
         event.valueInt = state;
+        if (mA2dpSrcSnkConcurrency &&
+            state == BluetoothProfile.STATE_CONNECTING) {
+            sA2dpService = A2dpService.getA2dpService();
+            List<BluetoothDevice> snkDevs = sA2dpService.getConnectedDevices();
+            for ( BluetoothDevice snk : snkDevs ) {
+                Log.d(TAG, "calling src disconnect to " + snk);
+                sA2dpService.disconnect(snk);
+            }
+            sHeadsetService = HeadsetService.getHeadsetService();
+            List<BluetoothDevice> hsDevs = sHeadsetService.getConnectedDevices();
+            for ( BluetoothDevice hs : hsDevs ) {
+                Log.d(TAG, "calling headset disconnect to " + hs);
+                sHeadsetService.disconnect(hs);
+            }
+        }
         sm.sendMessage(A2dpSinkStateMachine.STACK_EVENT, event);
     }
 

@@ -18,6 +18,7 @@ package com.android.bluetooth.a2dp;
 
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothAdapter;
+import com.android.bluetooth.a2dpsink.A2dpSinkService;
 import android.bluetooth.BluetoothCodecConfig;
 import android.bluetooth.BluetoothCodecStatus;
 import android.bluetooth.BluetoothDevice;
@@ -65,6 +66,8 @@ public class A2dpService extends ProfileService {
     private static final String TAG = "A2dpService";
 
     private static A2dpService sA2dpService;
+    private static A2dpSinkService sA2dpSinkService;
+    private static boolean mA2dpSrcSnkConcurrency;
 
     private BluetoothAdapter mAdapter;
     private AdapterService mAdapterService;
@@ -210,6 +213,11 @@ public class A2dpService extends ProfileService {
         mA2dpOffloadEnabled = mAdapterService.isA2dpOffloadEnabled();
         if (DBG) {
             Log.d(TAG, "A2DP offload flag set to " + mA2dpOffloadEnabled);
+        }
+        mA2dpSrcSnkConcurrency= SystemProperties.getBoolean(
+                                "persist.vendor.service.bt.a2dp_concurrency", false);
+        if (DBG) {
+            Log.d(TAG, "A2DP concurrency set to " + mA2dpSrcSnkConcurrency);
         }
 
         // Step 8: Setup broadcast receivers
@@ -372,12 +380,21 @@ public class A2dpService extends ProfileService {
                 Log.e(TAG, "Cannot connect to " + device + " : no state machine");
                 return false;
             }
+            if (mA2dpSrcSnkConcurrency) {
+                sA2dpSinkService = A2dpSinkService.getA2dpSinkService();
+                List<BluetoothDevice> srcDevs = sA2dpSinkService.getConnectedDevices();
+                for ( BluetoothDevice src : srcDevs ) {
+                    Log.d(TAG, "calling sink disconnect to " + src);
+                    sA2dpSinkService.disconnect(src);
+                }
+            }
+
             smConnect.sendMessage(A2dpStateMachine.CONNECT);
             return true;
         }
     }
 
-    boolean disconnect(BluetoothDevice device) {
+    public boolean disconnect(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
         if (DBG) {
             Log.d(TAG, "disconnect(): " + device);
@@ -1126,6 +1143,15 @@ public class A2dpService extends ProfileService {
             if (sm == null) {
                 Log.e(TAG, "Cannot process stack event: no state machine: " + stackEvent);
                 return;
+            }
+            if (mA2dpSrcSnkConcurrency &&
+                A2dpStackEvent.CONNECTION_STATE_CONNECTING == stackEvent.valueInt) {
+                sA2dpSinkService = A2dpSinkService.getA2dpSinkService();
+                List<BluetoothDevice> srcDevs = sA2dpSinkService.getConnectedDevices();
+                for ( BluetoothDevice src : srcDevs ) {
+                    Log.d(TAG, "calling sink disconnect to " + src);
+                    sA2dpSinkService.disconnect(src);
+                }
             }
             sm.sendMessage(A2dpStateMachine.STACK_EVENT, stackEvent);
         }
