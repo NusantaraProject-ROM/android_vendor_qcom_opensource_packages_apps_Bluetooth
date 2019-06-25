@@ -486,7 +486,7 @@ public class BluetoothMapMasInstance implements IObexConnectionHandler {
             mRemoteFeatureMask =
                     SDP_MAP_MAS_FEATURES_ADV;
         } else if ((remoteProfileVersion > SDP_MAP_MAS_VERSION)
-            && (remoteProfileVersion <= SDP_MAP_MAS_VERSION_ADV)){
+            && (!BluetoothMapFixes.isMapAdvDisabled())){
             mRemoteFeatureMask =
                 supportedFeatures & SDP_MAP_MAS_FEATURES_ADV;
         } else {
