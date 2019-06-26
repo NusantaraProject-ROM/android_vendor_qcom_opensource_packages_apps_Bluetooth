@@ -342,10 +342,6 @@ class PbapStateMachine extends StateMachine {
             }
             BluetoothObexTransport transport = new BluetoothObexTransport(mConnSocket);
             mServerSession = new ServerSession(transport, mPbapServer, mObexAuth);
-            BluetoothPbapFixes.updateMtu(mServerSession, transport.isSrmSupported(),
-                    mConnSocket.getMaxReceivePacketSize());
-            // It's ok to just use one wake lock
-            // Message MSG_ACQUIRE_WAKE_LOCK is always surrounded by RELEASE. safe.
         }
 
         private void stopObexServerSession() {
