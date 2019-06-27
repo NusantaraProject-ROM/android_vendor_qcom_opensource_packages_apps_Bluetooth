@@ -118,7 +118,7 @@ public class A2dpService extends ProfileService {
 
     private static final int SET_EBMONO_CFG = 1;
     private static final int SET_EBDUALMONO_CFG = 2;
-    private static final int MonoCfg_Timeout = 5000;
+    private static final int MonoCfg_Timeout = 3000;
     private static final int DualMonoCfg_Timeout = 3000;
 
     private Handler mHandler = new Handler() {
