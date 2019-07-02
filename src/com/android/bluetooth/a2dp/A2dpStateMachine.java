@@ -582,11 +582,11 @@ final class A2dpStateMachine extends StateMachine {
                             broadcastAudioState(BluetoothA2dp.STATE_PLAYING,
                                                 BluetoothA2dp.STATE_NOT_PLAYING);
                             Log.i(TAG,"state:AUDIO_STATE_STARTED");
-                            AdapterService adapterService = AdapterService.getAdapterService();
-                            if (adapterService.isVendorIntfEnabled() &&
-                               adapterService.isTwsPlusDevice(mDevice)) {
-                               mA2dpService.updateTwsChannelMode(BluetoothA2dp.STATE_PLAYING, mDevice);
-                            }
+                        }
+                        AdapterService adapterService = AdapterService.getAdapterService();
+                        if (adapterService.isVendorIntfEnabled() &&
+                            adapterService.isTwsPlusDevice(mDevice)) {
+                            mA2dpService.updateTwsChannelMode(BluetoothA2dp.STATE_PLAYING, mDevice);
                         }
                     }
                     break;
