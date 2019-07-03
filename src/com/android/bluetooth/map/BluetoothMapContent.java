@@ -2458,7 +2458,6 @@ public class BluetoothMapContent {
                         setDeliveryStatus(ele, tmpCursor, fi, ap);
                         setThreadId(ele, tmpCursor, fi, ap);
                         setThreadName(ele, tmpCursor, fi, ap);
-                        setFolderType(ele, tmpCursor, fi, ap);
                     }
                 }
             }
