@@ -1046,7 +1046,7 @@ public class BluetoothMapAppParams {
     public void setFilterMsgHandle(String handle) {
         try {
             mFilterMsgHandle = BluetoothMapUtils.getLongFromString(handle);
-        } catch (UnsupportedEncodingException e) {
+        } catch (UnsupportedEncodingException | NumberFormatException e) {
             Log.w(TAG, "Error creating long from handle string", e);
         }
     }
