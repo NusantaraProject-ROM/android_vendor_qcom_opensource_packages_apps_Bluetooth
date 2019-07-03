@@ -150,12 +150,10 @@ class AvrcpControllerStateMachine extends StateMachine {
 
     AvrcpControllerStateMachine(Context context, BluetoothDevice device) {
         super(TAG);
+        setDbg(DBG);
         mContext = context;
         mDevice = device;
-
         mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
-        IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
-        mContext.registerReceiver(mBroadcastReceiver, filter);
 
         mDisconnected = new Disconnected();
         mConnected = new Connected();
@@ -182,15 +180,18 @@ class AvrcpControllerStateMachine extends StateMachine {
         addState(mGetPlayerListing, mConnected);
         addState(mMoveToRoot, mConnected);
         mCoveArtUtils = new CoverArtUtils();
+        Log.d(TAG, "Setting initial state: Disconnected: " + mDevice);
         setInitialState(mDisconnected);
         mBipStateMachine = AvrcpControllerBipStateMachine.make(this, getHandler(), context);
+        Log.d(TAG, "BipSM created for device: " + mDevice);
     }
 
     class Disconnected extends State {
 
         @Override
         public void enter() {
-            Log.d(TAG, "Enter State: Disconnected mDevice: " + mDevice);
+            Log.d(TAG, "Enter State: Disconnected mDevice: " + mDevice +
+                                     "prevState: "  + prevState);
             mBrowsingConnected = false;
             if (prevState != -1) {
                 AvrcpControllerService.removeStateMachine(mDevice);
@@ -1032,6 +1033,14 @@ class AvrcpControllerStateMachine extends StateMachine {
         synchronized (mLock) {
             return mIsConnected;
         }
+    }
+
+    void registerReceiver(Context context, BluetoothDevice device) {
+        if (DBG) {
+            Log.d(TAG, " Register receiver for device: " + device);
+        }
+        IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
+        mContext.registerReceiver(mBroadcastReceiver, filter);
     }
 
     void doQuit() {
