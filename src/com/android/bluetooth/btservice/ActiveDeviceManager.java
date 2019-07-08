@@ -242,7 +242,11 @@ class ActiveDeviceManager {
                                     }
                                 }
                             }
-                            setA2dpActiveDevice(mDevice);
+                            if (!setA2dpActiveDevice(mDevice) && (mDevice != null) &&
+                                mAdapterService.isTwsPlusDevice(mDevice)) {
+                                Log.w(TAG, "Switch A2dp active device to peer earbud failed");
+                                setA2dpActiveDevice(null);
+                            }
                         }
                     }
                 }
@@ -461,18 +465,19 @@ class ActiveDeviceManager {
         return mHandlerThread.getLooper();
     }
 
-    private void setA2dpActiveDevice(BluetoothDevice device) {
+    private boolean setA2dpActiveDevice(BluetoothDevice device) {
         if (DBG) {
             Log.d(TAG, "setA2dpActiveDevice(" + device + ")");
         }
         final A2dpService a2dpService = mFactory.getA2dpService();
         if (a2dpService == null) {
-            return;
+            return false;
         }
         if (!a2dpService.setActiveDevice(device)) {
-            return;
+            return false;
         }
         mA2dpActiveDevice = device;
+        return true;
     }
 
     private void setHfpActiveDevice(BluetoothDevice device) {
