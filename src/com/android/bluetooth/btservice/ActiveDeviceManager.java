@@ -236,7 +236,10 @@ class ActiveDeviceManager {
                                 (a2dpService.getConnectionState(mA2dpConnectedDevices.get(0)) ==
                                          BluetoothProfile.STATE_CONNECTED)) {
                                 Log.d(TAG, "calling set a2dp Active dev: " + mA2dpConnectedDevices.get(0));
-                                setA2dpActiveDevice(mA2dpConnectedDevices.get(0));
+                                if (!setA2dpActiveDevice(mA2dpConnectedDevices.get(0))) {
+                                    Log.w(TAG, "Set a2dp active device failed");
+                                    setA2dpActiveDevice(null);
+                                }
                             } else
                                 setA2dpActiveDevice(null);
                         }
@@ -446,18 +449,19 @@ class ActiveDeviceManager {
         return mHandlerThread.getLooper();
     }
 
-    private void setA2dpActiveDevice(BluetoothDevice device) {
+    private boolean setA2dpActiveDevice(BluetoothDevice device) {
         if (DBG) {
             Log.d(TAG, "setA2dpActiveDevice(" + device + ")");
         }
         final A2dpService a2dpService = mFactory.getA2dpService();
         if (a2dpService == null) {
-            return;
+            return false;
         }
         if (!a2dpService.setActiveDevice(device)) {
-            return;
+            return false;
         }
         mA2dpActiveDevice = device;
+        return true;
     }
 
     private void setHfpActiveDevice(BluetoothDevice device) {
