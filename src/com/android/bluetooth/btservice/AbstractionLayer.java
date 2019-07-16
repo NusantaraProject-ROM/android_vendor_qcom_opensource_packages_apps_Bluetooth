@@ -125,6 +125,7 @@ public final class AbstractionLayer {
     public static final int AVRCP = 1;
     public static final int PBAP = 2;
     public static final int MAP = 3;
+    public static final int MAX_POW = 4;
 
     // Profile features supported in profile_conf
     public static final int PROFILE_VERSION =1;
@@ -133,6 +134,10 @@ public final class AbstractionLayer {
     public static final int USE_SIM_SUPPORT = 4;
     public static final int MAP_EMAIL_SUPPORT = 5;
     public static final int PBAP_0102_SUPPORT = 6;
+    public static final int BR_MAX_POW_SUPPORT = 7;
+    public static final int EDR_MAX_POW_SUPPORT = 8;
+    public static final int BLE_MAX_POW_SUPPORT = 9;
+
 
     static final int BT_VENDOR_PROPERTY_TWS_PLUS_DEVICE_TYPE = 0x01;
     static final int BT_VENDOR_PROPERTY_TWS_PLUS_PEER_ADDR = 0x02;
