@@ -307,8 +307,11 @@ class ActiveDeviceManager {
                                (hfpService != null) &&
                                 (hfpService.getConnectionState(mHfpConnectedDevices.get(0)) ==
                                          BluetoothProfile.STATE_CONNECTED)) {
-                               setHfpActiveDevice(mHfpConnectedDevices.get(0));
                                Log.d(TAG, "calling set Active dev: " + mHfpConnectedDevices.get(0));
+                               if (!setHfpActiveDevice(mHfpConnectedDevices.get(0))) {
+                                   Log.w(TAG, "Set hfp active device failed");
+                                   setHfpActiveDevice(null);
+                               }
                             } else {
                                setHfpActiveDevice(null);
                             }
@@ -464,18 +467,19 @@ class ActiveDeviceManager {
         return true;
     }
 
-    private void setHfpActiveDevice(BluetoothDevice device) {
+    private boolean setHfpActiveDevice(BluetoothDevice device) {
         if (DBG) {
             Log.d(TAG, "setHfpActiveDevice(" + device + ")");
         }
         final HeadsetService headsetService = mFactory.getHeadsetService();
         if (headsetService == null) {
-            return;
+            return false;
         }
         if (!headsetService.setActiveDevice(device)) {
-            return;
+            return false;
         }
         mHfpActiveDevice = device;
+        return true;
     }
 
     private void setHearingAidActiveDevice(BluetoothDevice device) {
