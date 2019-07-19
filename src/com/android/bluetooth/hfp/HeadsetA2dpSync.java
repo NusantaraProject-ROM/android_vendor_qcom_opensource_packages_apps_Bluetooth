@@ -194,10 +194,9 @@ public class HeadsetA2dpSync {
             break;
         case BluetoothA2dp.STATE_PLAYING:
             mA2dpConnState.put(device, A2DP_PLAYING);
-            // if call/ ring is ongoing and there is HFP connected device and we received playing,
+            // if call/ ring is ongoing and we received playing,
             // we need to suspend
-            if ((mHeadsetService.isInCall() || mHeadsetService.isRinging()) &&
-                 mHeadsetService.getConnectedDevices().size() != 0) {
+            if (mHeadsetService.isInCall() || mHeadsetService.isRinging()) {
                 Log.d(TAG," CALL/Ring is active ");
                 suspendA2DP(A2DP_SUSPENDED_BY_CS_CALL, mDummyDevice);
             }
