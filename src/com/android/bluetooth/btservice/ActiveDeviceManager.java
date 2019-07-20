@@ -318,12 +318,16 @@ class ActiveDeviceManager {
                                 if (peerTwsDevice != null &&
                                     hfpService.getConnectionState(peerTwsDevice)
                                     == BluetoothProfile.STATE_CONNECTED) {
-                                   setHfpActiveDevice(peerTwsDevice);
                                    Log.d(TAG, "calling set Active dev: "
                                       + peerTwsDevice);
+                                   if (!setHfpActiveDevice(peerTwsDevice)) {
+                                       Log.w(TAG, "Set hfp active device failed");
+                                       setHfpActiveDevice(null);
+                                   }
                                 } else {
                                    Log.d(TAG, "No Active device Switch" +
                                           "as there is no Connected TWS+ peer");
+                                   setHfpActiveDevice(null);
                                 }
                             } else {
                                setHfpActiveDevice(null);
@@ -480,18 +484,19 @@ class ActiveDeviceManager {
         return true;
     }
 
-    private void setHfpActiveDevice(BluetoothDevice device) {
+    private boolean setHfpActiveDevice(BluetoothDevice device) {
         if (DBG) {
             Log.d(TAG, "setHfpActiveDevice(" + device + ")");
         }
         final HeadsetService headsetService = mFactory.getHeadsetService();
         if (headsetService == null) {
-            return;
+            return false;
         }
         if (!headsetService.setActiveDevice(device)) {
-            return;
+            return false;
         }
         mHfpActiveDevice = device;
+        return true;
     }
 
     private void setHearingAidActiveDevice(BluetoothDevice device) {

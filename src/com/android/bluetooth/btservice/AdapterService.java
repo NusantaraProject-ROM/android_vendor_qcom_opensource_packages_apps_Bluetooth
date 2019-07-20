@@ -326,6 +326,13 @@ public class AdapterService extends Service {
         return mVendor.isSplitA2dpEnabled();
     }
 
+    public boolean isSwbEnabled() {
+        return mVendor.isSwbEnabled();
+    }
+    public boolean isSwbPmEnabled() {
+        return mVendor.isSwbPmEnabled();
+    }
+
     private static final int MESSAGE_PROFILE_SERVICE_STATE_CHANGED = 1;
     private static final int MESSAGE_PROFILE_SERVICE_REGISTERED = 2;
     private static final int MESSAGE_PROFILE_SERVICE_UNREGISTERED = 3;
