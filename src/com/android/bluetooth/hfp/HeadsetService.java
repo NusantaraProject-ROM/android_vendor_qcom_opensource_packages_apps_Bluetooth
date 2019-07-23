@@ -1996,6 +1996,12 @@ public class HeadsetService extends ProfileService {
                         Log.i(TAG, "No device is connected and no call, " +
                                    "set A2DPsuspended to false");
                         mHfpA2dpSyncInterface.releaseA2DP(null);
+                    } else {
+                        //if call/ ring is ongoing, suspendA2DP to true
+                        Log.i(TAG, "No device is connected and call/ring is ongoing, " +
+                                   "set A2DPsuspended to true");
+                        mHfpA2dpSyncInterface.suspendA2DP(HeadsetA2dpSync.
+                                                      A2DP_SUSPENDED_BY_CS_CALL, null);
                     }
                 });
             }
