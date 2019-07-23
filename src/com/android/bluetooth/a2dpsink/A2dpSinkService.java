@@ -642,7 +642,8 @@ public class A2dpSinkService extends ProfileService {
         event.device = device;
         event.valueInt = state;
         if (mA2dpSrcSnkConcurrency &&
-            state == BluetoothProfile.STATE_CONNECTING) {
+            (state == BluetoothProfile.STATE_CONNECTING ||
+             state == BluetoothProfile.STATE_CONNECTED)) {
             sA2dpService = A2dpService.getA2dpService();
             List<BluetoothDevice> snkDevs = sA2dpService.getConnectedDevices();
             for ( BluetoothDevice snk : snkDevs ) {

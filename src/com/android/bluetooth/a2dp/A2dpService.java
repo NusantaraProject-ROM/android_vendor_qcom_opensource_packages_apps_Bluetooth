@@ -1147,7 +1147,8 @@ public class A2dpService extends ProfileService {
                 return;
             }
             if (mA2dpSrcSnkConcurrency &&
-                A2dpStackEvent.CONNECTION_STATE_CONNECTING == stackEvent.valueInt) {
+                ( A2dpStackEvent.CONNECTION_STATE_CONNECTING == stackEvent.valueInt ||
+                  A2dpStackEvent.CONNECTION_STATE_CONNECTED == stackEvent.valueInt )) {
                 sA2dpSinkService = A2dpSinkService.getA2dpSinkService();
                 List<BluetoothDevice> srcDevs = sA2dpSinkService.getConnectedDevices();
                 for ( BluetoothDevice src : srcDevs ) {
