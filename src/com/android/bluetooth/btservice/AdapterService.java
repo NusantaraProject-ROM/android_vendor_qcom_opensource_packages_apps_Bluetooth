@@ -116,6 +116,7 @@ import com.android.internal.app.IBatteryStats;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.NetworkInfo;
+import android.net.wifi.WifiConfiguration;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 
@@ -392,6 +393,13 @@ public class AdapterService extends Service {
                         mAdapterStateMachine.sendMessage(AdapterState.BREDR_STARTED);
                         //update wifi state to lower layers
                         fetchWifiState();
+                        if (isVendorIntfEnabled()) {
+                            if (isPowerbackRequired()) {
+                                mVendor.setPowerBackoff(true);
+                            } else {
+                                mVendor.setPowerBackoff(false);
+                            }
+                        }
                     }
                     break;
                 case BluetoothAdapter.STATE_OFF:
@@ -512,6 +520,11 @@ public class AdapterService extends Service {
 
         mSdpManager = SdpManager.init(this);
         registerReceiver(mAlarmBroadcastReceiver, new IntentFilter(ACTION_ALARM_WAKEUP));
+        IntentFilter wifiFilter = new IntentFilter();
+        wifiFilter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
+        wifiFilter.addAction(WifiManager.WIFI_AP_STATE_CHANGED_ACTION);
+        wifiFilter.addAction(WifiManager.WIFI_STATE_CHANGED_ACTION);
+        registerReceiver(mWifiStateBroadcastReceiver, wifiFilter);
         mProfileObserver = new ProfileObserver(getApplicationContext(), this, new Handler());
         mProfileObserver.start();
 
@@ -830,6 +843,7 @@ public class AdapterService extends Service {
         mCleaningUp = true;
 
         unregisterReceiver(mAlarmBroadcastReceiver);
+        unregisterReceiver(mWifiStateBroadcastReceiver);
 
         if (mPendingAlarm != null) {
             mAlarmManager.cancel(mPendingAlarm);
@@ -1383,6 +1397,17 @@ public class AdapterService extends Service {
                 return false;
             }
             return service.isBondingInitiatedLocally(device);
+        }
+
+        @Override
+        public void setBondingInitiatedLocally(BluetoothDevice device, boolean localInitiated) {
+            // don't check caller, may be called from system UI
+            AdapterService service = getService();
+            if (service == null) {
+                return;
+            }
+            service.setBondingInitiatedLocally(device,localInitiated);
+            return;
         }
 
         @Override
@@ -2457,6 +2482,17 @@ public class AdapterService extends Service {
         return deviceProp.isBondingInitiatedLocally();
     }
 
+    void setBondingInitiatedLocally(BluetoothDevice device, boolean localInitiated) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
+        if (deviceProp == null) {
+            return;
+        }
+        Log.w(TAG," localInitiated " + localInitiated);
+        deviceProp.setBondingInitiatedLocally(localInitiated);
+        return;
+    }
+
     long getSupportedProfiles() {
         return Config.getSupportedProfilesBitMask();
     }
@@ -3519,19 +3555,29 @@ public class AdapterService extends Service {
     private final BroadcastReceiver mWifiStateBroadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (intent.getAction().equals(WifiManager.NETWORK_STATE_CHANGED_ACTION) && isEnabled()) {
-                NetworkInfo networkInfo = intent.getParcelableExtra(WifiManager.EXTRA_NETWORK_INFO);
-                NetworkInfo.DetailedState ds = networkInfo.getDetailedState();
-                if (ds == NetworkInfo.DetailedState.CONNECTED) {
-                    if(isVendorIntfEnabled())
-                        mVendor.setWifiState(true);
-                }
-                else if (ds == NetworkInfo.DetailedState.DISCONNECTED) {
-                    if(isVendorIntfEnabled())
-                        mVendor.setWifiState(false);
-                }
-            }
-        }
+            String action = (intent != null) ? intent.getAction():null;
+            debugLog(action);
+            if (action == null) return;
+            if (isEnabled() && (action.equals(WifiManager.NETWORK_STATE_CHANGED_ACTION))) {
+                 WifiManager wifiMgr = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+                 if ((wifiMgr != null) && (wifiMgr.isWifiEnabled())) {
+                     WifiInfo wifiInfo = wifiMgr.getConnectionInfo();
+                     if ((wifiInfo != null) && (wifiInfo.getNetworkId() != -1)) {
+                         mVendor.setWifiState(true);
+                     } else {
+                         mVendor.setWifiState(false);
+                     }
+                 }
+             } else if (isEnabled() &&
+                        (action.equals(WifiManager.WIFI_STATE_CHANGED_ACTION) ||
+                        (action.equals(WifiManager.WIFI_AP_STATE_CHANGED_ACTION)))){
+                 if (isPowerbackRequired()) {
+                     mVendor.setPowerBackoff(true);
+                 } else {
+                     mVendor.setPowerBackoff(false);
+                 }
+             }
+         }
     };
 
     private boolean isGuest() {
@@ -3555,6 +3601,23 @@ public class AdapterService extends Service {
          }
          return obfuscateAddressNative(Utils.getByteAddress(device));
     }
+
+    private boolean isPowerbackRequired() {
+        try {
+
+            WifiManager mWifiManager = (WifiManager)getSystemService(Context.WIFI_SERVICE);
+            final WifiConfiguration config = mWifiManager.getWifiApConfiguration();
+            if ((mWifiManager != null) && ((mWifiManager.isWifiEnabled() ||
+                ((mWifiManager.getWifiApState() == WifiManager.WIFI_AP_STATE_ENABLED) &&
+                (config.apBand == WifiConfiguration.AP_BAND_5GHZ))))) {
+                return true;
+            }
+            return false;
+        } catch(SecurityException e) {
+            debugLog(e.toString());
+        }
+        return false;
+   }
 
     static native void classInitNative();
 
