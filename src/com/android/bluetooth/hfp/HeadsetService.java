@@ -128,8 +128,6 @@ public class HeadsetService extends ProfileService {
     private boolean mIsTwsPlusEnabled = false;
     private boolean mIsTwsPlusShoEnabled = false;
     private vendorhfservice  mVendorHf;
-    private boolean mIsSwbEnabled = false;
-    private boolean mIsSwbPmEnabled = false;
 
     @Override
     public IProfileServiceBinder initBinder() {
@@ -168,24 +166,6 @@ public class HeadsetService extends ProfileService {
             String twsPlusEnabled = SystemProperties.get("persist.vendor.btstack.enable.twsplus");
             String twsPlusShoEnabled =
                SystemProperties.get("persist.vendor.btstack.enable.twsplussho");
-            String swbEnabled = SystemProperties.get("persist.vendor.btstack.enable.swb");
-            String swbPmEnabled = SystemProperties.get("persist.vendor.btstack.enable.swbpm");
-
-            if(mAdapterService.isSWBVoicewithAptxAdaptiveAG()) {
-               Log.d(TAG, "SWB addon feature supported on FW");
-               if (swbEnabled.isEmpty()) {
-                   SystemProperties.set("persist.vendor.btstack.enable.swb", "true");
-                   SystemProperties.set("persist.vendor.btstack.enable.swbpm", "true");
-                   swbEnabled = "true";
-                   swbPmEnabled = "true";
-               }
-            } else {
-               Log.d(TAG, "SWB addon feature not supported on FW");
-               SystemProperties.set("persist.vendor.btstack.enable.swb", "false");
-               SystemProperties.set("persist.vendor.btstack.enable.swbpm", "false");
-               swbEnabled = "false";
-               swbPmEnabled = "false";
-            }
 
             if (!twsPlusEnabled.isEmpty() && "true".equals(twsPlusEnabled)) {
                 mIsTwsPlusEnabled = true;
@@ -198,16 +178,8 @@ public class HeadsetService extends ProfileService {
                     mIsTwsPlusShoEnabled = false;
                 }
             }
-            if (!swbEnabled.isEmpty() && "true".equals(swbEnabled)) {
-                mIsSwbEnabled = true;
-            }
-            if (!swbPmEnabled.isEmpty() && "true".equals(swbPmEnabled)) {
-                mIsSwbPmEnabled = true;
-            }
             Log.i(TAG, "mIsTwsPlusEnabled: " + mIsTwsPlusEnabled);
             Log.i(TAG, "mIsTwsPlusShoEnabled: " + mIsTwsPlusShoEnabled);
-            Log.i(TAG, "mIsSwbEnabled: " + mIsSwbEnabled);
-            Log.i(TAG, "mIsSwbPmEnabled: " + mIsSwbPmEnabled);
             if (mIsTwsPlusEnabled && mMaxHeadsetConnections < 2){
                //set MaxConn to 2 if TWSPLUS enabled
                mMaxHeadsetConnections = 2;
@@ -251,7 +223,7 @@ public class HeadsetService extends ProfileService {
         mHfpA2dpSyncInterface = new HeadsetA2dpSync(mSystemInterface, this);
         if (mVendorHf != null) {
             mVendorHf.init();
-            mVendorHf.enableSwb(mIsSwbEnabled);
+            mVendorHf.enableSwb(isSwbEnabled());
         }
 
         Log.i(TAG, " HeadsetService Started ");
@@ -2024,6 +1996,12 @@ public class HeadsetService extends ProfileService {
                         Log.i(TAG, "No device is connected and no call, " +
                                    "set A2DPsuspended to false");
                         mHfpA2dpSyncInterface.releaseA2DP(null);
+                    } else {
+                        //if call/ ring is ongoing, suspendA2DP to true
+                        Log.i(TAG, "No device is connected and call/ring is ongoing, " +
+                                   "set A2DPsuspended to true");
+                        mHfpA2dpSyncInterface.suspendA2DP(HeadsetA2dpSync.
+                                                      A2DP_SUSPENDED_BY_CS_CALL, null);
                     }
                 });
             }
@@ -2451,11 +2429,18 @@ public class HeadsetService extends ProfileService {
     }
 
     public boolean isSwbEnabled() {
-        return mIsSwbEnabled;
+	if(mAdapterService.isSWBVoicewithAptxAdaptiveAG()) {
+            return mAdapterService.isSwbEnabled();
+        }
+        return false;
     }
 
     public boolean isSwbPmEnabled() {
-        return mIsSwbPmEnabled;
+        if(mAdapterService.isSWBVoicewithAptxAdaptiveAG() &&
+           mAdapterService.isSwbEnabled()) {
+            return mAdapterService.isSwbPmEnabled();
+        }
+        return false;
     }
 
     private static void logD(String message) {
