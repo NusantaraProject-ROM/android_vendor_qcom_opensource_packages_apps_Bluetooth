@@ -242,7 +242,11 @@ class ActiveDeviceManager {
                                     }
                                 }
                             }
-                            setA2dpActiveDevice(mDevice);
+                            if (!setA2dpActiveDevice(mDevice) && (mDevice != null) &&
+                                mAdapterService.isTwsPlusDevice(mDevice)) {
+                                Log.w(TAG, "Switch A2dp active device to peer earbud failed");
+                                setA2dpActiveDevice(null);
+                            }
                         }
                     }
                 }
@@ -314,12 +318,16 @@ class ActiveDeviceManager {
                                 if (peerTwsDevice != null &&
                                     hfpService.getConnectionState(peerTwsDevice)
                                     == BluetoothProfile.STATE_CONNECTED) {
-                                   setHfpActiveDevice(peerTwsDevice);
                                    Log.d(TAG, "calling set Active dev: "
                                       + peerTwsDevice);
+                                   if (!setHfpActiveDevice(peerTwsDevice)) {
+                                       Log.w(TAG, "Set hfp active device failed");
+                                       setHfpActiveDevice(null);
+                                   }
                                 } else {
                                    Log.d(TAG, "No Active device Switch" +
                                           "as there is no Connected TWS+ peer");
+                                   setHfpActiveDevice(null);
                                 }
                             } else {
                                setHfpActiveDevice(null);
@@ -461,32 +469,34 @@ class ActiveDeviceManager {
         return mHandlerThread.getLooper();
     }
 
-    private void setA2dpActiveDevice(BluetoothDevice device) {
+    private boolean setA2dpActiveDevice(BluetoothDevice device) {
         if (DBG) {
             Log.d(TAG, "setA2dpActiveDevice(" + device + ")");
         }
         final A2dpService a2dpService = mFactory.getA2dpService();
         if (a2dpService == null) {
-            return;
+            return false;
         }
         if (!a2dpService.setActiveDevice(device)) {
-            return;
+            return false;
         }
         mA2dpActiveDevice = device;
+        return true;
     }
 
-    private void setHfpActiveDevice(BluetoothDevice device) {
+    private boolean setHfpActiveDevice(BluetoothDevice device) {
         if (DBG) {
             Log.d(TAG, "setHfpActiveDevice(" + device + ")");
         }
         final HeadsetService headsetService = mFactory.getHeadsetService();
         if (headsetService == null) {
-            return;
+            return false;
         }
         if (!headsetService.setActiveDevice(device)) {
-            return;
+            return false;
         }
         mHfpActiveDevice = device;
+        return true;
     }
 
     private void setHearingAidActiveDevice(BluetoothDevice device) {
