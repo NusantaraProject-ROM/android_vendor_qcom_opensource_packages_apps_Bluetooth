@@ -1242,6 +1242,19 @@ public class HeadsetService extends ProfileService {
                         + " is not active, use active device " + mActiveDevice + " instead");
                 device = mActiveDevice;
             }
+            if (mAdapterService.isTwsPlusDevice(device) &&
+                    !isAudioConnected(device)) {
+                BluetoothDevice peerDevice = getTwsPlusConnectedPeer(device);
+                if (peerDevice != null && isAudioConnected(peerDevice)) {
+                    Log.w(TAG, "startVoiceRecognition: requested TWS+ device " + device
+                            + " is not audio connected, use TWS+ peer device " + peerDevice
+                            + " instead");
+                    device = peerDevice;
+                } else {
+                    Log.w(TAG, "stopVoiceRecognition: both earbuds are not audio connected");
+                    return false;
+                }
+            }
             final HeadsetStateMachine stateMachine = mStateMachines.get(device);
             if (stateMachine == null) {
                 Log.w(TAG, "stopVoiceRecognition: " + device + " is never connected");
