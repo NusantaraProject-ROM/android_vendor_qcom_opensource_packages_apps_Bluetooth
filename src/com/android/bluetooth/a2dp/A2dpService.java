@@ -117,6 +117,7 @@ public class A2dpService extends ProfileService {
     private static final long Aptx_BLEScanDisable = 0x2000;
     private static final int SET_EBMONO_CFG = 1;
     private static final int MonoCfg_Timeout = 5000;
+    private static boolean a2dpMulticast = false;
 
     private Handler mHandler = new Handler() {
         @Override
@@ -236,6 +237,8 @@ public class A2dpService extends ProfileService {
         // Step 10: Clear active device
         setActiveDevice(null);
 
+        // Step 11: get the a2dp multicast flag
+        a2dpMulticast = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp_multicast_enable", false);
         return true;
     }
 
@@ -771,16 +774,18 @@ public class A2dpService extends ProfileService {
                                                  mAudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
                    wasMuted = true;
                 }
-                if (mDummyDevice != null &&
-                    mAdapterService.isTwsPlusDevice(previousActiveDevice)) {
-                    mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
-                            mDummyDevice, BluetoothProfile.STATE_DISCONNECTED,
-                            BluetoothProfile.A2DP, true, -1);
-                    mDummyDevice = null;
-                } else  {
-                    mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
-                            previousActiveDevice, BluetoothProfile.STATE_DISCONNECTED,
-                            BluetoothProfile.A2DP, true, -1);
+                if (!a2dpMulticast) {
+                    if (mDummyDevice != null &&
+                        mAdapterService.isTwsPlusDevice(previousActiveDevice)) {
+                        mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
+                                mDummyDevice, BluetoothProfile.STATE_DISCONNECTED,
+                                BluetoothProfile.A2DP, true, -1);
+                        mDummyDevice = null;
+                    } else  {
+                        mAudioManager.setBluetoothA2dpDeviceConnectionStateSuppressNoisyIntent(
+                                previousActiveDevice, BluetoothProfile.STATE_DISCONNECTED,
+                                BluetoothProfile.A2DP, true, -1);
+                    }
                 }
             }
             // Check if ther is any delay set on audioservice for previous
@@ -826,8 +831,11 @@ public class A2dpService extends ProfileService {
                                           AudioManager.ADJUST_UNMUTE,
                                           mAudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
             }
-            if(mAvrcp_ext != null)
-                mAvrcp_ext.setAbsVolumeFlag(device);
+            // Don't update the absVolume flags when disconnect one device in multicast mode
+            if (!a2dpMulticast || previousActiveDevice == null) {
+                if(mAvrcp_ext != null)
+                    mAvrcp_ext.setAbsVolumeFlag(device);
+            }
         }
         return true;
     }
@@ -909,6 +917,18 @@ public class A2dpService extends ProfileService {
             if(mGattService != null) {
                 Log.d(TAG, "Enable BLE scanning");
                 mGattService.setAptXLowLatencyMode(false);
+            }
+        }
+    }
+
+    public void storeDeviceAudioVolume(BluetoothDevice device) {
+        if (device != null)
+        {
+            if (AvrcpTargetService.get() != null) {
+                AvrcpTargetService.get().storeVolumeForDevice(device);
+            } else if (mAvrcp_ext != null) {
+                //store volume in multi-a2dp for the device doesn't set as active
+                mAvrcp_ext.storeVolumeForDevice(device);
             }
         }
     }

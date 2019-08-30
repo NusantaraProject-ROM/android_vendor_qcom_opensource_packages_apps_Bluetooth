@@ -33,6 +33,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
+import android.os.SystemProperties;
 import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 
@@ -124,6 +125,7 @@ class ActiveDeviceManager {
     private BluetoothDevice mA2dpActiveDevice = null;
     private BluetoothDevice mHfpActiveDevice = null;
     private BluetoothDevice mHearingAidActiveDevice = null;
+    private static boolean a2dpMulticast = false;
 
     // Broadcast receiver for all changes
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
@@ -214,8 +216,19 @@ class ActiveDeviceManager {
                         mA2dpConnectedDevices.add(device);
                         if (mHearingAidActiveDevice == null) {
                             // New connected device: select it as active
-                            setA2dpActiveDevice(device);
-                            break;
+                            if (!a2dpMulticast) {
+                                setA2dpActiveDevice(device);
+                            }
+                            else {
+                                if (mA2dpActiveDevice == null) {
+                                    setA2dpActiveDevice(device);
+                                }
+                                else {
+                                    // store the volume for the new added device
+                                    final A2dpService a2dpService = mFactory.getA2dpService();
+                                    a2dpService.storeDeviceAudioVolume(device);
+                                }
+                            }
                         }
                         break;
                     }
@@ -236,6 +249,16 @@ class ActiveDeviceManager {
                                 (a2dpService.getConnectionState(mA2dpConnectedDevices.get(0)) ==
                                          BluetoothProfile.STATE_CONNECTED)) {
                                 Log.d(TAG, "calling set a2dp Active dev: " + mA2dpConnectedDevices.get(0));
+                                if (!setA2dpActiveDevice(mA2dpConnectedDevices.get(0))) {
+                                    Log.w(TAG, "Set a2dp active device failed");
+                                    setA2dpActiveDevice(null);
+                                }
+                            }
+                            else if (a2dpMulticast && !mA2dpConnectedDevices.isEmpty() &&
+                                (a2dpService != null) &&
+                                (a2dpService.getConnectionState(mA2dpConnectedDevices.get(0)) ==
+                                BluetoothProfile.STATE_CONNECTED)) {
+                                Log.d(TAG, "a2dp Multicast calling set a2dp Active dev: " + mA2dpConnectedDevices.get(0));
                                 if (!setA2dpActiveDevice(mA2dpConnectedDevices.get(0))) {
                                     Log.w(TAG, "Set a2dp active device failed");
                                     setA2dpActiveDevice(null);
@@ -284,7 +307,7 @@ class ActiveDeviceManager {
                             break;      // The device is already connected
                         }
                         mHfpConnectedDevices.add(device);
-                        if (mHearingAidActiveDevice == null) {
+                        if ((!a2dpMulticast || mHfpActiveDevice == null) && mHearingAidActiveDevice == null) {
                             // New connected device: select it as active
                             setHfpActiveDevice(device);
                             break;
@@ -312,6 +335,17 @@ class ActiveDeviceManager {
                                    Log.w(TAG, "Set hfp active device failed");
                                    setHfpActiveDevice(null);
                                }
+                            }
+                            else if (a2dpMulticast && !mHfpConnectedDevices.isEmpty() &&
+                                (hfpService != null) &&
+                                (hfpService.getConnectionState(mHfpConnectedDevices.get(0)) ==
+                                 BluetoothProfile.STATE_CONNECTED)) {
+
+                                Log.d(TAG, "calling set HFP Active dev: " + mHfpConnectedDevices.get(0));
+                                if (!setHfpActiveDevice(mHfpConnectedDevices.get(0))) {
+                                    Log.w(TAG, "Set hfp active device failed");
+                                    setHfpActiveDevice(null);
+                                }
                             } else {
                                setHfpActiveDevice(null);
                             }
@@ -422,6 +456,7 @@ class ActiveDeviceManager {
         mAdapterService.registerReceiver(mReceiver, filter);
 
         mAudioManager.registerAudioDeviceCallback(mAudioManagerAudioDeviceCallback, mHandler);
+        a2dpMulticast = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp_multicast_enable", false);
     }
 
     void cleanup() {
