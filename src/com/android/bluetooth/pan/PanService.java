@@ -72,6 +72,7 @@ public class PanService extends ProfileService {
     private static final int MESSAGE_CONNECT = 1;
     private static final int MESSAGE_DISCONNECT = 2;
     private static final int MESSAGE_CONNECT_STATE_CHANGED = 11;
+    private static final int STOP_LISTENER = 200;
     private boolean mTetherOn = false;
 
     private BluetoothTetheringNetworkFactory mNetworkFactory;
@@ -127,34 +128,15 @@ public class PanService extends ProfileService {
 
     @Override
     protected boolean stop() {
-        mHandler.removeCallbacksAndMessages(null);
+        Log.i(TAG, " stop");
+        mHandler.sendMessage(mHandler.obtainMessage(STOP_LISTENER));
         return true;
     }
 
     @Override
     protected void cleanup() {
-        // TODO(b/72948646): this should be moved to stop()
-        setPanService(null);
-        if (mNativeAvailable) {
-            cleanupNative();
-            mNativeAvailable = false;
-        }
-        if (mPanDevices != null) {
-           int[] desiredStates = {BluetoothProfile.STATE_CONNECTING, BluetoothProfile.STATE_CONNECTED,
-                                  BluetoothProfile.STATE_DISCONNECTING};
-           List<BluetoothDevice> devList =
-                   getDevicesMatchingConnectionStates(desiredStates);
-           for (BluetoothDevice device : devList) {
-                BluetoothPanDevice panDevice = mPanDevices.get(device);
-                Log.d(TAG, "panDevice: " + panDevice + " device address: " + device);
-                if (panDevice != null) {
-                    handlePanDeviceStateChange(device, mPanIfName,
-                        BluetoothProfile.STATE_DISCONNECTED,
-                        panDevice.mLocalRole, panDevice.mRemoteRole);
-                }
-            }
-            mPanDevices.clear();
-        }
+        Log.i(TAG, " cleanup");
+        mHandler.removeCallbacksAndMessages(null);
     }
 
     private final Handler mHandler = new Handler() {
@@ -199,6 +181,30 @@ public class PanService extends ProfileService {
                             convertHalState(cs.state), cs.local_role, cs.remote_role);
                 }
                 break;
+                case STOP_LISTENER :
+                    setPanService(null);
+                    if (mNativeAvailable) {
+                        cleanupNative();
+                        mNativeAvailable = false;
+                    }
+                    if (mPanDevices != null) {
+                       int[] desiredStates = {BluetoothProfile.STATE_CONNECTING,
+                                              BluetoothProfile.STATE_CONNECTED,
+                                              BluetoothProfile.STATE_DISCONNECTING};
+                       List<BluetoothDevice> devList =
+                               getDevicesMatchingConnectionStates(desiredStates);
+                       for (BluetoothDevice device : devList) {
+                            BluetoothPanDevice panDevice = mPanDevices.get(device);
+                            Log.d(TAG, "panDevice: " + panDevice + " device address: " + device);
+                            if (panDevice != null) {
+                                handlePanDeviceStateChange(device, mPanIfName,
+                                    BluetoothProfile.STATE_DISCONNECTED,
+                                    panDevice.mLocalRole, panDevice.mRemoteRole);
+                            }
+                        }
+                        mPanDevices.clear();
+                    }
+                    break;
             }
         }
     };
