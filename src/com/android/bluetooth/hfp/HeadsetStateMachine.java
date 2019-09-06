@@ -837,11 +837,13 @@ public class HeadsetStateMachine extends StateMachine {
                     stateLogW("Disconnected");
                     processWBSEvent(HeadsetHalConstants.BTHF_WBS_NO);
                     stateLogD(" retryConnectCount = " + retryConnectCount);
-                    if(retryConnectCount == 1) {
-                        Log.d(TAG," retry once more ");
+                    if(retryConnectCount == 1 && !hasDeferredMessages(DISCONNECT)) {
+                        Log.d(TAG,"No deferred Disconnect, retry once more ");
                         sendMessageDelayed(CONNECT, mDevice, RETRY_CONNECT_TIME_SEC);
-                    } else if (retryConnectCount >= MAX_RETRY_CONNECT_COUNT) {
+                    } else if (retryConnectCount >= MAX_RETRY_CONNECT_COUNT ||
+                            hasDeferredMessages(DISCONNECT)) {
                         // we already tried twice.
+                        Log.d(TAG,"Already tried twice or has deferred Disconnect");
                         retryConnectCount = 0;
                     }
                     transitionTo(mDisconnected);
