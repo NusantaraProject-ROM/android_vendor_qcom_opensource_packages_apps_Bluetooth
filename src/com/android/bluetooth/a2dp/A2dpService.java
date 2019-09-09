@@ -1329,10 +1329,13 @@ public class A2dpService extends ProfileService {
         // Inform the Audio Service about the codec configuration change,
         // so the Audio Service can reset accordingly the audio feeding
         // parameters in the Audio HAL to the Bluetooth stack.
+        int rememberedVolume = -1;
         if (isActiveDevice(device) && !sameAudioFeedingParameters) {
+            if (mAvrcp_ext != null)
+                rememberedVolume = mAvrcp_ext.getVolume(device);
             mAudioManager.handleBluetoothA2dpActiveDeviceChange(device,
                     BluetoothProfile.STATE_CONNECTED, BluetoothProfile.A2DP,
-                    true, -1);
+                    true, rememberedVolume);
         }
     }
     void updateTwsChannelMode(int state, BluetoothDevice device) {
