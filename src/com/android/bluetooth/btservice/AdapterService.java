@@ -678,6 +678,12 @@ public class AdapterService extends Service {
             debugLog("stateChangeCallback: disableNative() completed");
             mAdapterStateMachine.sendMessage(AdapterState.STACK_DISABLED);
         } else if (status == AbstractionLayer.BT_STATE_ON) {
+            String BT_SOC = getSocName();
+
+            if (BT_SOC.equals("pronto")) {
+                Log.i(TAG, "setting max audio connection to 2");
+                mAdapterProperties.setMaxConnectedAudioDevices(2);
+            }
             mAdapterStateMachine.sendMessage(AdapterState.BLE_STARTED);
         } else {
             Log.e(TAG, "Incorrect status " + status + " in stateChangeCallback");
