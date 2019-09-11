@@ -819,8 +819,8 @@ public class HidHostService extends ProfileService {
         int bondState = adapterService.getBondState(device);
         // Allow this connection only if the device is bonded. Any attempt to connect while
         // bonding would potentially lead to an unauthorized connection.
-        if (bondState != BluetoothDevice.BOND_BONDED) {
-            Log.w(TAG, "okToConnect: return false, bondState=" + bondState);
+        if (bondState == BluetoothDevice.BOND_NONE) {
+            Log.w(TAG, "okToConnect: return false, bondState :" + bondState);
             return false;
         } else if (priority != BluetoothProfile.PRIORITY_UNDEFINED
                 && priority != BluetoothProfile.PRIORITY_ON
