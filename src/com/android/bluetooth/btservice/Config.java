@@ -121,10 +121,12 @@ public class Config {
         for (ProfileConfig config : PROFILE_SERVICES_AND_FLAGS) {
             boolean supported = resources.getBoolean(config.mSupported);
 
-            if (!supported && (config.mClass == HearingAidService.class) && FeatureFlagUtils
-                                .isEnabled(ctx, FeatureFlagUtils.HEARING_AID_SETTINGS)) {
-                Log.v(TAG, "Feature Flag enables support for HearingAidService");
-                supported = true;
+            if (config.mClass == HearingAidService.class &&
+                    FeatureFlagUtils.isEnabled(ctx, FeatureFlagUtils.HEARING_AID_SETTINGS)) {
+                if (!isHearingAidSupported()) {
+                    supported = false;
+                }
+                if (supported) Log.v(TAG, "HearingAidService is enabled");
             }
 
             if (supported && !isProfileDisabled(ctx, config.mMask)) {
@@ -200,5 +202,16 @@ public class Config {
         }
         // always return true for other profiles
         return true;
+    }
+
+    private static boolean isHearingAidSupported() {
+        AdapterService adapterService = AdapterService.getAdapterService();
+        boolean isHearingAidSupported = false;
+        if (adapterService != null) {
+          isHearingAidSupported = adapterService.getProfileInfo(
+              AbstractionLayer.HEARING_AID, AbstractionLayer.HEARING_AID_SUPPORT);
+          Log.d(TAG, "isHearingAidSupported: " + isHearingAidSupported);
+        }
+        return isHearingAidSupported;
     }
 }
