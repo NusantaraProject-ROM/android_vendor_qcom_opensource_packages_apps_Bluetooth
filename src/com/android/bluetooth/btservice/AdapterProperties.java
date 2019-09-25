@@ -524,6 +524,12 @@ class AdapterProperties {
     }
 
     /**
+     * @param set the maximum number of connected audio devices
+     */
+    void setMaxConnectedAudioDevices(int maxConnectedAudioDevices) {
+         mMaxConnectedAudioDevices = maxConnectedAudioDevices;
+    }
+    /**
      * @return the maximum number of connected audio devices
      */
     int getMaxConnectedAudioDevices() {
