@@ -1251,7 +1251,9 @@ public class HeadsetService extends ProfileService {
                             + " instead");
                     device = peerDevice;
                 } else {
-                    Log.w(TAG, "stopVoiceRecognition: both earbuds are not audio connected");
+                    Log.w(TAG, "stopVoiceRecognition: both earbuds are not audio connected, resume A2DP");
+                    mVoiceRecognitionStarted = false;
+                    mHfpA2dpSyncInterface.releaseA2DP(null);
                     return false;
                 }
             }
@@ -1272,7 +1274,13 @@ public class HeadsetService extends ProfileService {
             }
             mVoiceRecognitionStarted = false;
             stateMachine.sendMessage(HeadsetStateMachine.VOICE_RECOGNITION_STOP, device);
-            stateMachine.sendMessage(HeadsetStateMachine.DISCONNECT_AUDIO, device);
+
+            if (isAudioOn()) {
+                stateMachine.sendMessage(HeadsetStateMachine.DISCONNECT_AUDIO, device);
+            } else {
+                Log.w(TAG, "SCO is not connected and VR stopped, resuming A2DP");
+                stateMachine.sendMessage(HeadsetStateMachine.RESUME_A2DP);
+            }
         }
         return true;
     }
@@ -1918,9 +1926,14 @@ public class HeadsetService extends ProfileService {
                 mVoiceRecognitionTimeoutEvent = null;
             }
             if (mVoiceRecognitionStarted) {
-                if (!disconnectAudio()) {
-                    Log.w(TAG, "stopVoiceRecognitionByHeadset: failed to disconnect audio from "
+                if (isAudioOn()) {
+                    if (!disconnectAudio()) {
+                        Log.w(TAG, "stopVoiceRecognitionByHeadset: failed to disconnect audio from "
                             + fromDevice);
+                    }
+                } else {
+                    Log.w(TAG, "stopVoiceRecognitionByHeadset: No SCO connected, resume A2DP");
+                    mHfpA2dpSyncInterface.releaseA2DP(null);
                 }
                 mVoiceRecognitionStarted = false;
             }
