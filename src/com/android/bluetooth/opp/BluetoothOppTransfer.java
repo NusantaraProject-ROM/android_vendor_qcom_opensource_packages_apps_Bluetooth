@@ -475,7 +475,7 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
             mBatch.mStatus = Constants.BATCH_STATUS_FAILED;
             return;
         }
-
+        registerConnectionreceiver();
         if (mHandlerThread == null) {
             if (V) {
                 Log.v(TAG, "Create handler thread for batch " + mBatch.mId);
@@ -496,7 +496,7 @@ public class BluetoothOppTransfer implements BluetoothOppBatch.BluetoothOppBatch
                 startObexSession();
             }
         }
-        registerConnectionreceiver();
+
     }
 
     /**
