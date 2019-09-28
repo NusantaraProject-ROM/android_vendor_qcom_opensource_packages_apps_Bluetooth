@@ -1880,6 +1880,14 @@ public class HeadsetStateMachine extends StateMachine {
         return true;
     }
 
+    public void onAudioServerUp() {
+        Log.i(TAG, "onAudioSeverUp: restore audio parameters");
+        mSystemInterface.getAudioManager().setBluetoothScoOn(false);
+        mSystemInterface.getAudioManager().setParameters("A2dpSuspended=true");
+        setAudioParameters();
+        mSystemInterface.getAudioManager().setBluetoothScoOn(true);
+    }
+
     /*
      * Put the AT command, company ID, arguments, and device in an Intent and broadcast it.
      */
