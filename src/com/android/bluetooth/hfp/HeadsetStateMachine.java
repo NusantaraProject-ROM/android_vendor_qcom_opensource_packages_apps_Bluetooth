@@ -41,6 +41,7 @@ import android.net.ConnectivityManager.NetworkCallback;
 import android.net.NetworkInfo;
 import android.net.Network;
 import android.util.StatsLog;
+import android.os.Build;
 
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
@@ -1879,6 +1880,14 @@ public class HeadsetStateMachine extends StateMachine {
         return true;
     }
 
+    public void onAudioServerUp() {
+        Log.i(TAG, "onAudioSeverUp: restore audio parameters");
+        mSystemInterface.getAudioManager().setBluetoothScoOn(false);
+        mSystemInterface.getAudioManager().setParameters("A2dpSuspended=true");
+        setAudioParameters();
+        mSystemInterface.getAudioManager().setBluetoothScoOn(true);
+    }
+
     /*
      * Put the AT command, company ID, arguments, and device in an Intent and broadcast it.
      */
@@ -2629,6 +2638,10 @@ public class HeadsetStateMachine extends StateMachine {
             processAtCpbr(atCommand.substring(5), commandType, device);
         } else if (atCommand.startsWith("+CSQ")) {
             mNativeInterface.atResponseCode(device, HeadsetHalConstants.AT_RESPONSE_ERROR, 0);
+        } else if (atCommand.equals("+CGMI")) {
+            mNativeInterface.atResponseString(device, "+CGMI: \"" + Build.MANUFACTURER + "\"");
+        } else if (atCommand.equals("+CGMM")) {
+            mNativeInterface.atResponseString(device, "+CGMM: " + Build.MODEL);
         } else {
             processVendorSpecificAt(atCommand, device);
         }

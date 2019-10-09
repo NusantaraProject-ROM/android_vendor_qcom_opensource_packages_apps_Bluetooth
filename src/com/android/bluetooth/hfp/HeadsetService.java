@@ -56,6 +56,7 @@ import com.android.internal.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.concurrent.Executor;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
@@ -128,6 +129,8 @@ public class HeadsetService extends ProfileService {
     private boolean mIsTwsPlusEnabled = false;
     private boolean mIsTwsPlusShoEnabled = false;
     private vendorhfservice  mVendorHf;
+    private Context mContext = null;
+    private AudioServerStateCallback mServerStateCallback = new AudioServerStateCallback();
 
     @Override
     public IProfileServiceBinder initBinder() {
@@ -225,6 +228,11 @@ public class HeadsetService extends ProfileService {
             mVendorHf.init();
             mVendorHf.enableSwb(isSwbEnabled());
         }
+
+        Log.d(TAG, "registering audio server state callback");
+        mContext = getApplicationContext();
+        Executor exec = mContext.getMainExecutor();
+        mSystemInterface.getAudioManager().setAudioServerStateCallback(exec, mServerStateCallback);
 
         Log.i(TAG, " HeadsetService Started ");
         return true;
@@ -421,6 +429,30 @@ public class HeadsetService extends ProfileService {
                         "State machine not found for stack event: " + stackEvent);
             }
             stateMachine.sendMessage(HeadsetStateMachine.STACK_EVENT, stackEvent);
+        }
+    }
+
+    private class AudioServerStateCallback extends AudioManager.AudioServerStateCallback {
+        @Override
+        public void onAudioServerDown() {
+            Log.d(TAG, "notifying onAudioServerDown");
+        }
+
+        @Override
+        public void onAudioServerUp() {
+            Log.d(TAG, "notifying onAudioServerUp");
+            if (isAudioOn()) {
+                Log.d(TAG, "onAudioServerUp: Audio is On, Notify HeadsetStateMachine");
+                synchronized (mStateMachines) {
+                    for (HeadsetStateMachine stateMachine : mStateMachines.values()) {
+                        if (stateMachine.getAudioState()
+                                == BluetoothHeadset.STATE_AUDIO_CONNECTED) {
+                            stateMachine.onAudioServerUp();
+                            break;
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -1251,7 +1283,9 @@ public class HeadsetService extends ProfileService {
                             + " instead");
                     device = peerDevice;
                 } else {
-                    Log.w(TAG, "stopVoiceRecognition: both earbuds are not audio connected");
+                    Log.w(TAG, "stopVoiceRecognition: both earbuds are not audio connected, resume A2DP");
+                    mVoiceRecognitionStarted = false;
+                    mHfpA2dpSyncInterface.releaseA2DP(null);
                     return false;
                 }
             }
@@ -1272,7 +1306,13 @@ public class HeadsetService extends ProfileService {
             }
             mVoiceRecognitionStarted = false;
             stateMachine.sendMessage(HeadsetStateMachine.VOICE_RECOGNITION_STOP, device);
-            stateMachine.sendMessage(HeadsetStateMachine.DISCONNECT_AUDIO, device);
+
+            if (isAudioOn()) {
+                stateMachine.sendMessage(HeadsetStateMachine.DISCONNECT_AUDIO, device);
+            } else {
+                Log.w(TAG, "SCO is not connected and VR stopped, resuming A2DP");
+                stateMachine.sendMessage(HeadsetStateMachine.RESUME_A2DP);
+            }
         }
         return true;
     }
@@ -1918,9 +1958,14 @@ public class HeadsetService extends ProfileService {
                 mVoiceRecognitionTimeoutEvent = null;
             }
             if (mVoiceRecognitionStarted) {
-                if (!disconnectAudio()) {
-                    Log.w(TAG, "stopVoiceRecognitionByHeadset: failed to disconnect audio from "
+                if (isAudioOn()) {
+                    if (!disconnectAudio()) {
+                        Log.w(TAG, "stopVoiceRecognitionByHeadset: failed to disconnect audio from "
                             + fromDevice);
+                    }
+                } else {
+                    Log.w(TAG, "stopVoiceRecognitionByHeadset: No SCO connected, resume A2DP");
+                    mHfpA2dpSyncInterface.releaseA2DP(null);
                 }
                 mVoiceRecognitionStarted = false;
             }
