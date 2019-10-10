@@ -26,6 +26,10 @@ import android.media.browse.MediaBrowser.MediaItem;
 import android.media.session.MediaSession;
 import android.os.Bundle;
 import android.util.Log;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Looper;
+import android.os.Message;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -47,6 +51,11 @@ class BrowsedMediaPlayer {
     private static final int DISCONNECTED = 0;
     private static final int CONNECTED = 1;
     private static final int SUSPENDED = 2;
+    private static final int MSG_CONNECT_PLAYER = 1;
+    private static final int MSG_DISCONNECT_PLAYER = 2;
+    private static final int MSG_TIMEOUT = 3;
+
+    private static final int TIMEOUT = 3000;
 
     private static final int BROWSED_ITEM_ID_INDEX = 2;
     private static final int BROWSED_FOLDER_ID_INDEX = 4;
@@ -62,6 +71,8 @@ class BrowsedMediaPlayer {
 
     private String mCurrentBrowsePackage;
     private String mCurrentBrowseClass;
+    private BrowseMediaHandler mHandler = null;
+    private HandlerThread mHandlerThread;
 
     /* Object used to connect to MediaBrowseService of Media Player */
     private MediaBrowser mMediaBrowser = null;
@@ -89,6 +100,45 @@ class BrowsedMediaPlayer {
 
     /* store result of getfolderitems with scope="vfs" */
     private List<MediaBrowser.MediaItem> mFolderItems = null;
+    private List<String> mBrowsablePlayerList = new ArrayList<String>();
+
+    class BrowseMediaHandler extends Handler {
+        BrowseMediaHandler(Looper looper) {
+            super(looper);
+        }
+
+        @Override
+        public void handleMessage(Message msg)
+        {
+            Log.w(TAG, "handleMessage " + msg.what + " obj " + msg.obj);
+            switch (msg.what) {
+                case MSG_CONNECT_PLAYER:
+                    Bundle data = msg.getData();
+                    String packageName = data.getCharSequence("package").toString();
+                    String cls = data.getCharSequence("class").toString();
+                    Log.w(TAG, "package = " + packageName + " svc class " + cls);
+                    MediaConnectionCallback callback = new MediaConnectionCallback(packageName);
+                    MediaBrowser tempBrowser = new MediaBrowser(
+                            mContext, new ComponentName(packageName, cls), callback, null);
+                    callback.setBrowser(tempBrowser);
+                    tempBrowser.connect();
+                    Log.w(TAG, "TryconnectMBS with Browser service");
+                    Message m = mHandler.obtainMessage(MSG_TIMEOUT, 0, 0, packageName);
+                    mHandler.sendMessageDelayed(m, TIMEOUT);
+                    break;
+                case MSG_DISCONNECT_PLAYER:
+                    MediaBrowser mb = (MediaBrowser)msg.obj;
+                    mb.disconnect();
+                    Log.w(TAG, "Trigger disconnect for MediaBrowser " + mb);
+                    break;
+                case MSG_TIMEOUT:
+                    Log.w(TAG, "MSG_TIMEOUT");
+                    break;
+                default:
+                    break;
+           }
+       }
+    };
 
     /* Connection state callback handler */
     class MediaConnectionCallback extends MediaBrowser.ConnectionCallback {
@@ -100,15 +150,21 @@ class BrowsedMediaPlayer {
         }
 
         public void setBrowser(MediaBrowser b) {
+            Log.d(TAG, "setBrowser " + b);
             mBrowser = b;
         }
 
         @Override
         public void onConnected() {
-            mConnState = CONNECTED;
-            if (DEBUG) {
-                Log.d(TAG, "mediaBrowser CONNECTED to " + mPackageName);
+            if ((mHandler != null) && !mBrowsablePlayerList.contains(mCallbackPackageName)) {
+                Log.d(TAG, "Add " + mCallbackPackageName + " to MBS List " + mBrowser);
+                mBrowsablePlayerList.add(mCallbackPackageName);
+                mHandler.removeMessages(MSG_TIMEOUT, mCallbackPackageName);
+                Message msg = mHandler.obtainMessage(MSG_DISCONNECT_PLAYER, 0, 0, mBrowser);
+                mHandler.sendMessage(msg);
             }
+            mConnState = CONNECTED;
+            Log.d(TAG, "mediaBrowser CONNECTED to " + mPackageName);
             /* perform init tasks and set player as browsed player on successful connection */
             onBrowseConnect(mCallbackPackageName, mBrowser);
 
@@ -118,17 +174,23 @@ class BrowsedMediaPlayer {
 
         @Override
         public void onConnectionFailed() {
+            if ((mHandler != null) && !mBrowsablePlayerList.contains(mCallbackPackageName)) {
+                mHandler.removeMessages(MSG_TIMEOUT, mCallbackPackageName);
+            }
             mConnState = DISCONNECTED;
             // Remove what could be a circular dependency causing GC to never happen on this object
             mBrowser = null;
             Log.e(TAG, "mediaBrowser Connection failed with " + mPackageName
                     + ", Sending fail response!");
-            mMediaInterface.setBrowsedPlayerRsp(mBDAddr, AvrcpConstants.RSP_INTERNAL_ERR,
+            mMediaInterface.setBrowsedPlayerRsp(mBDAddr, AvrcpConstants.RSP_PLAY_NOT_BROW,
                     (byte) 0x00, 0, null);
         }
 
         @Override
         public void onConnectionSuspended() {
+            if ((mHandler != null) && !mBrowsablePlayerList.contains(mCallbackPackageName)) {
+                mHandler.removeMessages(MSG_TIMEOUT, mCallbackPackageName);
+            }
             mBrowser = null;
             mConnState = SUSPENDED;
             Log.e(TAG, "mediaBrowser SUSPENDED connection with " + mPackageName);
@@ -478,6 +540,60 @@ class BrowsedMediaPlayer {
         Log.w(TAG, "Reconnected with Browser service");
     }
 
+    public void CheckMBSConnection(String packageName, String cls) {
+        Log.w(TAG, "TryconnectMBS with Browser service for package = " + packageName);
+        Message msg = mHandler.obtainMessage(MSG_CONNECT_PLAYER);
+        Bundle data = new Bundle();
+        data.putCharSequence("package", packageName);
+        data.putCharSequence("class", cls);
+        msg.setData(data);
+        mHandler.sendMessage(msg);
+        Log.w(TAG, "Exit MSG_CONNECT_PLAYER for package = " + packageName);
+    }
+
+    public void updateBrowsablePlayerList(String packageName) {
+        if (packageName == null || packageName.isEmpty())
+            return;
+        if (mBrowsablePlayerList.contains(packageName)) {
+            Log.w(TAG, "Remove pkg" + packageName + "from list" + mBrowsablePlayerList);
+            mBrowsablePlayerList.remove(packageName);
+        }
+    }
+
+    public boolean isPackageInMBSList(String packageName) {
+        if (packageName == null || packageName.isEmpty())
+            return false;
+        Log.w(TAG, "isPlayerConnectedMBS for package = " + packageName);
+
+        // Wait while pending messages are in queue
+        while ((mHandler != null) && (mHandler.hasMessages(MSG_CONNECT_PLAYER)
+                || mHandler.hasMessages(MSG_TIMEOUT))) {
+            try {
+                Log.d(TAG, "Connection with MBS ongoing, sleep for 200 ms and recheck");
+                Thread.sleep(200);
+            } catch (InterruptedException e) {
+                Log.w(TAG, "Interrupt sleep caught Exception");
+            }
+        }
+
+        Log.w(TAG, "isPlayerConnectedMBS for package = " + mBrowsablePlayerList);
+        for (String pkg : mBrowsablePlayerList) {
+            if (packageName.equals(pkg))
+                return true;
+        }
+        return false;
+    }
+
+    public void start() {
+        if (mHandler == null) {
+            Log.w(TAG, "start");
+            mHandlerThread = new HandlerThread("BrowseMediaHandler");
+            mHandlerThread.start();
+            mHandler = new BrowseMediaHandler(mHandlerThread.getLooper());
+        }
+        Log.w(TAG, "start exit");
+    }
+
     public void setCurrentPackage(String packageName, String cls) {
         Log.w(TAG, "Set current Browse based on Addr Player as " + packageName);
         mCurrentBrowsePackage = packageName;
@@ -486,8 +602,26 @@ class BrowsedMediaPlayer {
 
     /* called when connection to media player is closed */
     public void cleanup() {
+        disconnect();
         if (DEBUG) {
             Log.d(TAG, "cleanup");
+        }
+        mBrowsablePlayerList.clear();
+        if (mHandler != null) {
+            Log.d(TAG, "cleanup handlers");
+            mHandler.removeCallbacksAndMessages(null);
+            Looper looper = mHandler.getLooper();
+            if (looper != null)
+                looper.quit();
+        }
+        if (mHandlerThread != null) {
+            mHandlerThread.quitSafely();
+        }
+    }
+
+    public void disconnect() {
+        if (DEBUG) {
+            Log.d(TAG, "disconnect");
         }
 
         if (mConnState != DISCONNECTED) {
