@@ -182,7 +182,7 @@ public class AdapterService extends Service {
     private final ArrayList<DiscoveringPackage> mDiscoveringPackages = new ArrayList<>();
 
     static {
-        System.loadLibrary("bluetooth_jni");
+        System.loadLibrary("bluetooth_qti_jni");
         classInitNative();
     }
 

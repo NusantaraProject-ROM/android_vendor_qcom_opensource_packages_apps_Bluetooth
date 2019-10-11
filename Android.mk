@@ -1,3 +1,5 @@
+ifeq ($(TARGET_USE_VENDOR_BT_EXT),true)
+
 LOCAL_PATH:= $(call my-dir)
 
 # MAP API module
@@ -15,15 +17,14 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_SRC_FILES := \
         $(call all-java-files-under, src) \
-        $(call all-java-files-under, ../../../vendor/qcom/opensource/bluetooth_ext/packages_apps_bluetooth_ext/src) \
-        $(call all-java-files-under, ../../../vendor/qcom/opensource/commonsys/bluetooth_ext/packages_apps_bluetooth_ext/src)
+        $(call all-java-files-under, ../../../bluetooth_ext/packages_apps_bluetooth_ext/src)
 
 LOCAL_PACKAGE_NAME := Bluetooth
 LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_CERTIFICATE := platform
 LOCAL_USE_AAPT2 := true
-LOCAL_JNI_SHARED_LIBRARIES := libbluetooth_jni
 
+LOCAL_JNI_SHARED_LIBRARIES := libbluetooth_qti_jni
 LOCAL_JAVA_LIBRARIES := javax.obex telephony-common services.net
 LOCAL_STATIC_JAVA_LIBRARIES := \
         com.android.vcard \
@@ -67,7 +68,7 @@ include $(call all-makefiles-under,$(LOCAL_PATH))
 
 include $(CLEAR_VARS)
 
-COMMON_LIBS_PATH := ../../../../../prebuilts/tools/common/m2/repository
+COMMON_LIBS_PATH := ../../../../../../../../../prebuilts/tools/common/m2/repository
 ROOM_LIBS_PATH := ../../lib/room
 
 LOCAL_PREBUILT_STATIC_JAVA_LIBRARIES := \
@@ -81,6 +82,7 @@ LOCAL_PREBUILT_STATIC_JAVA_LIBRARIES := \
         bt-javapoet-nodeps:$(COMMON_LIBS_PATH)/com/squareup/javapoet/1.8.0/javapoet-1.8.0.jar \
         bt-kotlin-metadata-nodeps:$(COMMON_LIBS_PATH)/me/eugeniomarletti/kotlin-metadata/1.2.1/kotlin-metadata-1.2.1.jar \
         bt-sqlite-jdbc-nodeps:$(COMMON_LIBS_PATH)/org/xerial/sqlite-jdbc/3.20.1/sqlite-jdbc-3.20.1.jar \
-        bt-jetbrain-nodeps:../../../../../prebuilts/tools/common/m2/repository/org/jetbrains/annotations/13.0/annotations-13.0.jar
+        bt-jetbrain-nodeps:../../../../../../../../../prebuilts/tools/common/m2/repository/org/jetbrains/annotations/13.0/annotations-13.0.jar
 
 include $(BUILD_HOST_PREBUILT)
+endif
