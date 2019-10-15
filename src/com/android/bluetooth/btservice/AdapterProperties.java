@@ -86,7 +86,18 @@ class AdapterProperties {
     private CopyOnWriteArrayList<BluetoothDevice> mBondedDevices =
             new CopyOnWriteArrayList<BluetoothDevice>();
 
-    private int mProfilesConnecting, mProfilesConnected, mProfilesDisconnecting;
+    private final class ProfilesConnectionState {
+        public int mProfilesConnecting, mProfilesConnected, mProfilesDisconnecting;
+
+        ProfilesConnectionState(int connecting, int connected, int disconnecting) {
+          mProfilesConnecting    = connecting;
+          mProfilesConnected     = connected;
+          mProfilesDisconnecting = disconnecting;
+        }
+    }
+    private final HashMap<BluetoothDevice, ProfilesConnectionState> mDevicesConnectionState =
+            new HashMap<>();
+
     private final HashMap<Integer, Pair<Integer, Integer>> mProfileConnectionState =
             new HashMap<>();
 
@@ -218,6 +229,7 @@ class AdapterProperties {
 
     public void init(RemoteDevices remoteDevices) {
         mProfileConnectionState.clear();
+        mDevicesConnectionState.clear();
         mRemoteDevices = remoteDevices;
 
         // Get default max connected audio devices from config.xml in frameworks/base/core
@@ -274,6 +286,7 @@ class AdapterProperties {
         }
         mService = null;
         mBondedDevices.clear();
+        mDevicesConnectionState.clear();
     }
 
     @Override
@@ -787,12 +800,20 @@ class AdapterProperties {
                     debugLog("Adding bonded device:" + device);
                     mBondedDevices.add(device);
                 }
+                if (!mDevicesConnectionState.containsKey(device)) {
+                    debugLog("Adding connection state:" + device);
+                    mDevicesConnectionState.put(device, new ProfilesConnectionState(0, 0, 0));
+                }
             } else if (state == BluetoothDevice.BOND_NONE) {
                 // remove device from list
                 if (mBondedDevices.remove(device)) {
                     debugLog("Removing bonded device:" + device);
                 } else {
                     debugLog("Failed to remove device: " + device);
+                }
+                if (mDevicesConnectionState.containsKey(device)) {
+                    debugLog("Removing connection state:" + device);
+                    mDevicesConnectionState.remove(device);
                 }
             }
         } catch (Exception ee) {
@@ -868,7 +889,7 @@ class AdapterProperties {
 
             try {
                 validateConnectionState =
-                   updateCountersAndCheckForConnectionStateChange(state, prevState);
+                   updateCountersAndCheckForConnectionStateChange(device, state, prevState);
             } catch (IllegalStateException ee) {
                 Log.w(TAG, "ADAPTER_CONNECTION_STATE_CHANGE: unexpected transition for profile="
                         + profile + ", " + prevState + " -> " + state);
@@ -932,33 +953,45 @@ class AdapterProperties {
         }
     }
 
-    private boolean updateCountersAndCheckForConnectionStateChange(int state, int prevState) {
+    private boolean updateCountersAndCheckForConnectionStateChange(BluetoothDevice device,
+            int state, int prevState) {
+        if(!mDevicesConnectionState.containsKey(device)) {
+            Log.e(TAG, "Can't find device connection record, adding new one: " + device);
+            mDevicesConnectionState.put(device, new ProfilesConnectionState(0, 0, 0));
+        }
+        ProfilesConnectionState connstate = mDevicesConnectionState.get(device);
+
+        Log.e(TAG, "prevState=" + prevState + " -> State=" + state +
+            " mProfilesConnecting=" + connstate.mProfilesConnecting +
+            " mProfilesConnected=" + connstate.mProfilesConnected +
+            " mProfilesDisconnecting=" + connstate.mProfilesDisconnecting);
+
         switch (prevState) {
             case BluetoothProfile.STATE_CONNECTING:
-                if (mProfilesConnecting > 0) {
-                    mProfilesConnecting--;
+                if (connstate.mProfilesConnecting > 0) {
+                    connstate.mProfilesConnecting--;
                 } else {
-                    Log.e(TAG, "mProfilesConnecting " + mProfilesConnecting);
+                    Log.e(TAG, "mProfilesConnecting " + connstate.mProfilesConnecting);
                     throw new IllegalStateException(
                             "Invalid state transition, " + prevState + " -> " + state);
                 }
                 break;
 
             case BluetoothProfile.STATE_CONNECTED:
-                if (mProfilesConnected > 0) {
-                    mProfilesConnected--;
+                if (connstate.mProfilesConnected > 0) {
+                    connstate.mProfilesConnected--;
                 } else {
-                    Log.e(TAG, "mProfilesConnected " + mProfilesConnected);
+                    Log.e(TAG, "mProfilesConnected " + connstate.mProfilesConnected);
                     throw new IllegalStateException(
                             "Invalid state transition, " + prevState + " -> " + state);
                 }
                 break;
 
             case BluetoothProfile.STATE_DISCONNECTING:
-                if (mProfilesDisconnecting > 0) {
-                    mProfilesDisconnecting--;
+                if (connstate.mProfilesDisconnecting > 0) {
+                    connstate.mProfilesDisconnecting--;
                 } else {
-                    Log.e(TAG, "mProfilesDisconnecting " + mProfilesDisconnecting);
+                    Log.e(TAG, "mProfilesDisconnecting " + connstate.mProfilesDisconnecting);
                     throw new IllegalStateException(
                             "Invalid state transition, " + prevState + " -> " + state);
                 }
@@ -967,19 +1000,19 @@ class AdapterProperties {
 
         switch (state) {
             case BluetoothProfile.STATE_CONNECTING:
-                mProfilesConnecting++;
-                return (mProfilesConnected == 0 && mProfilesConnecting == 1);
+                connstate.mProfilesConnecting++;
+                return (connstate.mProfilesConnected == 0 && connstate.mProfilesConnecting == 1);
 
             case BluetoothProfile.STATE_CONNECTED:
-                mProfilesConnected++;
-                return (mProfilesConnected == 1);
+                connstate.mProfilesConnected++;
+                return (connstate.mProfilesConnected == 1);
 
             case BluetoothProfile.STATE_DISCONNECTING:
-                mProfilesDisconnecting++;
-                return (mProfilesConnected == 0 && mProfilesDisconnecting == 1);
+                connstate.mProfilesDisconnecting++;
+                return (connstate.mProfilesConnected == 0 && connstate.mProfilesDisconnecting == 1);
 
             case BluetoothProfile.STATE_DISCONNECTED:
-                return (mProfilesConnected == 0 && mProfilesConnecting == 0);
+                return (connstate.mProfilesConnected == 0 && connstate.mProfilesConnecting == 0);
 
             default:
                 return true;
@@ -1240,9 +1273,8 @@ class AdapterProperties {
             // Reset adapter and profile connection states
             setConnectionState(BluetoothAdapter.STATE_DISCONNECTED);
             mProfileConnectionState.clear();
-            mProfilesConnected = 0;
-            mProfilesConnecting = 0;
-            mProfilesDisconnecting = 0;
+            mDevicesConnectionState.clear();
+
             // adapterPropertyChangedCallback has already been received.  Set the scan mode.
             setScanMode(AbstractionLayer.BT_SCAN_MODE_CONNECTABLE);
             // This keeps NV up-to date on first-boot after flash.
