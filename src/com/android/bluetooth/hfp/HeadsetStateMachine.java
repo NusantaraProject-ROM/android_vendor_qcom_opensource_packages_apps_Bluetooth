@@ -2640,8 +2640,10 @@ public class HeadsetStateMachine extends StateMachine {
             mNativeInterface.atResponseCode(device, HeadsetHalConstants.AT_RESPONSE_ERROR, 0);
         } else if (atCommand.equals("+CGMI")) {
             mNativeInterface.atResponseString(device, "+CGMI: \"" + Build.MANUFACTURER + "\"");
+            mNativeInterface.atResponseCode(device, HeadsetHalConstants.AT_RESPONSE_OK, 0);
         } else if (atCommand.equals("+CGMM")) {
             mNativeInterface.atResponseString(device, "+CGMM: " + Build.MODEL);
+            mNativeInterface.atResponseCode(device, HeadsetHalConstants.AT_RESPONSE_OK, 0);
         } else {
             processVendorSpecificAt(atCommand, device);
         }
