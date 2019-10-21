@@ -706,7 +706,10 @@ class BrowsedMediaPlayer {
                 mPathStack.push(newPath);
             }
         } else if (direction == AvrcpConstants.DIR_UP) { /* move up */
-            if (!isBrowsableFolderUp()) {
+            if (mPathStack == null || mPathStack.isEmpty()) {
+                Log.w(TAG, "Path Stack not initialized send internal error!");
+                mMediaInterface.changePathRsp(mBDAddr, AvrcpConstants.RSP_INTERNAL_ERR, 0);
+            } else if (!isBrowsableFolderUp()) {
                 /* Already on the root, cannot allow up: PTS: test case TC_TG_MCN_CB_BI_02_C
                  * This is required, otherwise some CT will keep on sending change path up
                  * until they receive error */
