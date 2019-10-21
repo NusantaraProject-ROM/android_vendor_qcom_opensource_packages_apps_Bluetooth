@@ -891,16 +891,6 @@ public class A2dpService extends ProfileService {
                 }
                 // Make sure the Audio Manager knows the previous Active device is disconnected,
                 // and the new Active device is connected.
-                // Also, mute and unmute the output during the switch to avoid audio glitches.
-                boolean wasMuted = false;
-                if (previousActiveDevice != null && !tws_switch) {
-                    if (mAudioManager != null && !mAudioManager.isStreamMute(AudioManager.STREAM_MUSIC)) {
-                        mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
-                                                     AudioManager.ADJUST_MUTE,
-                                                     mAudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
-                        wasMuted = true;
-                    }
-                }
 
                 if (!isBAActive && mAudioManager != null) {
                 // Make sure the Audio Manager knows the previous
@@ -928,13 +918,6 @@ public class A2dpService extends ProfileService {
                     Log.v(TAG,"isSplitA2dpEnabled: " + isSplitA2dpEnabled);
                 } else {
                     Log.e(TAG,"adapterService is null");
-                }
-
-
-                if (wasMuted && mAudioManager != null) {
-                    mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
-                                              AudioManager.ADJUST_UNMUTE,
-                                              mAudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
                 }
             }
             if (mAvrcp_ext != null && !tws_switch) {
