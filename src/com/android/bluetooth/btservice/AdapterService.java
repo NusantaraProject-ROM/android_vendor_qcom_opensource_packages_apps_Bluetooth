@@ -366,6 +366,24 @@ public class AdapterService extends Service {
         return mVendor.isSwbPmEnabled();
     }
 
+    public boolean setClockSyncConfig(boolean enable, int mode, int adv_interval,
+        int channel, int jitter, int offset) {
+        if (!isVendorIntfEnabled())
+            return false;
+
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mVendor.setClockSyncConfig(enable, mode,
+            adv_interval, channel, jitter, offset);
+    }
+
+    public boolean startClockSync() {
+        if (!isVendorIntfEnabled())
+            return false;
+
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mVendor.startClockSync();
+    }
+
     private static final int MESSAGE_PROFILE_SERVICE_STATE_CHANGED = 1;
     private static final int MESSAGE_PROFILE_SERVICE_REGISTERED = 2;
     private static final int MESSAGE_PROFILE_SERVICE_UNREGISTERED = 3;
@@ -2321,6 +2339,23 @@ public class AdapterService extends Service {
             AdapterService service = getService();
             if (service == null) return -1;
             return service.getSocketOpt(type, channel, optionName, optionVal);
+        }
+
+        public boolean setClockSyncConfig(boolean enable, int mode, int adv_interval,
+            int channel, int jitter, int offset) {
+
+            AdapterService service = getService();
+            if (service == null) return false;
+
+            return service.setClockSyncConfig(enable, mode, adv_interval, channel,
+                jitter, offset);
+        }
+
+        public boolean startClockSync() {
+            AdapterService service = getService();
+            if (service == null) return false;
+
+            return service.startClockSync();
         }
 
         @Override
