@@ -1,4 +1,4 @@
-ifeq ($(TARGET_USE_VENDOR_BT_EXT),true)
+ifeq ($(TARGET_USE_QTI_BT_STACK),true)
 
 LOCAL_PATH:= $(call my-dir)
 
