@@ -165,10 +165,6 @@ public class SapService extends ProfileService {
             } catch (IOException e) {
                 Log.e(TAG, "Error create RfcommServerSocket ", e);
                 initSocketOK = false;
-            } catch (SecurityException e) {
-                Log.e(TAG, "Error create RfcommServerSocket ", e);
-                initSocketOK = false;
-                break;
             }
 
             if (!initSocketOK) {
