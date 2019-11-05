@@ -861,14 +861,13 @@ public class HeadsetService extends ProfileService {
         return null;
     }
 
-    private BluetoothDevice getConnectedOrConnectingTwspDevice() {
-        List<BluetoothDevice> connDevices =
-            getAllDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES);
+    private BluetoothDevice getConnectedTwspDevice() {
+        List<BluetoothDevice> connDevices = getConnectedDevices();
         int size = connDevices.size();
         for(int i = 0; i < size; i++) {
             BluetoothDevice ConnectedDevice = connDevices.get(i);
             if (mAdapterService.isTwsPlusDevice(ConnectedDevice)) {
-                logD("getConnectedorConnectingTwspDevice: found" + ConnectedDevice);
+                logD("getConnectedTwspDevice: found" + ConnectedDevice);
                 return ConnectedDevice;
             }
         }
@@ -906,14 +905,12 @@ public class HeadsetService extends ProfileService {
         if (connDevices.size() == 0) {
             allowSecondHfConnection = true;
         } else {
-            BluetoothDevice connectedOrConnectingTwspDev =
-                    getConnectedOrConnectingTwspDevice();
-            if (connectedOrConnectingTwspDev != null) {
+            BluetoothDevice connectedTwspDev = getConnectedTwspDevice();
+            if (connectedTwspDev != null) {
                 // There is TWSP connected earbud
                 if (adapterService.isTwsPlusDevice(device)) {
                    if (adapterService.getTwsPlusPeerAddress
-                           (device).equals(
-                             connectedOrConnectingTwspDev.getAddress())) {
+                           (device).equals(connectedTwspDev.getAddress())) {
                        //Allow connection only if the outgoing
                        //is peer of TWS connected earbud
                        allowSecondHfConnection = true;
@@ -922,8 +919,7 @@ public class HeadsetService extends ProfileService {
                    }
                 } else {
                    reservedSlotForTwspPeer = 0;
-                   if (getTwsPlusConnectedPeer(
-                                connectedOrConnectingTwspDev) == null) {
+                   if (getTwsPlusConnectedPeer(connectedTwspDev) == null) {
                        //Peer of Connected Tws+ device is not Connected
                        //yet, reserve one slot
                        reservedSlotForTwspPeer = 1;
@@ -969,9 +965,8 @@ public class HeadsetService extends ProfileService {
                      "is"+ adapterService.isTwsPlusDevice(device));
             Log.v(TAG, "TWS Peer Addr: " +
                       adapterService.getTwsPlusPeerAddress(device));
-            if (connectedOrConnectingTwspDev != null) {
-                Log.v(TAG, "Connected or Connecting device"
-                         + connectedOrConnectingTwspDev.getAddress());
+            if (connectedTwspDev != null) {
+                Log.v(TAG, "Connected device" + connectedTwspDev.getAddress());
             } else {
                 Log.v(TAG, "No Connected TWSP devices");
             }
