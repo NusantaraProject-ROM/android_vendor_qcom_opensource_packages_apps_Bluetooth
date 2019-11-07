@@ -26,6 +26,8 @@ import android.os.SystemProperties;
 
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.a2dp.A2dpService;
+import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.bluetooth.avrcpcontroller.AvrcpControllerService;
@@ -54,6 +56,9 @@ public class A2dpSinkService extends ProfileService {
     private  static final Object mBtA2dpLock = new Object();
     private static A2dpSinkStreamHandler mA2dpSinkStreamHandler;
     private static A2dpSinkService sService;
+    private static A2dpService sA2dpService;
+    private static HeadsetService sHeadsetService;
+    private static boolean mA2dpSrcSnkConcurrency;
     protected static BluetoothDevice mStreamingDevice;
 
     private static int mMaxA2dpSinkConnections = 1;
@@ -70,6 +75,11 @@ public class A2dpSinkService extends ProfileService {
         mMaxA2dpSinkConnections = Math.min(
                 SystemProperties.getInt("persist.vendor.bt.a2dp.sink_conn", 1),
                 MAX_ALLOWED_SINK_CONNECTIONS);
+        mA2dpSrcSnkConcurrency= SystemProperties.getBoolean(
+                                "persist.vendor.service.bt.a2dp_concurrency", false);
+        if (DBG) {
+            Log.d(TAG, "A2DP concurrency set to " + mA2dpSrcSnkConcurrency);
+        }
         return true;
     }
 
@@ -250,6 +260,22 @@ public class A2dpSinkService extends ProfileService {
         }
         A2dpSinkStateMachine stateMachine = getOrCreateStateMachine(device);
         if (stateMachine != null) {
+            if (mA2dpSrcSnkConcurrency) {
+                //in A2dp Concurrency mode, it need to disconnect all sink devices and headset clients
+                //before connecting to A2dp Source device.
+                sA2dpService = A2dpService.getA2dpService();
+                List<BluetoothDevice> snkDevs = sA2dpService.getConnectedDevices();
+                for( BluetoothDevice snk : snkDevs ) {
+                    Log.d(TAG, "calling src disconnect to " + snk);
+                    sA2dpService.disconnect(snk);
+                }
+                sHeadsetService = HeadsetService.getHeadsetService();
+                List<BluetoothDevice> hsDevs = sHeadsetService.getConnectedDevices();
+                for ( BluetoothDevice hs : hsDevs ) {
+                    Log.d(TAG, "calling headset disconnect to " + hs);
+                    sHeadsetService.disconnect(hs);
+                }
+            }
             stateMachine.connect();
             return true;
         } else {
@@ -532,14 +558,20 @@ public class A2dpSinkService extends ProfileService {
             mStreamingDevice = null;
         }
 
-        // Intiate Handoff operations when state has been connectiond
-        if (state == BluetoothProfile.STATE_CONNECTED) {
-            if (mStreamingDevice != null && !mStreamingDevice.equals(device)) {
-                Log.d(TAG, "current connected device: " + device + "is different from previous device");
-                initiateHandoffOperations(device);
-                mStreamingDevice = device;
-            } else if (device != null) {
-                mStreamingDevice = device;
+        if (mA2dpSrcSnkConcurrency &&
+            (state == BluetoothProfile.STATE_CONNECTING ||
+             state == BluetoothProfile.STATE_CONNECTED)) {
+            sA2dpService = A2dpService.getA2dpService();
+            List<BluetoothDevice> snkDevs = sA2dpService.getConnectedDevices();
+            for ( BluetoothDevice snk : snkDevs ) {
+                Log.d(TAG, "calling src disconnect to " + snk);
+                sA2dpService.disconnect(snk);
+            }
+            sHeadsetService = HeadsetService.getHeadsetService();
+            List<BluetoothDevice> hsDevs = sHeadsetService.getConnectedDevices();
+            for ( BluetoothDevice hs : hsDevs ) {
+                Log.d(TAG, "calling headset disconnect to " + hs);
+                sHeadsetService.disconnect(hs);
             }
         }
         stateMachine.sendMessage(A2dpSinkStateMachine.STACK_EVENT, event);
