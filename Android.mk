@@ -57,7 +57,8 @@ LOCAL_ANNOTATION_PROCESSORS := \
 LOCAL_ANNOTATION_PROCESSOR_CLASSES := \
         androidx.room.RoomProcessor
 
-LOCAL_STATIC_JAVA_LIBRARIES += com.android.emailcommon
+# KEYSTONE(Ia399beb77846feff1dff061f1f189d2a08d2e73b,b/144058589)
+#LOCAL_STATIC_JAVA_LIBRARIES += com.android.emailcommon
 LOCAL_PROTOC_OPTIMIZE_TYPE := micro
 
 LOCAL_REQUIRED_MODULES := libbluetooth

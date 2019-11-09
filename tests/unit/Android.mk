@@ -13,8 +13,9 @@ LOCAL_JAVA_LIBRARIES := \
     android.test.base \
     android.test.mock
 
+# Removed from LOCAL_STATIC_JAVA_LIBRARIES
+#    com.android.emailcommon
 LOCAL_STATIC_JAVA_LIBRARIES :=  \
-    com.android.emailcommon \
     androidx.test.rules \
     mockito-target \
     androidx.test.espresso.intents
