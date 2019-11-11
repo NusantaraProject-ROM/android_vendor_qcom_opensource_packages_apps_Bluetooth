@@ -1591,6 +1591,9 @@ public class A2dpService extends ProfileService {
             if (mFactory.getAvrcpTargetService() != null) {
                 mFactory.getAvrcpTargetService().removeStoredVolumeForDevice(device);
             }
+            if (mAvrcp_ext != null) {
+                mAvrcp_ext.removeVolumeForDevice(device);
+            }
 
             removeStateMachine(device);
         }
@@ -1687,7 +1690,9 @@ public class A2dpService extends ProfileService {
                     if (mFactory.getAvrcpTargetService() != null) {
                         mFactory.getAvrcpTargetService().removeStoredVolumeForDevice(device);
                     }
-
+                    if (mAvrcp_ext != null) {
+                        mAvrcp_ext.removeVolumeForDevice(device);
+                    }
                     removeStateMachine(device);
                 }
             }
