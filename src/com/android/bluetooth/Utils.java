@@ -430,7 +430,7 @@ public final class Utils {
 
     private static boolean isAppOppAllowed(AppOpsManager appOps, int op, String callingPackage,
             @NonNull String callingFeatureId) {
-        return appOps.noteOp(op, Binder.getCallingUid(), callingPackage)
+        return appOps.noteOp(op, Binder.getCallingUid(), callingPackage, callingFeatureId, null)
                 == AppOpsManager.MODE_ALLOWED;
     }
 
