@@ -51,6 +51,7 @@
 
 package com.android.bluetooth.btservice;
 
+import android.annotation.Nullable;
 import android.app.ActivityManager;
 import android.app.AlarmManager;
 import android.app.AppOpsManager;
@@ -1502,7 +1503,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean startDiscovery(String callingPackage) {
+        public boolean startDiscovery(String callingPackage, String callingFeatureId) {
             if (!Utils.checkCaller()) {
                 Log.w(TAG, "startDiscovery() - Not allowed for non-active user");
                 return false;
@@ -1512,7 +1513,7 @@ public class AdapterService extends Service {
             if (service == null) {
                 return false;
             }
-            return service.startDiscovery(callingPackage);
+            return service.startDiscovery(callingPackage, callingFeatureId);
         }
 
         @Override
@@ -2546,7 +2547,7 @@ public class AdapterService extends Service {
         }
     }
 
-    boolean startDiscovery(String callingPackage) {
+    boolean startDiscovery(String callingPackage, @Nullable String callingFeatureId) {
         UserHandle callingUser = UserHandle.of(UserHandle.getCallingUserId());
         debugLog("startDiscovery");
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
@@ -2558,12 +2559,14 @@ public class AdapterService extends Service {
         } else if (Utils.checkCallerHasNetworkSetupWizardPermission(this)) {
             permission = android.Manifest.permission.NETWORK_SETUP_WIZARD;
         } else if (isQApp) {
-            if (!Utils.checkCallerHasFineLocation(this, mAppOps, callingPackage, callingUser)) {
+            if (!Utils.checkCallerHasFineLocation(this, mAppOps, callingPackage, callingFeatureId,
+                    callingUser)) {
                 return false;
             }
             permission = android.Manifest.permission.ACCESS_FINE_LOCATION;
         } else {
-            if (!Utils.checkCallerHasCoarseLocation(this, mAppOps, callingPackage, callingUser)) {
+            if (!Utils.checkCallerHasCoarseLocation(this, mAppOps, callingPackage, callingFeatureId,
+                    callingUser)) {
                 return false;
             }
             permission = android.Manifest.permission.ACCESS_COARSE_LOCATION;
