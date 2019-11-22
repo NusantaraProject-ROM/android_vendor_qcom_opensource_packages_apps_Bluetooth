@@ -1237,18 +1237,6 @@ public class BluetoothMapService extends ProfileService {
         }
 
         @Override
-        public boolean connect(BluetoothDevice device) {
-            if (VERBOSE) {
-                Log.v(TAG, "connect()");
-            }
-            BluetoothMapService service = getService();
-            if (service == null) {
-                return false;
-            }
-            return false;
-        }
-
-        @Override
         public boolean disconnect(BluetoothDevice device) {
             if (VERBOSE) {
                 Log.v(TAG, "disconnect()");
