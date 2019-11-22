@@ -111,7 +111,7 @@ class BrowsedPlayerWrapper {
 
     void connect(ConnectionCallback cb) {
         if (cb == null) {
-            Log.wtfStack(TAG, "connect: Trying to connect to " + mPackageName
+            Log.wtf(TAG, "connect: Trying to connect to " + mPackageName
                     + "with null callback");
         }
         if (mCallback != null) {
@@ -172,7 +172,7 @@ class BrowsedPlayerWrapper {
         }
 
         if (cb == null) {
-            Log.wtfStack(TAG, "connect: Trying to connect to " + mPackageName
+            Log.wtf(TAG, "connect: Trying to connect to " + mPackageName
                     + "with null callback");
         }
         if (mCallback != null) {

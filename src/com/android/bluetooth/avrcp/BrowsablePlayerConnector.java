@@ -64,7 +64,7 @@ public class BrowsablePlayerConnector {
             List<ResolveInfo> players,
             PlayerListCallback cb) {
         if (cb == null) {
-            Log.wtfStack(TAG, "Null callback passed");
+            Log.wtf(TAG, "Null callback passed");
             return null;
         }
 

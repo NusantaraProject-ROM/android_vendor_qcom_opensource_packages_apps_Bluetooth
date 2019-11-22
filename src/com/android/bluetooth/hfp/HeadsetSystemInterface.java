@@ -77,7 +77,7 @@ public class HeadsetSystemInterface {
 
     HeadsetSystemInterface(HeadsetService headsetService) {
         if (headsetService == null) {
-            Log.wtfStack(TAG, "HeadsetService parameter is null");
+            Log.wtf(TAG, "HeadsetService parameter is null");
         }
         mHeadsetService = headsetService;
         mAudioManager = (AudioManager) mHeadsetService.getSystemService(Context.AUDIO_SERVICE);
@@ -99,7 +99,7 @@ public class HeadsetSystemInterface {
         if (intent.getComponent() == null || !mHeadsetService.bindService(intent,
                 mPhoneProxyConnection, 0)) {
             // Crash the stack if cannot bind to Telecom
-            Log.wtfStack(TAG, "Could not bind to IBluetoothHeadsetPhone Service, intent=" + intent);
+            Log.wtf(TAG, "Could not bind to IBluetoothHeadsetPhone Service, intent=" + intent);
         }
     }
 

@@ -52,7 +52,7 @@ public class A2dpNativeInterface {
     private A2dpNativeInterface() {
         mAdapter = BluetoothAdapter.getDefaultAdapter();
         if (mAdapter == null) {
-            Log.wtfStack(TAG, "No Bluetooth Adapter Available");
+            Log.wtf(TAG, "No Bluetooth Adapter Available");
         }
     }
 

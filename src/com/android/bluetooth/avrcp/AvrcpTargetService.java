@@ -137,7 +137,7 @@ public class AvrcpTargetService extends ProfileService {
     @Override
     protected boolean start() {
         if (sInstance != null) {
-            Log.wtfStack(TAG, "The service has already been initialized");
+            Log.wtf(TAG, "The service has already been initialized");
             return false;
         }
 
@@ -355,7 +355,7 @@ public class AvrcpTargetService extends ProfileService {
     void setActiveDevice(BluetoothDevice device) {
         Log.i(TAG, "setActiveDevice: device=" + device);
         if (device == null) {
-            Log.wtfStack(TAG, "setActiveDevice: could not find device " + device);
+            Log.wtf(TAG, "setActiveDevice: could not find device " + device);
         }
         A2dpService.getA2dpService().setActiveDevice(device);
     }
