@@ -76,9 +76,6 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.OVERRIDE_WIFI_CONFIG" />
 
-    <!-- Allows access to read media audio -->
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
-
     <!-- Allows application to write to internal media storage -->
     <uses-permission android:name="android.permission.WRITE_MEDIA_STORAGE" />
 
