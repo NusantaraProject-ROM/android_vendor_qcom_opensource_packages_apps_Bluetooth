@@ -578,9 +578,9 @@ public class AdapterService extends Service {
         mVendorSocket.init();
 
         try {
-            int systemUiUid = getApplicationContext().getPackageManager().getPackageUidAsUser(
-                    "com.android.systemui", PackageManager.MATCH_SYSTEM_ONLY,
-                    UserHandle.USER_SYSTEM);
+            int systemUiUid = getApplicationContext().getPackageManager().getPackageUid(
+                    "com.android.systemui", PackageManager.MATCH_SYSTEM_ONLY);
+
             Utils.setSystemUiUid(systemUiUid);
             setSystemUiUidNative(systemUiUid);
         } catch (PackageManager.NameNotFoundException e) {
@@ -589,8 +589,7 @@ public class AdapterService extends Service {
         }
 
         IntentFilter filter = new IntentFilter(Intent.ACTION_USER_SWITCHED);
-        getApplicationContext().registerReceiverAsUser(sUserSwitchedReceiver, UserHandle.ALL,
-                filter, null, null);
+        getApplicationContext().registerReceiverForAllUsers(sUserSwitchedReceiver, filter, null, null);
         int fuid = ActivityManager.getCurrentUser();
         Utils.setForegroundUserId(fuid);
         setForegroundUserIdNative(fuid);
