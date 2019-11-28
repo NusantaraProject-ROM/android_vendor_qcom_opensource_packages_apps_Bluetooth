@@ -32,6 +32,7 @@
 
 package com.android.bluetooth.opp;
 
+import android.bluetooth.BluetoothAdapter;
 import android.content.ContentValues;
 import android.content.Context;
 import android.net.Uri;
@@ -80,12 +81,15 @@ public class BluetoothOppObexClientSession implements BluetoothOppObexSession {
 
     private int mNumFilesAttemptedToSend;
 
+    private BluetoothAdapter mAdapter;
+
     public BluetoothOppObexClientSession(Context context, ObexTransport transport) {
         if (transport == null) {
             throw new NullPointerException("transport is null");
         }
         mContext = context;
         mTransport = transport;
+        mAdapter = BluetoothAdapter.getDefaultAdapter();
     }
 
     @Override
@@ -99,7 +103,7 @@ public class BluetoothOppObexClientSession implements BluetoothOppObexSession {
     }
 
     @Override
-    public void stop() {
+    public synchronized void stop() {
         if (D) {
             Log.d(TAG, "Stop!");
         }
@@ -110,7 +114,23 @@ public class BluetoothOppObexClientSession implements BluetoothOppObexSession {
                 if (V) {
                     Log.v(TAG, "waiting for thread to terminate");
                 }
-                mThread.join();
+                if (mAdapter.getState() == BluetoothAdapter.STATE_TURNING_OFF) {
+                    Log.d(TAG, "stop, bt is turning off");
+                    mThread.join(1500);
+                    if (mThread.isAlive()) {
+                        Log.d(TAG, "stop, close the transport");
+                        mThread.interrupt();
+                        try {
+                            mTransport.close();
+                        } catch (IOException e) {
+                            Log.e(TAG, "mTransport.close error");
+                        }
+                        Log.d(TAG, "stop, close the transport, done");
+                        mThread.join();
+                    }
+                } else {
+                    mThread.join();
+                }
                 mThread = null;
             } catch (InterruptedException e) {
                 if (V) {
