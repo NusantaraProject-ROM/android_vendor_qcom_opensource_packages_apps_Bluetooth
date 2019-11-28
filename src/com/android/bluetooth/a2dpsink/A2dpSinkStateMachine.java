@@ -168,6 +168,16 @@ public class A2dpSinkStateMachine extends StateMachine {
             switch (event.mType) {
                 case StackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED:
                     switch (event.mState) {
+                        case StackEvent.CONNECTION_STATE_CONNECTING:
+                            if (mService.getConnectionPolicy(mDevice)
+                                    == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+                                Log.w(TAG, "Ignore incoming connection, profile is"
+                                        + " turned off for " + mDevice);
+                                mService.disconnectA2dpNative(mDeviceAddress);
+                            } else {
+                                transitionTo(mConnecting);
+                            }
+                            break;
                         case StackEvent.CONNECTION_STATE_CONNECTED:
                             transitionTo(mConnected);
                             break;

@@ -273,50 +273,53 @@ class PhonePolicy {
         // This avoids needless auto-connect attempts to profiles non-existent on the remote device
         if ((hidService != null) && (BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.Hid)
                 || BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.Hogp)) && (
-                hidService.getPriority(device) == BluetoothProfile.PRIORITY_UNDEFINED)) {
-            hidService.setPriority(device, BluetoothProfile.PRIORITY_ON);
+                hidService.getConnectionPolicy(device)
+                        == BluetoothProfile.CONNECTION_POLICY_UNKNOWN)) {
+            hidService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
         }
 
         // If we do not have a stored priority for HFP/A2DP (all roles) then default to on.
         if ((headsetService != null) && ((BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.HSP)
                 || BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.Handsfree)) && (
-                headsetService.getPriority(device) == BluetoothProfile.PRIORITY_UNDEFINED))) {
-            headsetService.setPriority(device, BluetoothProfile.PRIORITY_ON);
+                headsetService.getConnectionPolicy(device)
+                        == BluetoothProfile.CONNECTION_POLICY_UNKNOWN))) {
+            headsetService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
             if (peerTwsDevice != null) {
-                debugLog("setting peer earbud to priority on for hfp" + peerTwsDevice);
-                headsetService.setPriority(peerTwsDevice, BluetoothProfile.PRIORITY_ON);
+                debugLog("setting peer earbud to connection policy on for hfp" + peerTwsDevice);
+                headsetService.setConnectionPolicy(peerTwsDevice, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
             }
         }
 
         if ((a2dpService != null) && (BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.AudioSink)
                 || BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.AdvAudioDist)) && (
-                a2dpService.getPriority(device) == BluetoothProfile.PRIORITY_UNDEFINED)) {
-            a2dpService.setPriority(device, BluetoothProfile.PRIORITY_ON);
+                a2dpService.getConnectionPolicy(device) == BluetoothProfile.CONNECTION_POLICY_UNKNOWN)) {
+            a2dpService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
             if (peerTwsDevice != null) {
-                debugLog("setting peer earbud to priority on for a2dp" + peerTwsDevice);
-                a2dpService.setPriority(peerTwsDevice, BluetoothProfile.PRIORITY_ON);
+                debugLog("setting peer earbud to connection policy on for a2dp" + peerTwsDevice);
+                a2dpService.setConnectionPolicy(peerTwsDevice, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
             }
         }
 
         if ((a2dpSinkService != null)
                 && (BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.AudioSource)
                 || BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.AdvAudioDist)) && (
-                a2dpSinkService.getPriority(device) == BluetoothProfile.PRIORITY_UNDEFINED)) {
-            a2dpSinkService.setPriority(device, BluetoothProfile.PRIORITY_ON);
+                a2dpSinkService.getConnectionPolicy(device) == BluetoothProfile.CONNECTION_POLICY_UNKNOWN)) {
+            a2dpSinkService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
         }
 
         if ((panService != null) && (BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.PANU) && (
-                panService.getPriority(device) == BluetoothProfile.PRIORITY_UNDEFINED)
+                panService.getConnectionPolicy(device) == BluetoothProfile.CONNECTION_POLICY_UNKNOWN)
                 && mAdapterService.getResources()
                 .getBoolean(R.bool.config_bluetooth_pan_enable_autoconnect))) {
-            panService.setPriority(device, BluetoothProfile.PRIORITY_ON);
+            panService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
         }
 
         if ((hearingAidService != null) && BluetoothUuid.isUuidPresent(uuids,
-                BluetoothUuid.HearingAid) && (hearingAidService.getPriority(device)
-                == BluetoothProfile.PRIORITY_UNDEFINED)) {
-            debugLog("setting hearing aid profile priority for device " + device);
-            hearingAidService.setPriority(device, BluetoothProfile.PRIORITY_ON);
+                BluetoothUuid.HearingAid) && (hearingAidService.getConnectionPolicy(device)
+                == BluetoothProfile.CONNECTION_POLICY_UNKNOWN)) {
+            debugLog("setting hearing aid profile connection policy for device " + device);
+            hearingAidService.setConnectionPolicy(device,
+                    BluetoothProfile.CONNECTION_POLICY_ALLOWED);
         }
     }
 
@@ -384,10 +387,10 @@ class PhonePolicy {
                 } else if (prevState == BluetoothProfile.STATE_DISCONNECTING) {
                     if (peerTwsDevice != null) {
                         int autoConnect = BluetoothProfile.PRIORITY_AUTO_CONNECT;
-                        if (((a2dpService.getPriority(peerTwsDevice) == autoConnect) &&
-                                (hsService.getPriority(peerTwsDevice) == autoConnect)) ||
-                                ((a2dpService.getPriority(device) == autoConnect) &&
-                                (hsService.getPriority(device) == autoConnect))) {
+                        if (((a2dpService.getConnectionPolicy(peerTwsDevice) == autoConnect) &&
+                                (hsService.getConnectionPolicy(peerTwsDevice) == autoConnect)) ||
+                                ((a2dpService.getConnectionPolicy(device) == autoConnect) &&
+                                (hsService.getConnectionPolicy(device) == autoConnect))) {
                             debugLog("User triggered disconnect reset priority ON to both EBs");
                             removeAutoConnectFromA2dpSink(device);
                             removeAutoConnectFromHeadset(device);
@@ -544,7 +547,7 @@ class PhonePolicy {
             warnLog("autoConnectA2dp: service is null, failed to connect to " + device);
             return;
         }
-        int a2dpPriority = a2dpService.getPriority(device);
+        int a2dpPriority = a2dpService.getConnectionPolicy(device);
         if (a2dpPriority == BluetoothProfile.PRIORITY_AUTO_CONNECT) {
             debugLog("autoConnectA2dp: connecting A2DP with " + device);
             a2dpService.connect(device);
@@ -560,7 +563,7 @@ class PhonePolicy {
             warnLog("autoConnectHeadset: service is null, failed to connect to " + device);
             return;
         }
-        int headsetPriority = hsService.getPriority(device);
+        int headsetPriority = hsService.getConnectionPolicy(device);
         if (headsetPriority == BluetoothProfile.PRIORITY_AUTO_CONNECT) {
             debugLog("autoConnectHeadset: Connecting HFP with " + device);
             hsService.connect(device);
@@ -583,7 +586,7 @@ class PhonePolicy {
         }
 
         for (BluetoothDevice device : bondedDevices) {
-             int priority = a2dpSinkService.getPriority(device);
+             int priority = a2dpSinkService.getConnectionPolicy(device);
              debugLog("autoConnectA2dpSink, attempt auto-connect with device " + device
                      + " priority " + priority);
             if (priority == BluetoothProfile.PRIORITY_AUTO_CONNECT) {
@@ -702,11 +705,11 @@ class PhonePolicy {
         if (hsService != null) {
             if ((hsConnDevList.isEmpty() || !(hsConnDevList.contains(device)))
                     && (!mHeadsetRetrySet.contains(device))
-                    && (hsService.getPriority(device) >= BluetoothProfile.PRIORITY_ON)
+                    && (hsService.getConnectionPolicy(device) >= BluetoothProfile.CONNECTION_POLICY_ALLOWED)
                     && (hsService.getConnectionState(device)
                                == BluetoothProfile.STATE_DISCONNECTED)
                     && (a2dpConnected || (a2dpService != null &&
-                        a2dpService.getPriority(device) == BluetoothProfile.PRIORITY_OFF))) {
+                        a2dpService.getConnectionPolicy(device) == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN))) {
 
                 debugLog("Retrying connection to HS with device " + device);
                 int maxConnections = mAdapterService.getMaxConnectedAudioDevices();
@@ -719,7 +722,7 @@ class PhonePolicy {
                 // proceed connection only if a2dp is connected to this device
                 // add here as if is already overloaded
                 if (a2dpConnDevList.contains(device) ||
-                     (hsService.getPriority(device) >= BluetoothProfile.PRIORITY_ON)) {
+                     (hsService.getConnectionPolicy(device) >= BluetoothProfile.CONNECTION_POLICY_ALLOWED)) {
                     debugLog("Retrying connection to HS with device " + device);
                     mHeadsetRetrySet.add(device);
                     hsService.connect(device);
@@ -732,12 +735,12 @@ class PhonePolicy {
         if (a2dpService != null) {
             if ((a2dpConnDevList.isEmpty() || !(a2dpConnDevList.contains(device)))
                     && (!mA2dpRetrySet.contains(device))
-                    && (a2dpService.getPriority(device) >= BluetoothProfile.PRIORITY_ON ||
+                    && (a2dpService.getConnectionPolicy(device) >= BluetoothProfile.CONNECTION_POLICY_ALLOWED ||
                         mAdapterService.isTwsPlusDevice(device))
                     && (a2dpService.getConnectionState(device)
                                == BluetoothProfile.STATE_DISCONNECTED)
                     && (hsConnected || (hsService != null &&
-                        hsService.getPriority(device) == BluetoothProfile.PRIORITY_OFF))) {
+                        hsService.getConnectionPolicy(device) == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN))) {
                 debugLog("Retrying connection to A2DP with device " + device);
                 int maxConnections = mAdapterService.getMaxConnectedAudioDevices();
 
@@ -749,7 +752,7 @@ class PhonePolicy {
                 // proceed connection only if HFP is connected to this device
                 // add here as if is already overloaded
                 if (hsConnDevList.contains(device) ||
-                    (a2dpService.getPriority(device) >= BluetoothProfile.PRIORITY_ON)) {
+                    (a2dpService.getConnectionPolicy(device) >= BluetoothProfile.CONNECTION_POLICY_ALLOWED)) {
                     debugLog("Retrying connection to A2DP with device " + device);
                     mA2dpRetrySet.add(device);
                     a2dpService.connect(device);
@@ -762,8 +765,9 @@ class PhonePolicy {
             List<BluetoothDevice> panConnDevList = panService.getConnectedDevices();
             // TODO: the panConnDevList.isEmpty() check below should be removed once
             // Multi-PAN is supported.
-            if (panConnDevList.isEmpty() && (panService.getPriority(device)
-                    >= BluetoothProfile.PRIORITY_ON) && (panService.getConnectionState(device)
+            if (panConnDevList.isEmpty() && (panService.getConnectionPolicy(device)
+                    >= BluetoothProfile.CONNECTION_POLICY_ALLOWED)
+                    && (panService.getConnectionState(device)
                     == BluetoothProfile.STATE_DISCONNECTED)) {
                 debugLog("Retrying connection to PAN with device " + device);
                 panService.connect(device);
@@ -773,11 +777,11 @@ class PhonePolicy {
         if (a2dpSinkService != null) {
             List<BluetoothDevice> sinkConnDevList = a2dpSinkService.getConnectedDevices();
             if (sinkConnDevList.isEmpty() &&
-                    (a2dpSinkService.getPriority(device) >= BluetoothProfile.PRIORITY_ON) &&
+                    (a2dpSinkService.getConnectionPolicy(device) >= BluetoothProfile.CONNECTION_POLICY_ALLOWED) &&
                     (a2dpSinkService.getConnectionState(device) ==
                             BluetoothProfile.STATE_DISCONNECTED) &&
                     (hsConnected || (hsService != null &&
-                         hsService.getPriority(device) == BluetoothProfile.PRIORITY_OFF))) {
+                         hsService.getConnectionPolicy(device) == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN))) {
                 debugLog("Retrying connection for A2dpSink with device " + device);
                 a2dpSinkService.connect(device);
             }
@@ -798,7 +802,7 @@ class PhonePolicy {
                 }
                 removeAutoConnectFromDisconnectedHeadsets(hsService);
                 if (autoConnect) {
-                    hsService.setPriority(device, BluetoothProfile.PRIORITY_AUTO_CONNECT);
+                    hsService.setConnectionPolicy(device, BluetoothProfile.PRIORITY_AUTO_CONNECT);
                 }
                 break;
             }
@@ -810,17 +814,17 @@ class PhonePolicy {
                 }
                 removeAutoConnectFromDisconnectedA2dpSinks(a2dpService);
                 if (autoConnect) {
-                    a2dpService.setPriority(device, BluetoothProfile.PRIORITY_AUTO_CONNECT);
+                    a2dpService.setConnectionPolicy(device, BluetoothProfile.PRIORITY_AUTO_CONNECT);
                 }
                 break;
             }
             case BluetoothProfile.A2DP_SINK: {
                 A2dpSinkService a2dpSinkService = mFactory.getA2dpSinkService();
                 if (a2dpSinkService != null) {
-                    if (BluetoothProfile.PRIORITY_AUTO_CONNECT != a2dpSinkService.getPriority(
+                    if (BluetoothProfile.PRIORITY_AUTO_CONNECT != a2dpSinkService.getConnectionPolicy(
                             device)) {
                         adjustOtherSourcePriorities(a2dpSinkService, a2dpSinkService.getConnectedDevices());
-                        a2dpSinkService.setPriority(device, BluetoothProfile.PRIORITY_AUTO_CONNECT);
+                        a2dpSinkService.setConnectionPolicy(device, BluetoothProfile.PRIORITY_AUTO_CONNECT);
                     }
                 }
                 break;
@@ -842,9 +846,9 @@ class PhonePolicy {
             warnLog("setAutoConnectForHeadset: HEADSET service is null");
             return;
         }
-        if (hsService.getPriority(device) >= BluetoothProfile.PRIORITY_ON) {
+        if (hsService.getConnectionPolicy(device) >= BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
             debugLog("setAutoConnectForHeadset: device " + device + " PRIORITY_AUTO_CONNECT");
-            hsService.setPriority(device, BluetoothProfile.PRIORITY_AUTO_CONNECT);
+            hsService.setConnectionPolicy(device, BluetoothProfile.PRIORITY_AUTO_CONNECT);
         }
     }
 
@@ -859,9 +863,9 @@ class PhonePolicy {
             warnLog("setAutoConnectForA2dpSink: A2DP service is null");
             return;
         }
-        if (a2dpService.getPriority(device) >= BluetoothProfile.PRIORITY_ON) {
+        if (a2dpService.getConnectionPolicy(device) >= BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
             debugLog("setAutoConnectForA2dpSink: device " + device + " PRIORITY_AUTO_CONNECT");
-            a2dpService.setPriority(device, BluetoothProfile.PRIORITY_AUTO_CONNECT);
+            a2dpService.setConnectionPolicy(device, BluetoothProfile.PRIORITY_AUTO_CONNECT);
         }
     }
 
@@ -874,9 +878,9 @@ class PhonePolicy {
             warnLog("setAutoConnectForA2dpSink: A2DP service is null");
             return;
         }
-        if (a2dpSinkService.getPriority(device) >= BluetoothProfile.PRIORITY_ON) {
+        if (a2dpSinkService.getConnectionPolicy(device) >= BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
             debugLog("setAutoConnectForA2dpSink: device " + device + " PRIORITY_AUTO_CONNECT");
-            a2dpSinkService.setPriority(device, BluetoothProfile.PRIORITY_AUTO_CONNECT);
+            a2dpSinkService.setConnectionPolicy(device, BluetoothProfile.PRIORITY_AUTO_CONNECT);
         }
     }
 
@@ -892,9 +896,9 @@ class PhonePolicy {
             warnLog("removeAutoConnectFromHeadset: HEADSET service is null");
             return;
         }
-        if (hsService.getPriority(device) >= BluetoothProfile.PRIORITY_AUTO_CONNECT) {
-            debugLog("removeAutoConnectFromHeadset: device " + device + " PRIORITY_ON");
-            hsService.setPriority(device, BluetoothProfile.PRIORITY_ON);
+        if (hsService.getConnectionPolicy(device) >= BluetoothProfile.PRIORITY_AUTO_CONNECT) {
+            debugLog("removeAutoConnectFromHeadset: device " + device + " CONNECTION_POLICY_ALLOWED");
+            hsService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
         }
     }
 
@@ -910,18 +914,18 @@ class PhonePolicy {
             warnLog("removeAutoConnectFromA2dpSink: A2DP service is null");
             return;
         }
-        if (a2dpService.getPriority(device) >= BluetoothProfile.PRIORITY_AUTO_CONNECT) {
-            debugLog("removeAutoConnectFromA2dpSink: device " + device + " PRIORITY_ON");
-            a2dpService.setPriority(device, BluetoothProfile.PRIORITY_ON);
+        if (a2dpService.getConnectionPolicy(device) >= BluetoothProfile.PRIORITY_AUTO_CONNECT) {
+            debugLog("removeAutoConnectFromA2dpSink: device " + device + " CONNECTION_POLICY_ALLOWED");
+            a2dpService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
         }
     }
 
     private void adjustOtherSourcePriorities(
             A2dpSinkService a2dpSinkService, List<BluetoothDevice> connectedDeviceList) {
         for (BluetoothDevice device : mAdapterService.getBondedDevices()) {
-            if (a2dpSinkService.getPriority(device) >= BluetoothProfile.PRIORITY_AUTO_CONNECT
+            if (a2dpSinkService.getConnectionPolicy(device) >= BluetoothProfile.PRIORITY_AUTO_CONNECT
                     && !connectedDeviceList.contains(device)) {
-                a2dpSinkService.setPriority(device, BluetoothProfile.PRIORITY_ON);
+                a2dpSinkService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
             }
         }
     }
@@ -929,11 +933,11 @@ class PhonePolicy {
     private void removeAutoConnectFromDisconnectedHeadsets(HeadsetService hsService) {
         List<BluetoothDevice> connectedDeviceList = hsService.getConnectedDevices();
         for (BluetoothDevice device : mAdapterService.getBondedDevices()) {
-            if (hsService.getPriority(device) >= BluetoothProfile.PRIORITY_AUTO_CONNECT
+            if (hsService.getConnectionPolicy(device) >= BluetoothProfile.PRIORITY_AUTO_CONNECT
                     && !connectedDeviceList.contains(device)) {
                 debugLog("removeAutoConnectFromDisconnectedHeadsets, device " + device
-                        + " PRIORITY_ON");
-                hsService.setPriority(device, BluetoothProfile.PRIORITY_ON);
+                        + " CONNECTION_POLICY_ALLOWED");
+                hsService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
             }
         }
     }
@@ -941,11 +945,11 @@ class PhonePolicy {
     private void removeAutoConnectFromDisconnectedA2dpSinks(A2dpService a2dpService) {
         List<BluetoothDevice> connectedDeviceList = a2dpService.getConnectedDevices();
         for (BluetoothDevice device : mAdapterService.getBondedDevices()) {
-            if (a2dpService.getPriority(device) >= BluetoothProfile.PRIORITY_AUTO_CONNECT
+            if (a2dpService.getConnectionPolicy(device) >= BluetoothProfile.PRIORITY_AUTO_CONNECT
                     && !connectedDeviceList.contains(device)) {
                 debugLog("removeAutoConnectFromDisconnectedA2dpSinks, device " + device
-                        + " PRIORITY_ON");
-                a2dpService.setPriority(device, BluetoothProfile.PRIORITY_ON);
+                        + " CONNECTION_POLICY_ALLOWED");
+                a2dpService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
             }
         }
     }

@@ -641,21 +641,21 @@ public class HeadsetService extends ProfileService {
         }
 
         @Override
-        public boolean setPriority(BluetoothDevice device, int priority) {
+        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
             HeadsetService service = getService();
             if (service == null) {
                 return false;
             }
-            return service.setPriority(device, priority);
+            return service.setConnectionPolicy(device, connectionPolicy);
         }
 
         @Override
-        public int getPriority(BluetoothDevice device) {
+        public int getConnectionPolicy(BluetoothDevice device) {
             HeadsetService service = getService();
             if (service == null) {
-                return BluetoothProfile.PRIORITY_UNDEFINED;
+                return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
             }
-            return service.getPriority(device);
+            return service.getConnectionPolicy(device);
         }
 
         @Override
@@ -984,8 +984,9 @@ public class HeadsetService extends ProfileService {
 
     public boolean connect(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
-        if (getPriority(device) == BluetoothProfile.PRIORITY_OFF) {
-            Log.w(TAG, "connect: PRIORITY_OFF, device=" + device + ", " + Utils.getUidPidString());
+        if (getConnectionPolicy(device) == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+            Log.w(TAG, "connect: CONNECTION_POLICY_FORBIDDEN, device=" + device + ", "
+                    + Utils.getUidPidString());
             return false;
         }
         ParcelUuid[] featureUuids = mAdapterService.getRemoteUuids(device);
@@ -1177,23 +1178,45 @@ public class HeadsetService extends ProfileService {
         }
     }
 
-    public boolean setPriority(BluetoothDevice device, int priority) {
+    /**
+     * Set connection policy of the profile
+     *
+     * <p> The device should already be paired.
+     * Connection policy can be one of:
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED},
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN},
+     * {@link BluetoothProfile#CONNECTION_POLICY_UNKNOWN}
+     *
+     * @param device Paired bluetooth device
+     * @param connectionPolicy is the connection policy to set to for this profile
+     * @return true if connectionPolicy is set, false on error
+     * @hide
+     */
+    public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
-        Log.i(TAG, "setPriority: device=" + device + ", priority=" + priority + ", "
-                + Utils.getUidPidString());
-        AdapterService adapterService = AdapterService.getAdapterService();
-        if (adapterService != null)
-            adapterService.getDatabase()
-                .setProfilePriority(device, BluetoothProfile.HEADSET, priority);
-        else
-           Log.i(TAG, "adapter service is null");
+        Log.i(TAG, "setConnectionPolicy: device=" + device
+                + ", connectionPolicy=" + connectionPolicy + ", " + Utils.getUidPidString());
+        mAdapterService.getDatabase()
+                .setProfileConnectionPolicy(device, BluetoothProfile.HEADSET, connectionPolicy);
         return true;
     }
 
-    public int getPriority(BluetoothDevice device) {
+    /**
+     * Get the connection policy of the profile.
+     *
+     * <p> The connection policy can be any of:
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED},
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN},
+     * {@link BluetoothProfile#CONNECTION_POLICY_UNKNOWN}
+     *
+     * @param device Bluetooth device
+     * @return connection policy of the device
+     * @hide
+     */
+    public int getConnectionPolicy(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         return mAdapterService.getDatabase()
-                .getProfilePriority(device, BluetoothProfile.HEADSET);
+                .getProfileConnectionPolicy(device, BluetoothProfile.HEADSET);
     }
 
     boolean startVoiceRecognition(BluetoothDevice device) {
@@ -2362,20 +2385,30 @@ public class HeadsetService extends ProfileService {
         }
         if(!isPts) {
             // Check priority and accept or reject the connection.
-            int priority = getPriority(device);
+            // Note: Logic can be simplified, but keeping it this way for readability
+            int connectionPolicy = getConnectionPolicy(device);
             int bondState = mAdapterService.getBondState(device);
-            // Allow this connection only if the device is bonded. Any attempt to connect while
-            // bonding would potentially lead to an unauthorized connection.
-            if (bondState != BluetoothDevice.BOND_BONDED) {
-                Log.w(TAG, "okToAcceptConnection: return false, bondState=" + bondState);
-                return false;
-            } else if (priority != BluetoothProfile.PRIORITY_UNDEFINED
-                    && priority != BluetoothProfile.PRIORITY_ON
-                    && priority != BluetoothProfile.PRIORITY_AUTO_CONNECT) {
-                // Otherwise, reject the connection if priority is not valid.
-                Log.w(TAG, "okToAcceptConnection: return false, priority=" + priority);
+            // If priority is undefined, it is likely that service discovery has not completed and peer
+            // initiated the connection. Allow this connection only if the device is bonded or bonding
+            boolean serviceDiscoveryPending = (connectionPolicy == BluetoothProfile.CONNECTION_POLICY_UNKNOWN) && (
+                    bondState == BluetoothDevice.BOND_BONDING
+                            || bondState == BluetoothDevice.BOND_BONDED);
+            // Also allow connection when device is bonded/bonding and priority is ON/AUTO_CONNECT.
+            boolean isEnabled = (connectionPolicy == BluetoothProfile.CONNECTION_POLICY_ALLOWED
+                    || connectionPolicy == BluetoothProfile.PRIORITY_AUTO_CONNECT) && (
+                    bondState == BluetoothDevice.BOND_BONDED
+                            || bondState == BluetoothDevice.BOND_BONDING);
+            if (!serviceDiscoveryPending && !isEnabled) {
+                // Otherwise, reject the connection if no service discovery is pending and priority is
+                // neither PRIORITY_ON nor PRIORITY_AUTO_CONNECT
+                Log.w(TAG,
+                        "okToConnect: return false, connection policy = " + connectionPolicy + ", bondState=" + bondState);
                 return false;
             }
+        // Check connection policy and accept or reject the connection.
+        // Allow this connection only if the device is bonded. Any attempt to connect while
+        // bonding would potentially lead to an unauthorized connection.
+            // Otherwise, reject the connection if connection policy is not valid.
         }
         List<BluetoothDevice> connectingConnectedDevices =
                 getAllDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES);
