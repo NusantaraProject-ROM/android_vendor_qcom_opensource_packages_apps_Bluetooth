@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * Provides Bluetooth A2DP profile, as a service in the Bluetooth application.
@@ -76,6 +77,7 @@ public class A2dpService extends ProfileService {
     private final Object mBtAvrcpLock = new Object();
     private final Object mActiveDeviceLock = new Object();
     private final Object mVariableLock = new Object();
+    private final ReentrantReadWriteLock mA2dpNativeInterfaceLock = new ReentrantReadWriteLock();
 
     @VisibleForTesting
     A2dpNativeInterface mA2dpNativeInterface;
@@ -174,8 +176,16 @@ public class A2dpService extends ProfileService {
         synchronized (mVariableLock) {
             mAdapterService = Objects.requireNonNull(AdapterService.getAdapterService(),
                 "AdapterService cannot be null when A2dpService starts");
+        }
+        try {
+            mA2dpNativeInterfaceLock.writeLock().lock();
             mA2dpNativeInterface = Objects.requireNonNull(A2dpNativeInterface.getInstance(),
                 "A2dpNativeInterface cannot be null when A2dpService starts");
+        } finally {
+            mA2dpNativeInterfaceLock.writeLock().unlock();
+        }
+        BluetoothCodecConfig[] OffloadCodecConfig;
+        synchronized (mVariableLock) {
             mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
             Objects.requireNonNull(mAudioManager,
                                "AudioManager cannot be null when A2dpService starts");
@@ -228,10 +238,20 @@ public class A2dpService extends ProfileService {
             // Step 6: Initialize native interface
             List<BluetoothCodecConfig> mCodecConfigOffload;
             mCodecConfigOffload = mAudioManager.getHwOffloadEncodingFormatsSupportedForA2DP();
-            BluetoothCodecConfig[] OffloadCodecConfig  = new BluetoothCodecConfig[mCodecConfigOffload.size()];
+            OffloadCodecConfig  = new BluetoothCodecConfig[mCodecConfigOffload.size()];
             OffloadCodecConfig  = mCodecConfigOffload.toArray(OffloadCodecConfig);
-             mA2dpNativeInterface.init(mMaxConnectedAudioDevices,
-                           mA2dpCodecConfig.codecConfigPriorities(),OffloadCodecConfig);
+        }
+
+        try {
+            mA2dpNativeInterfaceLock.writeLock().lock();
+            if (mA2dpNativeInterface != null)
+                mA2dpNativeInterface.init(mMaxConnectedAudioDevices,
+                        mA2dpCodecConfig.codecConfigPriorities(),OffloadCodecConfig);
+        } finally {
+            mA2dpNativeInterfaceLock.writeLock().unlock();
+        }
+
+        synchronized (mVariableLock) {
 
             // Step 7: Check if A2DP is in offload mode
             mA2dpOffloadEnabled = mAdapterService.isA2dpOffloadEnabled();
@@ -277,10 +297,14 @@ public class A2dpService extends ProfileService {
         unregisterReceiver(mBondStateChangedReceiver);
         mBondStateChangedReceiver = null;
         // Step 6: Cleanup native interface
-        synchronized (mVariableLock) {
+        try {
+            mA2dpNativeInterfaceLock.writeLock().lock();
             if (mA2dpNativeInterface != null)
                 mA2dpNativeInterface.cleanup();
+        } finally {
+            mA2dpNativeInterfaceLock.writeLock().unlock();
         }
+
         // Step 5: Clear codec config
         mA2dpCodecConfig = null;
 
@@ -323,8 +347,14 @@ public class A2dpService extends ProfileService {
             mSetMaxConnectedAudioDevices = 1;
             // Step 1: Clear AdapterService, A2dpNativeInterface, AudioManager
             mAudioManager = null;
-            mA2dpNativeInterface = null;
             mAdapterService = null;
+        }
+
+        try {
+            mA2dpNativeInterfaceLock.writeLock().lock();
+            mA2dpNativeInterface = null;
+        } finally {
+            mA2dpNativeInterfaceLock.writeLock().unlock();
         }
 
         return true;
@@ -720,11 +750,14 @@ public class A2dpService extends ProfileService {
            }
         }
         // Make sure the Active device in native layer is set to null and audio is off
-        synchronized (mVariableLock ) {
+        try {
+            mA2dpNativeInterfaceLock.readLock().lock();
             if (mA2dpNativeInterface != null && !mA2dpNativeInterface.setActiveDevice(null)) {
                  Log.w(TAG, "setActiveDevice(null): Cannot remove active device in native "
                         + "layer");
             }
+        } finally {
+            mA2dpNativeInterfaceLock.readLock().unlock();
         }
     }
 
@@ -746,13 +779,18 @@ public class A2dpService extends ProfileService {
             // Set the device as the active device if currently no active device.
             setActiveDevice(device);
         }
-        synchronized (mVariableLock) {
+
+        try {
+            mA2dpNativeInterfaceLock.readLock().lock();
             if (mA2dpNativeInterface != null &&
                !mA2dpNativeInterface.setSilenceDevice(device, silence)) {
                 Log.e(TAG, "Cannot set " + device + " silence mode " + silence + " in native layer");
                 return false;
             }
+        } finally {
+            mA2dpNativeInterfaceLock.readLock().unlock();
         }
+
         return true;
     }
 
@@ -802,18 +840,20 @@ public class A2dpService extends ProfileService {
         boolean tws_switch = false;
         Log.w(TAG, "setActiveDevice(" + device + "): previous is " + previousActiveDevice);
 
+        if (device == null) {
+            // Remove active device and continue playing audio only if necessary.
+            removeActiveDevice(false);
+            synchronized(mBtAvrcpLock) {
+                if(mAvrcp_ext != null)
+                    mAvrcp_ext.setActiveDevice(device);
+            }
+            return true;
+        }
+
         synchronized (mBtA2dpLock) {
             BATService mBatService = BATService.getBATService();
             isBAActive = (mBatService != null) && (mBatService.isBATActive());
             Log.d(TAG," setActiveDevice: BA active " + isBAActive);
-
-            if (device == null) {
-                // Remove active device and continue playing audio only if necessary.
-                removeActiveDevice(false);
-                if(mAvrcp_ext != null)
-                    mAvrcp_ext.setActiveDevice(device);
-                return true;
-            }
 
             A2dpStateMachine sm = mStateMachines.get(device);
             deviceChanged = !Objects.equals(device, mActiveDevice);
@@ -856,12 +896,17 @@ public class A2dpService extends ProfileService {
             Log.w(TAG, "setActiveDevice coming out of mutex lock");
         }
 
-        synchronized (mVariableLock) {
+        try {
+            mA2dpNativeInterfaceLock.readLock().lock();
             if (mA2dpNativeInterface != null && !mA2dpNativeInterface.setActiveDevice(device)) {
                 Log.e(TAG, "setActiveDevice(" + device + "): Cannot set as active in native layer");
                 return false;
             }
+
+        } finally {
+            mA2dpNativeInterfaceLock.readLock().unlock();
         }
+
 
         updateAndBroadcastActiveDevice(device);
         Log.d(TAG, "setActiveDevice(" + device + "): completed");
@@ -1299,7 +1344,8 @@ public class A2dpService extends ProfileService {
                 if (stackEvent.type == A2dpStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED) {
                     switch (stackEvent.valueInt) {
                         case A2dpStackEvent.CONNECTION_STATE_CONNECTED:
-                        case A2dpStackEvent.CONNECTION_STATE_CONNECTING:
+                        case A2dpStackEvent.CONNECTION_STATE_CONNECTING: {
+                            boolean connectionAllowed;
                             synchronized (mVariableLock) {
                                 // Create a new state machine only when connecting to a device
                                 if (mAdapterService != null && mAdapterService.isVendorIntfEnabled())
@@ -1308,15 +1354,24 @@ public class A2dpService extends ProfileService {
                                     sm = getOrCreateStateMachine(device);
                                     break;
                                 }
-                                if (!connectionAllowedCheckMaxDevices(device) && mA2dpNativeInterface != null) {
-                                    Log.e(TAG, "Cannot connect to " + device
-                                            + " : too many connected devices");
-                                    mA2dpNativeInterface.disconnectA2dp(device);
-                                    return;
+                                connectionAllowed = connectionAllowedCheckMaxDevices(device);
+                            }
+                            if (!connectionAllowed) {
+                                Log.e(TAG, "Cannot connect to " + device
+                                        + " : too many connected devices");
+                                try {
+                                    mA2dpNativeInterfaceLock.readLock().lock();
+                                    if (mA2dpNativeInterface != null) {
+                                        mA2dpNativeInterface.disconnectA2dp(device);
+                                        return;
+                                    }
+                                } finally {
+                                    mA2dpNativeInterfaceLock.readLock().unlock();
                                 }
                             }
                             sm = getOrCreateStateMachine(device);
                             break;
+                        }
                         default:
                             synchronized (mVariableLock) {
                                 if (mAdapterService!= null && mAdapterService.isVendorIntfEnabled() &&
