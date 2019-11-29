@@ -128,5 +128,11 @@
     <integer name="avrcp_cover_art_default_height">500</integer>
     <integer name="avrcp_cover_art_default_width">500</integer>
     <integer name="avrcp_cover_art_default_maxsize">200000</integer>
-
+    <!-- Package that is responsible for email related functionalities.
+        Receives:
+          - ACTION_MOVE_MESSAGE
+          - ACTION_MESSAGE_READ
+          - ACTION_SEND_PENDING_MAIL
+          - ACTION_DELETE_MESSAGE -->
+    <string name="email_ui_package">com.android.email</string>
 </resources>
