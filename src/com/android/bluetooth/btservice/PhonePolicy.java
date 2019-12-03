@@ -44,6 +44,7 @@ import com.android.bluetooth.pan.PanService;
 import com.android.bluetooth.ba.BATService;
 import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.util.ArrayUtils;
 
 import java.util.HashSet;
 import java.util.List;
@@ -271,16 +272,16 @@ class PhonePolicy {
 
         // Set profile priorities only for the profiles discovered on the remote device.
         // This avoids needless auto-connect attempts to profiles non-existent on the remote device
-        if ((hidService != null) && (BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.Hid)
-                || BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.Hogp)) && (
+        if ((hidService != null) && (ArrayUtils.contains(uuids, BluetoothUuid.HID)
+                || ArrayUtils.contains(uuids, BluetoothUuid.HOGP)) && (
                 hidService.getConnectionPolicy(device)
                         == BluetoothProfile.CONNECTION_POLICY_UNKNOWN)) {
             hidService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
         }
 
         // If we do not have a stored priority for HFP/A2DP (all roles) then default to on.
-        if ((headsetService != null) && ((BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.HSP)
-                || BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.Handsfree)) && (
+        if ((headsetService != null) && ((ArrayUtils.contains(uuids, BluetoothUuid.HSP)
+                || ArrayUtils.contains(uuids, BluetoothUuid.HFP)) && (
                 headsetService.getConnectionPolicy(device)
                         == BluetoothProfile.CONNECTION_POLICY_UNKNOWN))) {
             headsetService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
@@ -290,9 +291,10 @@ class PhonePolicy {
             }
         }
 
-        if ((a2dpService != null) && (BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.AudioSink)
-                || BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.AdvAudioDist)) && (
-                a2dpService.getConnectionPolicy(device) == BluetoothProfile.CONNECTION_POLICY_UNKNOWN)) {
+        if ((a2dpService != null) && (ArrayUtils.contains(uuids, BluetoothUuid.A2DP_SINK)
+                || ArrayUtils.contains(uuids, BluetoothUuid.ADV_AUDIO_DIST)) && (
+                a2dpService.getConnectionPolicy(device)
+                        == BluetoothProfile.CONNECTION_POLICY_UNKNOWN)) {
             a2dpService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
             if (peerTwsDevice != null) {
                 debugLog("setting peer earbud to connection policy on for a2dp" + peerTwsDevice);
@@ -307,15 +309,15 @@ class PhonePolicy {
             a2dpSinkService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
         }
 
-        if ((panService != null) && (BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.PANU) && (
+        if ((panService != null) && (ArrayUtils.contains(uuids, BluetoothUuid.PANU) && (
                 panService.getConnectionPolicy(device) == BluetoothProfile.CONNECTION_POLICY_UNKNOWN)
                 && mAdapterService.getResources()
                 .getBoolean(R.bool.config_bluetooth_pan_enable_autoconnect))) {
             panService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
         }
 
-        if ((hearingAidService != null) && BluetoothUuid.isUuidPresent(uuids,
-                BluetoothUuid.HearingAid) && (hearingAidService.getConnectionPolicy(device)
+        if ((hearingAidService != null) && ArrayUtils.contains(uuids,
+                BluetoothUuid.HEARING_AID) && (hearingAidService.getConnectionPolicy(device)
                 == BluetoothProfile.CONNECTION_POLICY_UNKNOWN)) {
             debugLog("setting hearing aid profile connection policy for device " + device);
             hearingAidService.setConnectionPolicy(device,

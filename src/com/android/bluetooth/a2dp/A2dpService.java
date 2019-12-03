@@ -50,6 +50,7 @@ import com.android.bluetooth.ba.BATService;
 import com.android.bluetooth.gatt.GattService;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.util.ArrayUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -367,8 +368,8 @@ public class A2dpService extends ProfileService {
         synchronized (mVariableLock) {
             if (mAdapterService == null)
                 return false;
-            if (!BluetoothUuid.isUuidPresent(mAdapterService.getRemoteUuids(device),
-                                             BluetoothUuid.AudioSink)) {
+            if (!ArrayUtils.contains(mAdapterService.getRemoteUuids(device),
+                                             BluetoothUuid.A2DP_SINK)) {
                 Log.e(TAG, "Cannot connect to " + device + " : Remote does not have A2DP Sink UUID");
                 return false;
             }
@@ -634,8 +635,8 @@ public class A2dpService extends ProfileService {
         synchronized (mStateMachines) {
             for (BluetoothDevice device : bondedDevices) {
                 synchronized (mVariableLock) {
-                    if (mAdapterService != null && !BluetoothUuid.isUuidPresent(mAdapterService.getRemoteUuids(device),
-                                                 BluetoothUuid.AudioSink)) {
+                    if (mAdapterService != null && !ArrayUtils.contains(mAdapterService.getRemoteUuids(device),
+                                                 BluetoothUuid.A2DP_SINK)) {
                         continue;
                     }
                 }
