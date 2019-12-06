@@ -988,13 +988,13 @@ public class HeadsetService extends ProfileService {
             Log.w(TAG, "connect: PRIORITY_OFF, device=" + device + ", " + Utils.getUidPidString());
             return false;
         }
-        ParcelUuid[] featureUuids = mAdapterService.getRemoteUuids(device);
-        if (!BluetoothUuid.containsAnyUuid(featureUuids, HEADSET_UUIDS)) {
-            Log.e(TAG, "connect: Cannot connect to " + device + ": no headset UUID, "
-                    + Utils.getUidPidString());
-            return false;
-        }
         synchronized (mStateMachines) {
+            ParcelUuid[] featureUuids = mAdapterService.getRemoteUuids(device);
+            if (!BluetoothUuid.containsAnyUuid(featureUuids, HEADSET_UUIDS)) {
+                Log.e(TAG, "connect: Cannot connect to " + device + ": no headset UUID, "
+                    + Utils.getUidPidString());
+                return false;
+            }
             Log.i(TAG, "connect: device=" + device + ", " + Utils.getUidPidString());
             HeadsetStateMachine stateMachine = mStateMachines.get(device);
             if (stateMachine == null) {
@@ -1106,12 +1106,12 @@ public class HeadsetService extends ProfileService {
             Log.e(TAG, "->States is null");
             return devices;
         }
-        final BluetoothDevice[] bondedDevices = mAdapterService.getBondedDevices();
-        if (bondedDevices == null) {
-            Log.e(TAG, "->Bonded device is null");
-            return devices;
-        }
         synchronized (mStateMachines) {
+            final BluetoothDevice[] bondedDevices = mAdapterService.getBondedDevices();
+            if (bondedDevices == null) {
+                Log.e(TAG, "->Bonded device is null");
+                return devices;
+            }
             for (BluetoothDevice device : bondedDevices) {
 
                 int connectionState = getConnectionState(device);
@@ -2249,7 +2249,7 @@ public class HeadsetService extends ProfileService {
         synchronized (mStateMachines) {
             if (toState == BluetoothHeadset.STATE_AUDIO_DISCONNECTED) {
                 //Transfer SCO is not needed for TWS+ devices
-                if (mAdapterService.isTwsPlusDevice(device) &&
+                if (mAdapterService != null && mAdapterService.isTwsPlusDevice(device) &&
                    mActiveDevice != null &&
                    mAdapterService.isTwsPlusDevice(mActiveDevice) &&
                    isAudioOn()) {
@@ -2260,7 +2260,7 @@ public class HeadsetService extends ProfileService {
                     Log.w(TAG, "onAudioStateChangedFromStateMachine:"
                             + "shouldPersistAudio() returns"
                             + shouldPersistAudio());
-                    if (mAdapterService.isTwsPlusDevice(device) &&
+                    if (mAdapterService != null && mAdapterService.isTwsPlusDevice(device) &&
                                    isAudioOn()) {
                         Log.w(TAG, "TWS: Don't stop VR or VOIP");
                     } else {
@@ -2293,11 +2293,11 @@ public class HeadsetService extends ProfileService {
                     if (mActiveDevice != null &&
                                  !mActiveDevice.equals(device) &&
                                  shouldPersistAudio()) {
-                       if (mAdapterService.isTwsPlusDevice(device)
+                       if (mAdapterService != null && mAdapterService.isTwsPlusDevice(device)
                                                    && isAudioOn()) {
                            Log.d(TAG, "TWS: Wait for both eSCO closed");
                        } else {
-                           if (mAdapterService.isTwsPlusDevice(device) &&
+                           if (mAdapterService != null && mAdapterService.isTwsPlusDevice(device) &&
                                isTwsPlusActive(mActiveDevice)) {
                                /* If the device for which SCO got disconnected
                                   is a TwsPlus device and TWS+ set is active
