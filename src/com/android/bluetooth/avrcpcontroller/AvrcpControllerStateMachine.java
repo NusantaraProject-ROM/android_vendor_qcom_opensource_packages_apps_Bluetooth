@@ -80,6 +80,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int MESSAGE_PROCESS_SET_ADDRESSED_PLAYER = 214;
     static final int MESSAGE_PROCESS_ADDRESSED_PLAYER_CHANGED = 215;
     static final int MESSAGE_PROCESS_NOW_PLAYING_CONTENTS_CHANGED = 216;
+    static final int MESSAGE_PROCESS_RC_FEATURES = 217;
 
     //300->399 Events for Browsing
     static final int MESSAGE_GET_FOLDER_ITEMS = 300;
@@ -111,6 +112,9 @@ class AvrcpControllerStateMachine extends StateMachine {
     protected final Connected mConnected;
     protected final Disconnecting mDisconnecting;
     private A2dpSinkService mA2dpSinkService;
+
+    private static CoverArtUtils mCoveArtUtils;
+    private AvrcpControllerBipStateMachine mBipStateMachine;
 
     protected int mMostRecentState = BluetoothProfile.STATE_DISCONNECTED;
 
@@ -162,6 +166,9 @@ class AvrcpControllerStateMachine extends StateMachine {
         mIsVolumeFixed = mAudioManager.isVolumeFixed();
         IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
         mService.registerReceiver(mBroadcastReceiver, filter);
+
+        mCoveArtUtils = new CoverArtUtils();
+        mBipStateMachine = AvrcpControllerBipStateMachine.make(this, getHandler(), service);
 
         setInitialState(mDisconnected);
     }
@@ -356,8 +363,11 @@ class AvrcpControllerStateMachine extends StateMachine {
                     return true;
 
                 case MESSAGE_PROCESS_TRACK_CHANGED:
-                    mAddressedPlayer.updateCurrentTrack((MediaMetadata) msg.obj);
-                    BluetoothMediaBrowserService.trackChanged((MediaMetadata) msg.obj);
+                    TrackInfo trackInfo = (TrackInfo)msg.obj;
+                    mAddressedPlayer.updateCurrentTrack((MediaMetadata) trackInfo.getMediaMetaData());
+                    BluetoothMediaBrowserService.trackChanged((MediaMetadata) trackInfo.getMediaMetaData());
+                    mAddressedPlayer.updateCurrentTrackInfo(trackInfo);
+                    mCoveArtUtils.msgTrackChanged(mService, mBipStateMachine,mAddressedPlayer,mRemoteDevice);
                     return true;
 
                 case MESSAGE_PROCESS_PLAY_STATUS_CHANGED:
@@ -460,6 +470,20 @@ class AvrcpControllerStateMachine extends StateMachine {
                     mVolumeChangedNotificationsToIgnore = 0;
                     return true;
 
+                case MESSAGE_PROCESS_RC_FEATURES:
+                    mRemoteDevice.setRemoteFeatures(msg.arg1);
+                    if (msg.arg2 > 0) {
+                        mCoveArtUtils.msgProcessRcFeatures(mBipStateMachine, mRemoteDevice,msg.arg2);
+                    }
+                    return true;
+
+                case CoverArtUtils.MESSAGE_BIP_CONNECTED:
+                case CoverArtUtils.MESSAGE_BIP_DISCONNECTED:
+                case CoverArtUtils.MESSAGE_BIP_IMAGE_FETCHED:
+                case CoverArtUtils.MESSAGE_BIP_THUMB_NAIL_FETCHED:
+                    mCoveArtUtils.processBipAction(mService, mAddressedPlayer,
+                            mRemoteDevice, msg.what, msg);
+                    return true;
                 default:
                     return super.processMessage(msg);
             }
