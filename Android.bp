@@ -1,7 +1,5 @@
-subdirs = [
-    "jni",
-]
-
+soong_namespace {
+}
 
 // MAP API module
 
@@ -16,11 +14,14 @@ java_library {
 android_app {
     name: "Bluetooth",
 
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        ":vendor_qcom_opensource_commonsys_bluetooth_ext_packages_apps_bluetooth_ext",
+    ],
     platform_apis: true,
     certificate: "platform",
 
-    jni_libs: ["libbluetooth_jni"],
+    jni_libs: ["libbluetooth_qti_jni"],
     libs: [
         "javax.obex",
         "telephony-common",
@@ -34,20 +35,20 @@ android_app {
         "libprotobuf-java-lite",
         "bluetooth-protos-lite",
         "androidx.core_core",
-        "androidx.legacy_legacy-support-v4",
         "androidx.lifecycle_lifecycle-livedata",
         "androidx.room_room-runtime",
-        "guava",
     ],
 
     plugins: [
         "androidx.room_room-compiler-plugin",
     ],
 
-    javacflags: ["-Aroom.schemaLocation=tests/unit/src/com/android/bluetooth/btservice/storage/schemas"],
-
     optimize: {
         enabled: false,
     },
-    required: ["libbluetooth"]
+    required: ["libbluetooth"],
+
+    proto: {
+        type: "micro",
+    },
 }
