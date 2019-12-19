@@ -51,6 +51,7 @@
 
 package com.android.bluetooth.btservice;
 
+import android.annotation.NonNull;
 import android.app.ActivityManager;
 import android.app.AlarmManager;
 import android.app.AppOpsManager;
@@ -1695,16 +1696,6 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public void sendConnectionStateChange(BluetoothDevice device, int profile, int state,
-                int prevState) {
-            AdapterService service = getService();
-            if (service == null) {
-                return;
-            }
-            service.sendConnectionStateChange(device, profile, state, prevState);
-        }
-
-        @Override
         public IBluetoothSocketManager getSocketManager() {
             AdapterService service = getService();
             if (service == null) {
@@ -2001,6 +1992,18 @@ public class AdapterService extends Service {
             AdapterService service = getService();
             if (service == null) return -1;
             return service.getSocketOpt(type, channel, optionName, optionVal);
+        }
+
+        @Override
+        public boolean connectAllEnabledProfiles(@NonNull BluetoothDevice device) {
+            // TODO(b/146020209): implement
+            return false;
+        }
+
+        @Override
+        public boolean disconnectAllEnabledProfiles(@NonNull BluetoothDevice device) {
+            // TODO(b/146020209): implement
+            return false;
         }
 
         @Override
