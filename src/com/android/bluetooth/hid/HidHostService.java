@@ -25,8 +25,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.UserHandle;
-import android.support.annotation.VisibleForTesting;
 import android.util.Log;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.Utils;
