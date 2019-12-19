@@ -41,10 +41,10 @@ import android.content.IntentFilter;
 import android.os.ParcelUuid;
 import android.os.SystemProperties;
 import android.os.UserHandle;
-import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 import android.util.Pair;
 import android.util.StatsLog;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.RemoteDevices.DeviceProperties;
