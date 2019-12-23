@@ -535,7 +535,9 @@ public class HidHostService extends ProfileService {
     }
 
     /**
-     * Set connection policy of the profile
+     * Set connection policy of the profile and connects it if connectionPolicy is
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED} or disconnects if connectionPolicy is
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN}
      *
      * <p> The device should already be paired.
      * Connection policy can be one of:
@@ -546,7 +548,6 @@ public class HidHostService extends ProfileService {
      * @param device Paired bluetooth device
      * @param connectionPolicy is the connection policy to set to for this profile
      * @return true if connectionPolicy is set, false on error
-     * @hide
      */
     public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
@@ -558,6 +559,11 @@ public class HidHostService extends ProfileService {
         }
         AdapterService.getAdapterService().getDatabase()
                 .setProfileConnectionPolicy(device, BluetoothProfile.HID_HOST, connectionPolicy);
+        if (connectionPolicy == BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
+            connect(device);
+        } else if (connectionPolicy == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+            disconnect(device);
+        }
         return true;
     }
 
@@ -855,18 +861,17 @@ public class HidHostService extends ProfileService {
             return false;
         }
         // Check priority and accept or reject the connection.
-        int priority = getConnectionPolicy(device);
+        int connectionPolicy = getConnectionPolicy(device);
         int bondState = adapterService.getBondState(device);
         // Allow this connection only if the device is bonded. Any attempt to connect while
         // bonding would potentially lead to an unauthorized connection.
         if (bondState == BluetoothDevice.BOND_NONE) {
             Log.w(TAG, "okToConnect: return false, bondState :" + bondState);
             return false;
-        } else if (priority != BluetoothProfile.PRIORITY_UNDEFINED
-                && priority != BluetoothProfile.PRIORITY_ON
-                && priority != BluetoothProfile.PRIORITY_AUTO_CONNECT) {
-            // Otherwise, reject the connection if priority is not valid.
-            Log.w(TAG, "okToConnect: return false, priority=" + priority);
+        } else if (connectionPolicy != BluetoothProfile.CONNECTION_POLICY_UNKNOWN
+                && connectionPolicy != BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
+            // Otherwise, reject the connection if connectionPolicy is not valid.
+            Log.w(TAG, "okToConnect: return false, connectionPolicy=" + connectionPolicy);
             return false;
         }
         return true;
@@ -892,19 +897,13 @@ public class HidHostService extends ProfileService {
             Log.w(TAG, "disconnectRemote: return false as quiet mode enabled");
             return false;
         }
-        // Check connection policy and accept or reject the connection.
         int connectionPolicy = getConnectionPolicy(device);
         int bondState = adapterService.getBondState(device);
-        // Allow this connection only if the device is bonded. Any attempt to connect while
-        // bonding would potentially lead to an unauthorized connection.
-        if (bondState != BluetoothDevice.BOND_BONDED) {
-            Log.w(TAG, "okToConnect: return false, bondState=" + bondState);
-            return false;
-        } else if (connectionPolicy != BluetoothProfile.CONNECTION_POLICY_UNKNOWN
-                && connectionPolicy != BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
-            // Otherwise, reject the connection if connectionPolicy is not valid.
-            Log.w(TAG, "okToConnect: return false, connectionPolicy=" + connectionPolicy);
-            return false;
+        // Disconnect remote device if bonded and connection policy is forbidden
+        if (bondState == BluetoothDevice.BOND_BONDED &&
+                connectionPolicy == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+            Log.w(TAG, "disconnectRemote: return true");
+            return true;
         }
         return false;
     }
