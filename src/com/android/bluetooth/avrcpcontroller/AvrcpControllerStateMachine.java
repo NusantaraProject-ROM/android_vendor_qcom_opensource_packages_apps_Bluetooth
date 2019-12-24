@@ -100,6 +100,8 @@ class AvrcpControllerStateMachine extends StateMachine {
     private static final byte NOTIFICATION_RSP_TYPE_CHANGED = 0x01;
 
     private final AudioManager mAudioManager;
+    private final boolean mIsVolumeFixed;
+
     protected final BluetoothDevice mDevice;
     private BluetoothDevice mA2dpDevice = null;
     protected final byte[] mDeviceAddress;
@@ -122,6 +124,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     private SparseArray<AvrcpPlayer> mAvailablePlayerList = new SparseArray<AvrcpPlayer>();
     // Only accessed from State Machine processMessage
     private int mVolumeChangedNotificationsToIgnore = 0;
+    private int mVolumeNotificationLabel = -1;
 
     GetFolderList mGetFolderList = null;
 
@@ -154,6 +157,7 @@ class AvrcpControllerStateMachine extends StateMachine {
         mRemoteDevice = new RemoteDevice(device);
 
         mAudioManager = (AudioManager) service.getSystemService(Context.AUDIO_SERVICE);
+        mIsVolumeFixed = mAudioManager.isVolumeFixed();
         IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
         mService.registerReceiver(mBroadcastReceiver, filter);
 
@@ -404,7 +408,8 @@ class AvrcpControllerStateMachine extends StateMachine {
                     return true;
 
                 case MESSAGE_PROCESS_REGISTER_ABS_VOL_NOTIFICATION: {
-                    mRemoteDevice.setNotificationLabel(msg.arg1);
+                    mVolumeNotificationLabel = msg.arg1;
+                    mRemoteDevice.setNotificationLabel(mVolumeNotificationLabel);
                     mRemoteDevice.setAbsVolNotificationRequested(true);
                     int percentageVol = getVolumePercentage();
                     if (DBG) {
@@ -657,24 +662,9 @@ class AvrcpControllerStateMachine extends StateMachine {
                     }
                     break;
 
-                case CONNECT:
-                case DISCONNECT:
-                case MSG_AVRCP_PASSTHRU:
-                case MESSAGE_PROCESS_SET_ABS_VOL_CMD:
-                case MESSAGE_PROCESS_REGISTER_ABS_VOL_NOTIFICATION:
-                case MESSAGE_PROCESS_TRACK_CHANGED:
-                case MESSAGE_PROCESS_PLAY_POS_CHANGED:
-                case MESSAGE_PROCESS_PLAY_STATUS_CHANGED:
-                case MESSAGE_PROCESS_VOLUME_CHANGED_NOTIFICATION:
-                case MESSAGE_PLAY_ITEM:
-                case MESSAGE_PROCESS_ADDRESSED_PLAYER_CHANGED:
+                default:
                     // All of these messages should be handled by parent state immediately.
                     return false;
-
-                default:
-                    logD(STATE_TAG + " deferring message " + msg.what
-                                + " to connected!");
-                    deferMessage(msg);
             }
             return true;
         }
@@ -846,7 +836,7 @@ class AvrcpControllerStateMachine extends StateMachine {
             mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newIndex,
                     AudioManager.FLAG_SHOW_UI);
         }
-        AvrcpControllerService.sendAbsVolRspNative(mDeviceAddress, absVol, label);
+        AvrcpControllerService.sendAbsVolRspNative(mDeviceAddress, getAbsVolumeResponse(), label);
     }
 
     private int getVolumePercentage() {
@@ -856,6 +846,13 @@ class AvrcpControllerStateMachine extends StateMachine {
         logD("maxVolume: " + maxVolume + " currIndex: " + currIndex +
                                          " percentageVol: " + percentageVol);
         return percentageVol;
+    }
+
+    private int getAbsVolumeResponse() {
+        if (mIsVolumeFixed) {
+            return ABS_VOL_BASE;
+        }
+        return getVolumePercentage();
     }
 
     MediaSession.Callback mSessionCallbacks = new MediaSession.Callback() {
