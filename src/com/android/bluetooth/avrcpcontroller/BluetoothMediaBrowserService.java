@@ -177,6 +177,20 @@ public class BluetoothMediaBrowserService extends MediaBrowserService {
     }
 
     /**
+     * Get playback state
+     */
+    public static synchronized int getPlaybackState() {
+        if (sBluetoothMediaBrowserService != null) {
+            PlaybackState currentPlaybackState =
+                    sBluetoothMediaBrowserService.mSession.getController().getPlaybackState();
+            if (currentPlaybackState != null) {
+                return currentPlaybackState.getState();
+            }
+        }
+        return PlaybackState.STATE_ERROR;
+    }
+
+    /**
      * Set Media session active whenever we have Focus of any kind
      */
     public static synchronized void setActive(boolean active) {
