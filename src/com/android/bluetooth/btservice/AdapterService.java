@@ -1001,6 +1001,9 @@ public class AdapterService extends Service {
             mAdapter = null;
         }
 
+        BluetoothAdapter.invalidateGetProfileConnectionStateCache();
+        BluetoothAdapter.invalidateIsOffloadedFilteringSupportedCache();
+
         clearAdapterService(this);
 
         mCleaningUp = true;
