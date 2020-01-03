@@ -1049,7 +1049,7 @@ public class HeadsetService extends ProfileService {
         return true;
     }
 
-    public boolean disconnect(BluetoothDevice device) {
+    boolean disconnect(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         Log.i(TAG, "disconnect: device=" + device + ", " + Utils.getUidPidString());
         synchronized (mStateMachines) {
