@@ -171,14 +171,24 @@ public class Config {
 
     private static synchronized boolean addAudioProfiles(String serviceName) {
         Log.d(TAG," addAudioProfiles profile" + serviceName);
-        boolean isA2dpSink = SystemProperties.getBoolean(
-                "persist.vendor.service.bt.a2dp.sink", false);
-        Log.i(TAG, "addAudioProfiles isA2dpSink :" + isA2dpSink);
-        /* If property not enabled and request is for A2DPSinkService, don't add */
-        if ((serviceName.equals("A2dpSinkService")) && (!isA2dpSink))
-            return false;
-        if ((serviceName.equals("A2dpService")) && (isA2dpSink))
-            return false;
+        boolean isA2dpConcurrency= SystemProperties.getBoolean(
+                "persist.vendor.service.bt.a2dp_concurrency", false);
+        Log.i(TAG, "addAudioProfiles isA2dpConcurrency:" + isA2dpConcurrency);
+
+        if(isA2dpConcurrency) {
+            if ((serviceName.equals("A2dpSinkService")) || (serviceName.equals("A2dpService"))) {
+                return true;
+            }
+        } else {
+                boolean isA2dpSink = SystemProperties.getBoolean(
+                        "persist.vendor.service.bt.a2dp.sink", false);
+                Log.i(TAG, "addAudioProfiles isA2dpSink :" + isA2dpSink);
+                /* If property not enabled and request is for A2DPSinkService, don't add */
+                if ((serviceName.equals("A2dpSinkService")) && (!isA2dpSink))
+                    return false;
+                if ((serviceName.equals("A2dpService")) && (isA2dpSink))
+                    return false;
+        }
 
         boolean isBAEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bca", false);
 
