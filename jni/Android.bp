@@ -1,6 +1,7 @@
 cc_library_shared {
     name: "libbluetooth_qti_jni",
     compile_multilib: "first",
+    system_ext_specific: true,
     srcs: [
         "bluetooth_socket_manager.cc",
         "com_android_bluetooth_btservice_AdapterService.cpp",
