@@ -565,7 +565,7 @@ class BluetoothOppNotification {
                                     new Intent(baseIntent).setAction(Constants.ACTION_DECLINE),
                                     0)).build();
             Notification.Action actionAccept = new Notification.Action.Builder(
-                    Icon.createWithResource(mContext, R.drawable.ic_accept),
+                    Icon.createWithResource(mContext,R.drawable.ic_accept),
                     mContext.getText(R.string.incoming_file_confirm_ok),
                     PendingIntent.getBroadcast(mContext, 0,
                             new Intent(baseIntent).setAction(Constants.ACTION_ACCEPT), 0)).build();
