@@ -44,6 +44,7 @@ import android.os.UserHandle;
 import android.util.Log;
 import android.util.Pair;
 import android.util.StatsLog;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.RemoteDevices.DeviceProperties;
@@ -768,6 +769,7 @@ class AdapterProperties {
 
     // This function shall be invoked from BondStateMachine whenever the bond
     // state changes.
+    @VisibleForTesting
     void onBondStateChanged(BluetoothDevice device, int state) {
         if (device == null) {
             Log.w(TAG, "onBondStateChanged, device is null");
