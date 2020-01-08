@@ -254,8 +254,8 @@ public class SapServer extends Thread implements Callback {
             PendingIntent pIntentDisconnect =
                     PendingIntent.getBroadcast(mContext, type, sapDisconnectIntent, flags);
             Notification.Action actionDisconnect =
-                    new Notification.Action.Builder(Icon.createWithResource(mContext,
-                    android.R.drawable.stat_sys_data_bluetooth), button,pIntentDisconnect).build();
+                   new Notification.Action.Builder(Icon.createWithResource(mContext,
+                   android.R.drawable.stat_sys_data_bluetooth), button, pIntentDisconnect).build();
             notification =
                     new Notification.Builder(mContext, SAP_NOTIFICATION_CHANNEL).setOngoing(true)
                             .addAction(actionDisconnect)

@@ -484,12 +484,13 @@ public class BluetoothOppTransferActivity extends AlertActivity
         }
     }
 
- // Retry the failed transfer in background thread
+   /*
+    * Retry the failed transfer in background thread
+    */
    private void retryFailedTrasfer() {
         new Thread() {
             @Override
             public void run() {
-                super.run();
                 Uri uri = BluetoothOppUtility.originalUri(Uri.parse(mTransInfo.mFileUri));
                 BluetoothOppSendFileInfo sendFileInfo =
                         BluetoothOppSendFileInfo.generateFileInfo(BluetoothOppTransferActivity

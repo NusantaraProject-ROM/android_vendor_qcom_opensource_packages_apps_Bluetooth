@@ -87,6 +87,8 @@ public class BluetoothPbapCallLogComposer {
 
     private String mErrorReason = NO_ERROR;
 
+    private final String RFC_2455_FORMAT = "yyyyMMdd'T'HHmmss";
+
     public BluetoothPbapCallLogComposer(final Context context) {
         mContext = context;
         mContentResolver = context.getContentResolver();
@@ -201,8 +203,7 @@ public class BluetoothPbapCallLogComposer {
     private String toRfc2455Format(final long millSecs) {
         Calendar cal = Calendar.getInstance();
         cal.setTimeInMillis(millSecs);
-        String rfc2455Format = "yyyyMMdd'T'HHmmss";
-        SimpleDateFormat df = new SimpleDateFormat(rfc2455Format);
+        SimpleDateFormat df = new SimpleDateFormat(RFC_2455_FORMAT);
         return df.format(cal.getTime());
     }
 
