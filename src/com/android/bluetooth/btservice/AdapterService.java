@@ -51,15 +51,6 @@
 
 package com.android.bluetooth.btservice;
 
-import static com.android.bluetooth.Utils.addressToBytes;
-import static com.android.bluetooth.Utils.callerIsSystemOrActiveOrManagedUser;
-import static com.android.bluetooth.Utils.callerIsSystemOrActiveUser;
-import static com.android.bluetooth.Utils.enforceBluetoothAdminPermission;
-import static com.android.bluetooth.Utils.enforceBluetoothPermission;
-import static com.android.bluetooth.Utils.enforceBluetoothPrivilegedPermission;
-import static com.android.bluetooth.Utils.enforceDumpPermission;
-import static com.android.bluetooth.Utils.enforceLocalMacAddressPermission;
-
 import android.app.ActivityManager;
 import android.app.AlarmManager;
 import android.app.AppOpsManager;
@@ -67,6 +58,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.bluetooth.BluetoothActivityEnergyInfo;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothAdapter.ActiveDeviceUse;
 import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
@@ -94,6 +86,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.ParcelUuid;
 import android.os.PowerManager;
+import android.os.Process;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.os.ResultReceiver;
@@ -1262,7 +1255,6 @@ public class AdapterService extends Service {
             return null;
         }
 
-        @Override
         public boolean isEnabled() {
             // don't check caller, may be called from system UI
             AdapterService service = getService();
@@ -1283,7 +1275,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean enable() {
+        public boolean enable(boolean quietMode) {
             if ((Binder.getCallingUid() != Process.SYSTEM_UID) && (!Utils.checkCaller())) {
                 Log.w(TAG, "enable() - Not allowed for non-active user and non system user");
                 return false;
@@ -1295,7 +1287,6 @@ public class AdapterService extends Service {
             return service.enable();
         }
 
-        @Override
         public boolean enableNoAutoConnect() {
             if ((Binder.getCallingUid() != Process.SYSTEM_UID) && (!Utils.checkCaller())) {
                 Log.w(TAG, "enableNoAuto() - Not allowed for non-active user and non system user");
@@ -1601,7 +1592,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean createBond(BluetoothDevice device, int transport) {
+        public boolean createBond(BluetoothDevice device, int transport, OobData oobData) {
             if (!Utils.checkCallerAllowManagedProfiles(mService)) {
                 Log.w(TAG, "createBond() - Not allowed for non-active user");
                 return false;
@@ -1614,7 +1605,7 @@ public class AdapterService extends Service {
             return service.createBond(device, transport, null);
         }
 
-        @Override
+        //@Override
         public boolean createBondOutOfBand(BluetoothDevice device, int transport, OobData oobData) {
             if (!Utils.checkCallerAllowManagedProfiles(mService)) {
                 Log.w(TAG, "createBondOutOfBand() - Not allowed for non-active user");
@@ -1695,6 +1686,11 @@ public class AdapterService extends Service {
             }
             return service.getSupportedProfiles();
         }
+
+         @Override
+         public boolean setActiveDevice(BluetoothDevice device, @ActiveDeviceUse int profiles) {
+             return false;
+         }
 
         @Override
         public int getConnectionState(BluetoothDevice device) {

@@ -303,18 +303,18 @@ class PhonePolicy {
         }
 
         if ((a2dpSinkService != null)
-                && (BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.AudioSource)
-                || BluetoothUuid.isUuidPresent(uuids, BluetoothUuid.AdvAudioDist)) && (
+                && (ArrayUtils.contains(uuids, BluetoothUuid.A2DP_SOURCE)
+                || ArrayUtils.contains(uuids, BluetoothUuid.ADV_AUDIO_DIST)) && (
                 a2dpSinkService.getConnectionPolicy(device) == BluetoothProfile.CONNECTION_POLICY_UNKNOWN)) {
             a2dpSinkService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
         }
 
-        if ((panService != null) && (ArrayUtils.contains(uuids, BluetoothUuid.PANU) && (
+        /*if ((panService != null) && (ArrayUtils.contains(uuids, BluetoothUuid.PANU) && (
                 panService.getConnectionPolicy(device) == BluetoothProfile.CONNECTION_POLICY_UNKNOWN)
                 && mAdapterService.getResources()
                 .getBoolean(R.bool.config_bluetooth_pan_enable_autoconnect))) {
             panService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
-        }
+        } */
 
         if ((hearingAidService != null) && ArrayUtils.contains(uuids,
                 BluetoothUuid.HEARING_AID) && (hearingAidService.getConnectionPolicy(device)
@@ -767,13 +767,13 @@ class PhonePolicy {
             List<BluetoothDevice> panConnDevList = panService.getConnectedDevices();
             // TODO: the panConnDevList.isEmpty() check below should be removed once
             // Multi-PAN is supported.
-            if (panConnDevList.isEmpty() && (panService.getConnectionPolicy(device)
+            /*if (panConnDevList.isEmpty() && (panService.getConnectionPolicy(device)
                     >= BluetoothProfile.CONNECTION_POLICY_ALLOWED)
                     && (panService.getConnectionState(device)
                     == BluetoothProfile.STATE_DISCONNECTED)) {
                 debugLog("Retrying connection to PAN with device " + device);
                 panService.connect(device);
-            }
+            }*/
         }
         // Connect A2DP Sink Service if HS is connected
         if (a2dpSinkService != null) {

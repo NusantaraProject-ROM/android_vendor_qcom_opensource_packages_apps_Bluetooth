@@ -855,7 +855,7 @@ public class HidHostService extends ProfileService {
             return false;
         }
         // Check priority and accept or reject the connection.
-        int priority = getPriority(device);
+        int priority = getConnectionPolicy(device);
         int bondState = adapterService.getBondState(device);
         // Allow this connection only if the device is bonded. Any attempt to connect while
         // bonding would potentially lead to an unauthorized connection.

@@ -343,8 +343,8 @@ public class DatabaseManager {
                 return true;
             }
             String profileStr = BluetoothProfile.getProfileName(profile);
-            logMetadataChange(address, profileStr + " connection policy changed: "
-                    + ": " + oldConnectionPolicy + " -> " + newConnectionPolicy);
+            //logMetadataChange(address, profileStr + " connection policy changed: "
+              //      + ": " + oldConnectionPolicy + " -> " + newConnectionPolicy);
             data.setProfileConnectionPolicy(profile, newConnectionPolicy);
             updateDatabase(data);
             return true;
