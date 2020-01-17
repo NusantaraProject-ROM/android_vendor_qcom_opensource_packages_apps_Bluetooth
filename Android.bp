@@ -45,7 +45,6 @@ android_app {
     jni_libs: ["libbluetooth_qti_jni"],
     libs: [
         "javax.obex",
-        "telephony-common",
         "services.net",
     ],
     static_libs: [
