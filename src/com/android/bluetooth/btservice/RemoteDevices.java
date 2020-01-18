@@ -223,6 +223,7 @@ final class RemoteDevices {
         return null;
     }
 
+    @VisibleForTesting
     DeviceProperties addDeviceProperties(byte[] address) {
         synchronized (mDevices) {
             DeviceProperties prop = new DeviceProperties();
@@ -253,16 +254,16 @@ final class RemoteDevices {
         private byte[] mAddress;
         private int mBluetoothClass = BluetoothClass.Device.Major.UNCATEGORIZED;
         private short mRssi;
-        private ParcelUuid[] mUuids;
-        private int mDeviceType;
         private String mAlias;
-        private int mBondState;
         private BluetoothDevice mDevice;
         private boolean mIsBondingInitiatedLocally;
         private int mBatteryLevel = BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
         private short mTwsPlusDevType;
         private byte[] peerEbAddress;
         private boolean autoConnect;
+        @VisibleForTesting int mBondState;
+        @VisibleForTesting int mDeviceType;
+        @VisibleForTesting ParcelUuid[] mUuids;
 
         DeviceProperties() {
             mBondState = BluetoothDevice.BOND_NONE;
@@ -438,6 +439,7 @@ final class RemoteDevices {
                     without waiting for the ACTION_UUID intent.
                     This was resulting in multiple calls to connect().*/
                     mUuids = null;
+                    mAlias = null;
                 }
             }
         }
@@ -675,6 +677,7 @@ final class RemoteDevices {
                             if ((sAdapterService.getState() == BluetoothAdapter.STATE_ON) &&
                                                             device.autoConnect ) {
                                 debugLog("sendUuidIntent as Auto connect is set ");
+                                sAdapterService.deviceUuidUpdated(bdDevice);
                                 sendUuidIntent(bdDevice, device);
                             }
                             break;
