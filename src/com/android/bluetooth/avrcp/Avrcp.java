@@ -376,7 +376,7 @@ public final class Avrcp {
         if (mMediaSessionManager != null) {
             mMediaSessionManager.addOnActiveSessionsChangedListener(mActiveSessionListener, null,
                     mHandler);
-            mMediaSessionManager.setCallback(mButtonDispatchCallback, null);
+            //mMediaSessionManager.setCallback(mButtonDispatchCallback, null);
         }
         mPackageManager = mContext.getApplicationContext().getPackageManager();
 
@@ -421,7 +421,7 @@ public final class Avrcp {
             mMediaController.unregisterCallback(mMediaControllerCb);
         }
         if (mMediaSessionManager != null) {
-            mMediaSessionManager.setCallback(null, null);
+            //mMediaSessionManager.setCallback(null, null);
             mMediaSessionManager.removeOnActiveSessionsChangedListener(mActiveSessionListener);
         }
 
@@ -460,8 +460,7 @@ public final class Avrcp {
             boolean isPlaying = false;
             for (AudioPlaybackConfiguration config : configs) {
                 if (DEBUG) {
-                    Log.d(TAG, "AudioManager Player: "
-                            + AudioPlaybackConfiguration.toLogFriendlyString(config));
+                    Log.d(TAG, "AudioManager Player: " + config);
                 }
                 if (config.getPlayerState() == AudioPlaybackConfiguration.PLAYER_STATE_STARTED) {
                     isPlaying = true;
@@ -3281,7 +3280,7 @@ public final class Avrcp {
         }
     }
 
-    private final MediaSessionManager.Callback mButtonDispatchCallback =
+    /*private final MediaSessionManager.Callback mButtonDispatchCallback =
             new MediaSessionManager.Callback() {
                 @Override
                 public void onMediaKeyEventDispatched(KeyEvent event, MediaSession.Token token) {
@@ -3312,7 +3311,7 @@ public final class Avrcp {
                     // We can still get a passthrough which will revive this player.
                     setAddressedMediaSessionPackage(receiver.getPackageName());
                 }
-            };
+            };*/
 
     // Do not modify without updating the HAL bt_rc.h files.
 
