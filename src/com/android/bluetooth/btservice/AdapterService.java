@@ -101,9 +101,9 @@ import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Log;
 import android.util.SparseArray;
-import android.util.StatsLog;
 
 import com.android.bluetooth.BluetoothMetricsProto;
+import com.android.bluetooth.BluetoothStatsLog;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
@@ -693,8 +693,8 @@ public class AdapterService extends Service {
         } catch (RemoteException e) {
             Log.w(TAG, "RemoteException trying to send a reset to BatteryStats");
         }
-        StatsLog.write_non_chained(StatsLog.BLE_SCAN_STATE_CHANGED, -1, null,
-                StatsLog.BLE_SCAN_STATE_CHANGED__STATE__RESET, false, false, false);
+        BluetoothStatsLog.write_non_chained(BluetoothStatsLog.BLE_SCAN_STATE_CHANGED, -1, null,
+                BluetoothStatsLog.BLE_SCAN_STATE_CHANGED__STATE__RESET, false, false, false);
 
         //Start Gatt service
         setProfileServiceState(GattService.class, BluetoothAdapter.STATE_ON);
@@ -1569,7 +1569,7 @@ public class AdapterService extends Service {
 
             Context context = service;
             context.enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM,
-                           "Need BLUETOOTH ADMIN permission");
+                    "Need BLUETOOTH ADMIN permission");
 
             return service.mDatabaseManager.getMostRecentlyConnectedDevices();
         }
@@ -3163,7 +3163,7 @@ public class AdapterService extends Service {
             return false;
         }
 
-        StatsLog.write(StatsLog.BLUETOOTH_BOND_STATE_CHANGED,
+        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED,
                 obfuscateAddress(device), 0, device.getType(),
                 BluetoothDevice.BOND_BONDING,
                 BluetoothProtoEnums.BOND_SUB_STATE_LOCAL_PIN_REPLIED,
@@ -3179,7 +3179,7 @@ public class AdapterService extends Service {
             return false;
         }
 
-        StatsLog.write(StatsLog.BLUETOOTH_BOND_STATE_CHANGED,
+        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED,
                 obfuscateAddress(device), 0, device.getType(),
                 BluetoothDevice.BOND_BONDING,
                 BluetoothProtoEnums.BOND_SUB_STATE_LOCAL_SSP_REPLIED,
@@ -3197,7 +3197,7 @@ public class AdapterService extends Service {
             return false;
         }
 
-        StatsLog.write(StatsLog.BLUETOOTH_BOND_STATE_CHANGED,
+        BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_BOND_STATE_CHANGED,
                 obfuscateAddress(device), 0, device.getType(),
                 BluetoothDevice.BOND_BONDING,
                 BluetoothProtoEnums.BOND_SUB_STATE_LOCAL_SSP_REPLIED,
