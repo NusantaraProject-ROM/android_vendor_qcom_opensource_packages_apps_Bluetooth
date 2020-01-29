@@ -22,6 +22,7 @@ import android.bluetooth.BluetoothA2dpSink;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
+import android.bluetooth.BluetoothHearingAid;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothUuid;
 import android.content.BroadcastReceiver;
@@ -92,6 +93,7 @@ class PhonePolicy {
     private static final int CONNECT_OTHER_PROFILES_REDUCED_TIMEOUT_DELAYED = 2000; //2s
 
     private static final int MESSAGE_PROFILE_ACTIVE_DEVICE_CHANGED = 5;
+    private static final int MESSAGE_DEVICE_CONNECTED = 6;
     private static final String delayConnectTimeoutDevice[] = {"00:23:3D"}; // volkswagen carkit
     private static final String delayReducedConnectTimeoutDevice[] = {"10:4F:A8"}; //h.ear (MDR-EX750BT)
 
@@ -137,6 +139,11 @@ class PhonePolicy {
                             BluetoothProfile.HEADSET, -1, // No-op argument
                             intent).sendToTarget();
                     break;
+                case BluetoothHearingAid.ACTION_ACTIVE_DEVICE_CHANGED:
+                    mHandler.obtainMessage(MESSAGE_PROFILE_ACTIVE_DEVICE_CHANGED,
+                            BluetoothProfile.HEARING_AID, -1, // No-op argument
+                            intent).sendToTarget();
+                    break;
                 case BluetoothAdapter.ACTION_STATE_CHANGED:
                     // Only pass the message on if the adapter has actually changed state from
                     // non-ON to ON. NOTE: ON is the state depicting BREDR ON and not just BLE ON.
@@ -148,6 +155,8 @@ class PhonePolicy {
                 case BluetoothDevice.ACTION_UUID:
                     mHandler.obtainMessage(MESSAGE_PROFILE_INIT_PRIORITIES, intent).sendToTarget();
                     break;
+                case BluetoothDevice.ACTION_ACL_CONNECTED:
+                    mHandler.obtainMessage(MESSAGE_DEVICE_CONNECTED, intent).sendToTarget();
                 default:
                     Log.e(TAG, "Received unexpected intent, action=" + action);
                     break;
@@ -226,6 +235,11 @@ class PhonePolicy {
                     autoConnectProfilesDelayed();
                     break;
                 }
+                case MESSAGE_DEVICE_CONNECTED:
+                    Intent intent = (Intent) msg.obj;
+                    BluetoothDevice device =
+                            intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                    processDeviceConnected(device);
             }
         }
     }
@@ -237,11 +251,13 @@ class PhonePolicy {
         IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
         filter.addAction(BluetoothA2dpSink.ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothDevice.ACTION_UUID);
         filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
         filter.addAction(BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED);
+        filter.addAction(BluetoothHearingAid.ACTION_ACTIVE_DEVICE_CHANGED);
         mAdapterService.registerReceiver(mReceiver, filter);
     }
 
@@ -380,11 +396,15 @@ class PhonePolicy {
     private void processActiveDeviceChanged(BluetoothDevice device, int profileId) {
         debugLog("processActiveDeviceChanged, device=" + device + ", profile=" + profileId);
 
-        if (device != null && profileId == BluetoothProfile.A2DP) {
-            mAdapterService.getDatabase().setConnection(device);
+        if (device != null) {
+            mAdapterService.getDatabase().setConnection(device, profileId == BluetoothProfile.A2DP);
         }
     }
 
+    private void processDeviceConnected(BluetoothDevice device) {
+        debugLog("processDeviceConnected, device=" + device);
+        mAdapterService.getDatabase().setConnection(device, false);
+    }
 
     private boolean handleAllProfilesDisconnected(BluetoothDevice device) {
         boolean atLeastOneProfileConnectedForDevice = false;
