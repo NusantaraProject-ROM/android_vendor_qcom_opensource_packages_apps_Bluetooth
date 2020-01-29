@@ -124,7 +124,6 @@ public class HeadsetStateMachine extends StateMachine {
     static final int CS_CALL_STATE_CHANGED_ALERTING = 22;
     static final int CS_CALL_STATE_CHANGED_ACTIVE = 23;
     static final int A2DP_STATE_CHANGED = 24;
-    static final int UPDATE_CALL_TYPE = 25;
     static final int RESUME_A2DP = 26;
 
     static final int STACK_EVENT = 101;
@@ -649,10 +648,6 @@ public class HeadsetStateMachine extends StateMachine {
                 case DEVICE_STATE_CHANGED:
                     stateLogD("Ignoring DEVICE_STATE_CHANGED event");
                     break;
-                case UPDATE_CALL_TYPE:
-                    stateLogD("UPDATE_CALL_TYPE event");
-                    processIntentUpdateCallType((Intent) message.obj);
-                    break;
                 case STACK_EVENT:
                     HeadsetStackEvent event = (HeadsetStackEvent) message.obj;
                     stateLogD("STACK_EVENT: " + event);
@@ -776,14 +771,12 @@ public class HeadsetStateMachine extends StateMachine {
                     processIntentA2dpPlayStateChanged(message.arg1);
                     break;
                 case CALL_STATE_CHANGED: {
+                    // update the call type here
+                     updateCallType();
                      HeadsetCallState callState = (HeadsetCallState) message.obj;
                      processCallState(callState, false);
                      break;
                 }
-                case UPDATE_CALL_TYPE:
-                    stateLogD("UPDATE_CALL_TYPE event");
-                    processIntentUpdateCallType((Intent) message.obj);
-                    break;
                 case RESUME_A2DP: {
                      /* If the call started/ended by the time A2DP suspend ack
                       * is received, send the call indicators before resuming
@@ -1078,6 +1071,8 @@ public class HeadsetStateMachine extends StateMachine {
                     break;
                 }
                 case CALL_STATE_CHANGED: {
+                    // update the call type here
+                    updateCallType();
                     if (mDeviceSilenced) break;
 
                     boolean isPts = SystemProperties.getBoolean("vendor.bt.pts.certification", false);
@@ -1218,10 +1213,6 @@ public class HeadsetStateMachine extends StateMachine {
                 case QUERY_PHONE_STATE_AT_SLC:
                     stateLogD("Update call states after SLC is up");
                     mSystemInterface.queryPhoneState();
-                    break;
-                case UPDATE_CALL_TYPE:
-                    stateLogD("UPDATE_CALL_TYPE event");
-                    processIntentUpdateCallType((Intent) message.obj);
                     break;
                 case STACK_EVENT:
                     HeadsetStackEvent event = (HeadsetStackEvent) message.obj;
@@ -2321,20 +2312,20 @@ public class HeadsetStateMachine extends StateMachine {
         }
     }
 
-    private void processIntentUpdateCallType(Intent intent) {
-        mIsCsCall = intent.getBooleanExtra(TelecomManager.EXTRA_CALL_TYPE_CS, true);
-        Log.d(TAG, "processIntentUpdateCallType " + mIsCsCall);
+    private void updateCallType() {
+        boolean isCsCall = mSystemInterface.isCsCallInProgress();
+        Log.d(TAG, "updateCallType " + isCsCall);
         final HeadsetPhoneState mPhoneState = mSystemInterface.getHeadsetPhoneState();
-        mPhoneState.setIsCsCall(mIsCsCall);
+        mPhoneState.setIsCsCall(isCsCall);
         if (getAudioState() == BluetoothHeadset.STATE_AUDIO_CONNECTED) {
             if (!mPhoneState.getIsCsCall()) {
-                log("processIntentUpdateCallType, Non CS call, check for network type");
+                log("updateCallType, Non CS call, check for network type");
                 sendVoipConnectivityNetworktype(true);
             } else {
-                log("processIntentUpdateCallType, CS call, do not check for network type");
+                log("updateCallType, CS call, do not check for network type");
             }
         } else {
-            log("processIntentUpdateCallType: Sco not yet connected");
+            log("updateCallType: Sco not yet connected");
         }
     }
 
