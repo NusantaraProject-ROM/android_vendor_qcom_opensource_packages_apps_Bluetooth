@@ -1100,12 +1100,12 @@ public class BluetoothMapService extends ProfileService {
                         mBluetoothMnsObexClient.setMnsRecord(mMnsRecord);
                     }
                     if (status != -1 && mMnsRecord != null) {
+                        BluetoothMapFixes.showNotification(BluetoothMapService.this, remoteDevice);
                         for (int i = 0, c = mMasInstances.size(); i < c; i++) {
                             mMasInstances.valueAt(i)
                                     .setRemoteFeatureMask(mMnsRecord.getSupportedFeatures(),
-                                    mMnsRecord.getProfileVersion());
+                                    mMnsRecord.getProfileVersion(), remoteDevice);
                         }
-                        BluetoothMapFixes.showNotification(BluetoothMapService.this, remoteDevice);
                     }
                     if (mSdpSearchInitiated) {
                         mSdpSearchInitiated = false; // done searching
