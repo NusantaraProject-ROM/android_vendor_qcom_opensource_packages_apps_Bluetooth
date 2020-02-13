@@ -934,6 +934,7 @@ class AdapterProperties {
                     debugLog("Failed to remove device: " + device);
                 }
             }
+            BluetoothDevice.invalidateBluetoothGetBondStateCache();
         } catch (Exception ee) {
             Log.w(TAG, "onBondStateChanged: Exception ", ee);
         }
