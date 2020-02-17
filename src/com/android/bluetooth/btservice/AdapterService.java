@@ -1688,11 +1688,6 @@ public class AdapterService extends Service {
             return service.getSupportedProfiles();
         }
 
-         @Override
-         public boolean setActiveDevice(BluetoothDevice device, @ActiveDeviceUse int profiles) {
-             return false;
-         }
-
         @Override
         public int getConnectionState(BluetoothDevice device) {
             AdapterService service = getService();
