@@ -80,6 +80,9 @@ class AvrcpControllerStateMachine extends StateMachine {
     static final int MESSAGE_PROCESS_SET_ADDRESSED_PLAYER = 214;
     static final int MESSAGE_PROCESS_ADDRESSED_PLAYER_CHANGED = 215;
     static final int MESSAGE_PROCESS_NOW_PLAYING_CONTENTS_CHANGED = 216;
+    static final int MESSAGE_PROCESS_SUPPORTED_APPLICATION_SETTINGS = 217;
+    static final int MESSAGE_PROCESS_CURRENT_APPLICATION_SETTINGS = 218;
+    static final int MESSAGE_PROCESS_AVAILABLE_PLAYER_CHANGED = 219;
 
     //300->399 Events for Browsing
     static final int MESSAGE_GET_FOLDER_ITEMS = 300;
@@ -395,6 +398,22 @@ class AvrcpControllerStateMachine extends StateMachine {
                     }
                     return true;
 
+                // case MESSAGE_PROCESS_SUPPORTED_APPLICATION_SETTINGS:
+                //     mAddressedPlayer.setSupportedPlayerApplicationSettings(
+                //             (PlayerApplicationSettings) msg.obj);
+                //     BluetoothMediaBrowserService.notifyChanged(mAddressedPlayer.getPlaybackState());
+                //     return true;
+                //
+                // case MESSAGE_PROCESS_CURRENT_APPLICATION_SETTINGS:
+                //     mAddressedPlayer.setCurrentPlayerApplicationSettings(
+                //             (PlayerApplicationSettings) msg.obj);
+                //     BluetoothMediaBrowserService.notifyChanged(mAddressedPlayer.getPlaybackState());
+                //     return true;
+
+                case MESSAGE_PROCESS_AVAILABLE_PLAYER_CHANGED:
+                    processAvailablePlayerChanged();
+                    return true;
+
                 case DISCONNECT:
                     transitionTo(mDisconnecting);
                     return true;
@@ -527,6 +546,13 @@ class AvrcpControllerStateMachine extends StateMachine {
         private boolean isHoldableKey(int cmd) {
             return (cmd == AvrcpControllerService.PASS_THRU_CMD_ID_REWIND)
                     || (cmd == AvrcpControllerService.PASS_THRU_CMD_ID_FF);
+        }
+
+        private void processAvailablePlayerChanged() {
+            logD("processAvailablePlayerChanged");
+            mBrowseTree.mRootNode.setCached(false);
+            mBrowseTree.mRootNode.setExpectedChildren(255);
+            BluetoothMediaBrowserService.notifyChanged(mBrowseTree.mRootNode);
         }
     }
 
