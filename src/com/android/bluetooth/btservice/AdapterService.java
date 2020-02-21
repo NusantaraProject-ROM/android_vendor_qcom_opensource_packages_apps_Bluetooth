@@ -1567,7 +1567,9 @@ public class AdapterService extends Service {
                 return new ArrayList<>();
             }
 
-            enforceBluetoothAdminPermission(service);
+            Context context = service;
+            context.enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM,
+                           "Need BLUETOOTH ADMIN permission");
 
             return service.mDatabaseManager.getMostRecentlyConnectedDevices();
         }
