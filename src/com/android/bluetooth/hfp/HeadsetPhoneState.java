@@ -206,11 +206,6 @@ public class HeadsetPhoneState {
                     mHeadsetService.getStateMachinesThreadLooper());
             try {
                 mTelephonyManager.listen(mPhoneStateListener, events);
-                if ((events & PhoneStateListener.LISTEN_SIGNAL_STRENGTHS) != 0) {
-                    mTelephonyManager.setRadioIndicationUpdateMode(
-                            TelephonyManager.INDICATION_FILTER_SIGNAL_STRENGTH,
-                            TelephonyManager.INDICATION_UPDATE_MODE_IGNORE_SCREEN_OFF);
-                }
             } catch (Exception e) {
                 Log.w(TAG, "Exception while registering for signal strength notifications", e);
             }
@@ -230,9 +225,6 @@ public class HeadsetPhoneState {
         } else {
             try {
                 mTelephonyManager.listen(mPhoneStateListener, PhoneStateListener.LISTEN_NONE);
-                mTelephonyManager.setRadioIndicationUpdateMode(
-                        TelephonyManager.INDICATION_FILTER_SIGNAL_STRENGTH,
-                        TelephonyManager.INDICATION_UPDATE_MODE_NORMAL);
             } catch (Exception e) {
                 Log.w(TAG, "exception while registering for signal strength notifications", e);
             }
