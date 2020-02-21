@@ -143,6 +143,7 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 
 public class AdapterService extends Service {
     private static final String TAG = "BluetoothAdapterService";
@@ -1556,6 +1557,19 @@ public class AdapterService extends Service {
                 return -1;
             }
             return service.getDiscoveryEndMillis();
+        }
+
+        @Override
+        public List<BluetoothDevice> getMostRecentlyConnectedDevices() {
+            // don't check caller, may be called from system UI
+            AdapterService service = getService();
+            if (service == null) {
+                return new ArrayList<>();
+            }
+
+            enforceBluetoothAdminPermission(service);
+
+            return service.mDatabaseManager.getMostRecentlyConnectedDevices();
         }
 
         @Override
