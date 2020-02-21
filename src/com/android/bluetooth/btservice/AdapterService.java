@@ -1712,6 +1712,20 @@ public class AdapterService extends Service {
         }
 
         @Override
+        public boolean removeActiveDevice(@ActiveDeviceUse int profiles) {
+            if (!Utils.checkCaller()) {
+                Log.w(TAG, "removeActiveDevice() - Not allowed for non-active user");
+                return false;
+            }
+
+            AdapterService service = getService();
+            if (service == null) {
+                return false;
+            }
+            return service.setActiveDevice(null, profiles);
+        }
+
+        @Override
         public boolean setActiveDevice(BluetoothDevice device, @ActiveDeviceUse int profiles) {
             if (!Utils.checkCaller()) {
                 Log.w(TAG, "setActiveDevice() - Not allowed for non-active user");
@@ -2844,7 +2858,8 @@ public class AdapterService extends Service {
      * @return false if profiles value is not one of the constants we accept, true otherwise
      */
     public boolean setActiveDevice(BluetoothDevice device, @ActiveDeviceUse int profiles) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
+        enforceCallingOrSelfPermission(
+                BLUETOOTH_PRIVILEGED, "Need BLUETOOTH_PRIVILEGED permission");
 
         boolean setA2dp = false;
         boolean setHeadset = false;
