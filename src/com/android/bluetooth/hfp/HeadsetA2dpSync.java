@@ -195,7 +195,9 @@ public class HeadsetA2dpSync {
         }
         switch(currState) {
         case BluetoothA2dp.STATE_NOT_PLAYING:
-            mA2dpConnState.put(device, A2DP_CONNECTED);
+            if (mA2dpConnState.containsKey(device)) {
+                mA2dpConnState.put(device, A2DP_CONNECTED);
+            }
             /*
              * send message to statemachine. We send message to SMs
              * only when all devices moved to SUSPENDED.
@@ -207,7 +209,9 @@ public class HeadsetA2dpSync {
             }
             break;
         case BluetoothA2dp.STATE_PLAYING:
-            mA2dpConnState.put(device, A2DP_PLAYING);
+            if (mA2dpConnState.containsKey(device)) {
+                mA2dpConnState.put(device, A2DP_PLAYING);
+            }
             // if call/ ring is ongoing and we received playing,
             // we need to suspend
             if (mHeadsetService.isInCall() || mHeadsetService.isRinging()) {
