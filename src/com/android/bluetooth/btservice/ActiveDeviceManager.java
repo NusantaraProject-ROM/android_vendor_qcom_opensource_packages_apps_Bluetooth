@@ -124,7 +124,7 @@ class ActiveDeviceManager {
     private BluetoothDevice mA2dpActiveDevice = null;
     private BluetoothDevice mHfpActiveDevice = null;
     private BluetoothDevice mHearingAidActiveDevice = null;
-
+    private boolean mTwsPlusSwitch = false;
     // Broadcast receiver for all changes
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
@@ -231,7 +231,7 @@ class ActiveDeviceManager {
                         if (Objects.equals(mA2dpActiveDevice, device)) {
                             final A2dpService mA2dpService = mFactory.getA2dpService();
                             BluetoothDevice mDevice = null;
-                            if (mAdapterService.isTwsPlusDevice(device) &&
+                            if (mAdapterService.isTwsPlusDevice(device) && !mTwsPlusSwitch &&
                                 !mA2dpConnectedDevices.isEmpty()) {
                                 for (BluetoothDevice connected_device: mA2dpConnectedDevices) {
                                     if (mAdapterService.isTwsPlusDevice(connected_device) &&
@@ -241,6 +241,9 @@ class ActiveDeviceManager {
                                         break;
                                     }
                                 }
+                            } else if (device.isTwsPlusDevice() && mTwsPlusSwitch) {
+                                Log.d(TAG, "Resetting mTwsPlusSwitch");
+                                mTwsPlusSwitch = false;
                             }
                             if (!setA2dpActiveDevice(mDevice) && (mDevice != null) &&
                                 mAdapterService.isTwsPlusDevice(mDevice)) {
@@ -454,7 +457,12 @@ class ActiveDeviceManager {
         }
         resetState();
     }
-
+    public void notify_active_device_unbonding(BluetoothDevice device) {
+        if (device.isTwsPlusDevice() && Objects.equals(mA2dpActiveDevice, device)) {
+            Log.d(TAG,"TWS+ active device is getting unpaired, avoid switch to pair");
+            mTwsPlusSwitch = true;
+        }
+    }
     /**
      * Get the {@link Looper} for the handler thread. This is used in testing and helper
      * objects

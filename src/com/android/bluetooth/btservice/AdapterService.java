@@ -2472,7 +2472,9 @@ public class AdapterService extends Service {
             return false;
         }
         deviceProp.setBondingInitiatedLocally(false);
-
+        if (device.isTwsPlusDevice()) {
+            mActiveDeviceManager.notify_active_device_unbonding(device);
+        }
         Message msg = mBondStateMachine.obtainMessage(BondStateMachine.REMOVE_BOND);
         msg.obj = device;
         mBondStateMachine.sendMessage(msg);
