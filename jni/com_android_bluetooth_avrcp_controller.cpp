@@ -829,6 +829,10 @@ static void btavrcp_available_player_changed_callback (
         sCallbacksObj, method_onAvailablePlayerChanged, addr.get());
 }
 
+static void btavrcp_get_rcpsm_callback(const RawAddress& /* bd_addr */,
+                                       uint16_t /* psm */) {
+}
+
 static btrc_ctrl_callbacks_t sBluetoothAvrcpCallbacks = {
     sizeof(sBluetoothAvrcpCallbacks),
     btavrcp_passthrough_response_callback,
@@ -849,7 +853,8 @@ static btrc_ctrl_callbacks_t sBluetoothAvrcpCallbacks = {
     btavrcp_set_addressed_player_callback,
     btavrcp_addressed_player_changed_callback,
     btavrcp_now_playing_content_changed_callback,
-    btavrcp_available_player_changed_callback};
+    btavrcp_available_player_changed_callback,
+    btavrcp_get_rcpsm_callback};
 
 static btrc_vendor_ctrl_callbacks_t  sBluetoothAvrcpVendorCallbacks = {
     sizeof(sBluetoothAvrcpVendorCallbacks),
