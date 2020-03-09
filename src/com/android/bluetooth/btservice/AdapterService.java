@@ -51,6 +51,8 @@
 
 package com.android.bluetooth.btservice;
 
+import static com.android.bluetooth.Utils.enforceBluetoothPrivilegedPermission;
+
 import android.annotation.Nullable;
 import android.app.ActivityManager;
 import android.app.AlarmManager;
