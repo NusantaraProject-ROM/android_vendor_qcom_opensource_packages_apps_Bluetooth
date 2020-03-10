@@ -18,6 +18,7 @@ android_app {
     srcs: [
         "src/**/*.java",
         ":vendor_qcom_opensource_commonsys_bluetooth_ext_packages_apps_bluetooth_ext",
+        ":statslog-bluetooth-java-gen",
     ],
     platform_apis: true,
     certificate: "platform",
@@ -55,4 +56,12 @@ android_app {
     proto: {
         type: "micro",
     },
+}
+
+genrule {
+    name: "statslog-bluetooth-java-gen",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --java $(out) --module bluetooth"
+        + " --javaPackage com.android.bluetooth --javaClass BluetoothStatsLog --worksource",
+    out: ["com/android/bluetooth/BluetoothStatsLog.java"],
 }
