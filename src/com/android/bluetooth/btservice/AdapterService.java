@@ -70,6 +70,7 @@ import android.app.AppOpsManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.bluetooth.BluetoothA2dp;
+import android.app.admin.DevicePolicyManager;
 import android.bluetooth.BluetoothActivityEnergyInfo;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothAdapter.ActiveDeviceUse;
@@ -5361,7 +5362,8 @@ public class AdapterService extends Service {
     }
 
     private boolean isNiapMode() {
-        return Settings.Global.getInt(getContentResolver(), "niap_mode", 0) == 1;
+        return ((DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE))
+                .isCommonCriteriaModeEnabled(null);
     }
 
     private static final String GD_CORE_FLAG = "INIT_gd_core";
