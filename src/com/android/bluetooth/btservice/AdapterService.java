@@ -2776,7 +2776,7 @@ public class AdapterService extends Service {
     }
 
     boolean cancelBondProcess(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
+        enforceBluetoothPrivilegedPermission(this);
         byte[] addr = Utils.getBytesFromAddress(device.getAddress());
 
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
@@ -2788,7 +2788,7 @@ public class AdapterService extends Service {
     }
 
     boolean removeBond(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
+        enforceBluetoothPrivilegedPermission(this);
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
         if (deviceProp == null || deviceProp.getBondState() != BluetoothDevice.BOND_BONDED) {
             return false;
@@ -2821,7 +2821,7 @@ public class AdapterService extends Service {
     }
 
     boolean isBondingInitiatedLocally(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        enforceBluetoothPrivilegedPermission(this);
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
         if (deviceProp == null) {
             return false;
@@ -3148,7 +3148,7 @@ public class AdapterService extends Service {
     }
 
     int getBatteryLevel(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        enforceBluetoothPrivilegedPermission(this);
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
         if (deviceProp == null) {
             return BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
@@ -3210,7 +3210,7 @@ public class AdapterService extends Service {
     }
 
     int getPhonebookAccessPermission(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        enforceBluetoothPrivilegedPermission(this);
         SharedPreferences pref = getSharedPreferences(PHONEBOOK_ACCESS_PERMISSION_PREFERENCE_FILE,
                 Context.MODE_PRIVATE);
         if (!pref.contains(device.getAddress())) {
@@ -3249,7 +3249,7 @@ public class AdapterService extends Service {
     }
 
     int getMessageAccessPermission(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        enforceBluetoothPrivilegedPermission(this);
         SharedPreferences pref = getSharedPreferences(MESSAGE_ACCESS_PERMISSION_PREFERENCE_FILE,
                 Context.MODE_PRIVATE);
         if (!pref.contains(device.getAddress())) {
