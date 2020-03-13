@@ -379,8 +379,16 @@ class PhonePolicy {
                 connectOtherProfile(device);
             }
             if (nextState == BluetoothProfile.STATE_DISCONNECTED) {
-                if (profileId == BluetoothProfile.A2DP) {
-                    mAdapterService.getDatabase().setDisconnection(device);
+                /* Ignore A2DP/HFP state change intent received during BT OFF */
+                if (mAdapterService != null &&
+                         mAdapterService.getState() == BluetoothAdapter.STATE_ON) {
+                    if (profileId == BluetoothProfile.A2DP) {
+                        mAdapterService.getDatabase().setDisconnection(device);
+                    } else if (profileId == BluetoothProfile.HEADSET) {
+                        Log.w(TAG, "processProfileStateChanged: Calling setDisconnectionForHfp "
+                                    + " for device "+ device);
+                        mAdapterService.getDatabase().setDisconnectionForHfp(device);
+                    }
                 }
                 handleAllProfilesDisconnected(device);
             }
@@ -398,6 +406,12 @@ class PhonePolicy {
 
         if (device != null) {
             mAdapterService.getDatabase().setConnection(device, profileId == BluetoothProfile.A2DP);
+
+            if (profileId == BluetoothProfile.HEADSET) {
+                Log.w(TAG, "processActiveDeviceChanged: Calling setConnectionForHfp for device "
+                            + device);
+                mAdapterService.getDatabase().setConnectionForHfp(device);
+            }
         }
     }
 
@@ -477,14 +491,24 @@ class PhonePolicy {
             debugLog("autoConnect: Initiate auto connection on BT on...");
             final BluetoothDevice mostRecentlyActiveA2dpDevice =
                     mAdapterService.getDatabase().getMostRecentlyConnectedA2dpDevice();
-            if (mostRecentlyActiveA2dpDevice == null) {
-                errorLog("autoConnect: most recently active a2dp device is null");
+            final BluetoothDevice mostRecentlyActiveHfpDevice =
+                    mAdapterService.getDatabase().getMostRecentlyConnectedHfpDevice();
+            if (mostRecentlyActiveA2dpDevice == null && mostRecentlyActiveHfpDevice == null) {
+                errorLog("autoConnect: most recently active a2dp and hfp devices are null");
                 return;
             }
-            debugLog("autoConnect: Device " + mostRecentlyActiveA2dpDevice
-                    + " attempting auto connection");
-            autoConnectHeadset(mostRecentlyActiveA2dpDevice);
-            autoConnectA2dp(mostRecentlyActiveA2dpDevice);
+
+            if (mostRecentlyActiveA2dpDevice != null) {
+                debugLog("autoConnect: recently connected A2DP active Device " +
+                    mostRecentlyActiveA2dpDevice + " attempting auto connection for A2DP, HFP");
+                autoConnectHeadset(mostRecentlyActiveA2dpDevice);
+                autoConnectA2dp(mostRecentlyActiveA2dpDevice);
+            } else if(mostRecentlyActiveHfpDevice != null) {
+                debugLog("autoConnect: recently connected A2DP active device is null." +
+                     " recently connected HFP Device " + mostRecentlyActiveHfpDevice
+                    + " attempting auto connection for HFP");
+                autoConnectHeadset(mostRecentlyActiveHfpDevice);
+            }
         } else {
             debugLog("autoConnect() - BT is in quiet mode. Not initiating auto connections");
         }
