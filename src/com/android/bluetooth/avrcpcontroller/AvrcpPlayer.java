@@ -53,6 +53,8 @@ class AvrcpPlayer {
     private MediaMetadata mCurrentTrack;
     private PlaybackState mPlaybackState;
 
+    private TrackInfo mCurrentTrackInfo = new TrackInfo();
+
     AvrcpPlayer() {
         mId = INVALID_ID;
         //Set Default Actions in case Player data isn't available.
@@ -174,5 +176,13 @@ class AvrcpPlayer {
             mAvailableActions = mAvailableActions | PlaybackState.ACTION_SKIP_TO_PREVIOUS;
         }
         if (DBG) Log.d(TAG, "Supported Actions = " + mAvailableActions);
+    }
+
+    public synchronized void updateCurrentTrackInfo(TrackInfo update) {
+        mCurrentTrackInfo = update;
+    }
+
+    public synchronized TrackInfo getCurrentTrackInfo() {
+        return mCurrentTrackInfo;
     }
 }

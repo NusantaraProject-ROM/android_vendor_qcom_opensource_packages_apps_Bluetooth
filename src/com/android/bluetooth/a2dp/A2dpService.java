@@ -72,6 +72,7 @@ public class A2dpService extends ProfileService {
     private static A2dpService sA2dpService;
     private static A2dpSinkService sA2dpSinkService;
     private static boolean mA2dpSrcSnkConcurrency;
+    private static boolean a2dpMulticast = false;
 
     private AdapterService mAdapterService;
     private HandlerThread mStateMachinesThread;
@@ -284,6 +285,10 @@ public class A2dpService extends ProfileService {
         mA2dpSrcSnkConcurrency = SystemProperties.getBoolean(A2DP_CONCURRENCY_SUPPORTED_PROPERTY, false);
         if (DBG) {
             Log.d(TAG, "A2DP concurrency mode set to " + mA2dpSrcSnkConcurrency);
+        }
+        a2dpMulticast = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp_multicast_enable", false);
+        if (DBG) {
+                Log.d(TAG, "A2DP Multicast flag set to " + a2dpMulticast);
         }
         return true;
     }
@@ -978,8 +983,11 @@ public class A2dpService extends ProfileService {
                 Log.e(TAG,"adapterService is null");
             }
         }
-        if (mAvrcp_ext != null && !tws_switch) {
-            mAvrcp_ext.setAbsVolumeFlag(device);
+        // Don't update the absVolume flags when disconnect one device in multicast mode
+        if (!a2dpMulticast || previousActiveDevice == null) {
+            if (mAvrcp_ext != null && !tws_switch) {
+                mAvrcp_ext.setAbsVolumeFlag(device);
+            }
         }
         tws_switch = false;
         return true;
@@ -1068,6 +1076,18 @@ public class A2dpService extends ProfileService {
             if(mGattService != null) {
                 Log.d(TAG, "Enable BLE scanning");
                 mGattService.setAptXLowLatencyMode(false);
+            }
+        }
+    }
+
+    public void storeDeviceAudioVolume(BluetoothDevice device) {
+        if (device != null)
+        {
+            if (AvrcpTargetService.get() != null) {
+                AvrcpTargetService.get().storeVolumeForDevice(device);
+            } else if (mAvrcp_ext != null) {
+                //store volume in multi-a2dp for the device doesn't set as active
+                mAvrcp_ext.storeVolumeForDevice(device);
             }
         }
     }

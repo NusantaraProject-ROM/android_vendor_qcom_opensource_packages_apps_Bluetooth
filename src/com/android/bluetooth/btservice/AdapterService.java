@@ -2472,7 +2472,9 @@ public class AdapterService extends Service {
             return false;
         }
         deviceProp.setBondingInitiatedLocally(false);
-
+        if (device.isTwsPlusDevice()) {
+            mActiveDeviceManager.notify_active_device_unbonding(device);
+        }
         Message msg = mBondStateMachine.obtainMessage(BondStateMachine.REMOVE_BOND);
         msg.obj = device;
         mBondStateMachine.sendMessage(msg);
@@ -3598,15 +3600,7 @@ public class AdapterService extends Service {
             debugLog(action);
             if (action == null) return;
             if (isEnabled() && (action.equals(WifiManager.NETWORK_STATE_CHANGED_ACTION))) {
-                 WifiManager wifiMgr = (WifiManager) getSystemService(Context.WIFI_SERVICE);
-                 if ((wifiMgr != null) && (wifiMgr.isWifiEnabled())) {
-                     WifiInfo wifiInfo = wifiMgr.getConnectionInfo();
-                     if ((wifiInfo != null) && (wifiInfo.getNetworkId() != -1)) {
-                         mVendor.setWifiState(true);
-                     } else {
-                         mVendor.setWifiState(false);
-                     }
-                 }
+                fetchWifiState();
              } else if (isEnabled() &&
                         (action.equals(WifiManager.WIFI_STATE_CHANGED_ACTION) ||
                         (action.equals(WifiManager.WIFI_AP_STATE_CHANGED_ACTION)))){

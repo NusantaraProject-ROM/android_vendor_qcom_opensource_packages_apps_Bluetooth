@@ -33,6 +33,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
+import android.os.SystemProperties;
 import android.util.Log;
 
 import com.android.bluetooth.a2dp.A2dpService;
@@ -124,6 +125,8 @@ class ActiveDeviceManager {
     private BluetoothDevice mA2dpActiveDevice = null;
     private BluetoothDevice mHfpActiveDevice = null;
     private BluetoothDevice mHearingAidActiveDevice = null;
+    private boolean mTwsPlusSwitch = false;
+    private static boolean a2dpMulticast = false;
 
     // Broadcast receiver for all changes
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
@@ -214,8 +217,19 @@ class ActiveDeviceManager {
                         mA2dpConnectedDevices.add(device);
                         if (mHearingAidActiveDevice == null) {
                             // New connected device: select it as active
-                            setA2dpActiveDevice(device);
-                            break;
+                            if (!a2dpMulticast) {
+                                setA2dpActiveDevice(device);
+                            }
+                            else {
+                                if (mA2dpActiveDevice == null) {
+                                    setA2dpActiveDevice(device);
+                                }
+                                else {
+                                    // store the volume for the new added device
+                                    final A2dpService a2dpService = mFactory.getA2dpService();
+                                    a2dpService.storeDeviceAudioVolume(device);
+                                }
+                            }
                         }
                         break;
                     }
@@ -231,7 +245,7 @@ class ActiveDeviceManager {
                         if (Objects.equals(mA2dpActiveDevice, device)) {
                             final A2dpService mA2dpService = mFactory.getA2dpService();
                             BluetoothDevice mDevice = null;
-                            if (mAdapterService.isTwsPlusDevice(device) &&
+                            if (mAdapterService.isTwsPlusDevice(device) && !mTwsPlusSwitch &&
                                 !mA2dpConnectedDevices.isEmpty()) {
                                 for (BluetoothDevice connected_device: mA2dpConnectedDevices) {
                                     if (mAdapterService.isTwsPlusDevice(connected_device) &&
@@ -241,9 +255,22 @@ class ActiveDeviceManager {
                                         break;
                                     }
                                 }
+                            } else if (device.isTwsPlusDevice() && mTwsPlusSwitch) {
+                                Log.d(TAG, "Resetting mTwsPlusSwitch");
+                                mTwsPlusSwitch = false;
+                            }
+                            else if (a2dpMulticast && !mA2dpConnectedDevices.isEmpty()) {
+                                for (BluetoothDevice connected_device: mA2dpConnectedDevices) {
+                                    if (mA2dpService.getConnectionState(connected_device) ==
+                                        BluetoothProfile.STATE_CONNECTED) {
+                                        Log.d(TAG, "a2dp Multicast calling set a2dp Active dev: " + connected_device);
+                                        mDevice = connected_device;
+                                        break;
+                                    }
+                                }
                             }
                             if (!setA2dpActiveDevice(mDevice) && (mDevice != null) &&
-                                mAdapterService.isTwsPlusDevice(mDevice)) {
+                                (mAdapterService.isTwsPlusDevice(mDevice) || a2dpMulticast)) {
                                 Log.w(TAG, "Switch A2dp active device to peer earbud failed");
                                 setA2dpActiveDevice(null);
                             }
@@ -289,7 +316,7 @@ class ActiveDeviceManager {
                             break;      // The device is already connected
                         }
                         mHfpConnectedDevices.add(device);
-                        if (mHearingAidActiveDevice == null) {
+                        if ((!a2dpMulticast || mHfpActiveDevice == null) && mHearingAidActiveDevice == null) {
                             // New connected device: select it as active
                             setHfpActiveDevice(device);
                             break;
@@ -329,7 +356,23 @@ class ActiveDeviceManager {
                                           "as there is no Connected TWS+ peer");
                                    setHfpActiveDevice(null);
                                 }
-                            } else {
+                            } else if (a2dpMulticast && !mHfpConnectedDevices.isEmpty()) {
+                                if (hfpService == null) {
+                                    Log.e(TAG, "no headsetService, FATAL");
+                                    return;
+                                }
+                                for (BluetoothDevice connected_device: mHfpConnectedDevices) {
+                                    if (hfpService.getConnectionState(connected_device) ==
+                                        BluetoothProfile.STATE_CONNECTED) {
+                                        Log.d(TAG, "a2dp Multicast calling set HFP Active dev: " + connected_device);
+                                        if (!setHfpActiveDevice(connected_device)) {
+                                            setHfpActiveDevice(null);
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                            else {
                                setHfpActiveDevice(null);
                             }
                         }
@@ -439,6 +482,7 @@ class ActiveDeviceManager {
         mAdapterService.registerReceiver(mReceiver, filter);
 
         mAudioManager.registerAudioDeviceCallback(mAudioManagerAudioDeviceCallback, mHandler);
+        a2dpMulticast = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp_multicast_enable", false);
     }
 
     void cleanup() {
@@ -454,7 +498,12 @@ class ActiveDeviceManager {
         }
         resetState();
     }
-
+    public void notify_active_device_unbonding(BluetoothDevice device) {
+        if (device.isTwsPlusDevice() && Objects.equals(mA2dpActiveDevice, device)) {
+            Log.d(TAG,"TWS+ active device is getting unpaired, avoid switch to pair");
+            mTwsPlusSwitch = true;
+        }
+    }
     /**
      * Get the {@link Looper} for the handler thread. This is used in testing and helper
      * objects

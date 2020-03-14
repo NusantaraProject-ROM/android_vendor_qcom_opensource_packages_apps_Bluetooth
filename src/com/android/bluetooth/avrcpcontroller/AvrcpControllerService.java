@@ -25,6 +25,7 @@ import android.content.Intent;
 import android.media.MediaDescription;
 import android.media.browse.MediaBrowser.MediaItem;
 import android.media.session.PlaybackState;
+import android.os.Message;
 import android.os.Bundle;
 import android.util.Log;
 
@@ -96,10 +97,35 @@ public class AvrcpControllerService extends ProfileService {
             "android.bluetooth.avrcp-controller.profile.extra.PLAYBACK";
 
 
+    /**
+     * Intent used to broadcast the change of folder list.
+     *
+     * <p>This intent will have the one extra:
+     * <ul>
+     *    <li> {@link #EXTRA_FOLDER_LIST} - array of {@link MediaBrowser#MediaItem}
+     *    containing the folder listing of currently selected folder.
+     * </ul>
+     */
+    public static final String ACTION_FOLDER_LIST =
+            "android.bluetooth.avrcp-controller.profile.action.FOLDER_LIST";
+
+    public static final String EXTRA_FOLDER_LIST =
+            "android.bluetooth.avrcp-controller.profile.extra.FOLDER_LIST";
+
+    public static final String EXTRA_FOLDER_ID = "com.android.bluetooth.avrcp.EXTRA_FOLDER_ID";
+    public static final String EXTRA_FOLDER_BT_ID =
+            "com.android.bluetooth.avrcp-controller.EXTRA_FOLDER_BT_ID";
+
+    public static final String EXTRA_METADATA =
+            "android.bluetooth.avrcp-controller.profile.extra.METADATA";
+
 
     static BrowseTree sBrowseTree;
     private static AvrcpControllerService sService;
     private final BluetoothAdapter mAdapter;
+
+    private int mFeatures;
+    private int mCaPsm;
 
     protected Map<BluetoothDevice, AvrcpControllerStateMachine> mDeviceStateMap =
             new ConcurrentHashMap<>(1);
@@ -312,11 +338,15 @@ public class AvrcpControllerService extends ProfileService {
 
     // Called by JNI to notify Avrcp of features supported by the Remote device.
     private void getRcFeatures(byte[] address, int features, int caPsm) {
-        /*Log.i(TAG, " getRcFeatures caPsm :" + caPsm);
+        Log.i(TAG, " getRcFeatures caPsm :" + caPsm);
+        mFeatures = features;
+        mCaPsm = caPsm;
         BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address);
-        Message msg = mAvrcpCtSm.obtainMessage(
-            AvrcpControllerStateMachine.MESSAGE_PROCESS_RC_FEATURES, features, caPsm, device);
-        mAvrcpCtSm.sendMessage(msg); */
+        AvrcpControllerStateMachine stateMachine = getStateMachine(device);
+        if (stateMachine != null) {
+            stateMachine.sendMessage(
+                    AvrcpControllerStateMachine.MESSAGE_PROCESS_RC_FEATURES, features, caPsm, device);
+        }
     }
 
     // Called by JNI
@@ -361,15 +391,29 @@ public class AvrcpControllerService extends ProfileService {
         BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address);
         AvrcpControllerStateMachine stateMachine = getStateMachine(device);
         if (stateMachine != null) {
-            stateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_PROCESS_TRACK_CHANGED,
-                    TrackInfo.getMetadata(attributes, attribVals));
+            List<Integer> attrList = new ArrayList<>();
+            for (int attr : attributes) {
+                attrList.add(attr);
+            }
+            List<String> attrValList = Arrays.asList(attribVals);
+            TrackInfo trackInfo = new TrackInfo(attrList, attrValList);
+            stateMachine.sendMessage(AvrcpControllerStateMachine.MESSAGE_PROCESS_TRACK_CHANGED, trackInfo);
         }
 
     }
 
      private void onElementAttributeUpdate(byte[] address, byte numAttributes, int[] attributes,
             String[] attribVals) {
-
+        if (DBG) {
+            Log.d(TAG, "onElementAttributeUpdate");
+        }
+        BluetoothDevice device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address);
+        AvrcpControllerStateMachine stateMachine = getStateMachine(device);
+        if (stateMachine == null)
+            return;
+        CoverArtUtils coverArtUtils = new CoverArtUtils();
+        coverArtUtils.onElementAttributeUpdate(address, numAttributes, attributes, attribVals,
+                device, stateMachine);
      }
 
     // Called by JNI periodically based upon timer to update play position
