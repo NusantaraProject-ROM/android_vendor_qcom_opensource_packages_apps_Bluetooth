@@ -121,7 +121,8 @@ public class HeadsetA2dpSync {
         if (mHaService != null) {
             HAActiveDevices = mHaService.getActiveDevices();
         }
-        if (HAActiveDevices != null) {
+        if (HAActiveDevices != null && (HAActiveDevices.get(0) != null
+                || HAActiveDevices.get(1) != null)) {
             Log.d(TAG,"Ignore suspendA2DP if active device is HearingAid");
             return false;
         }
