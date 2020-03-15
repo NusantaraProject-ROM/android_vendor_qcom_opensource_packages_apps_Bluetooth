@@ -38,6 +38,8 @@ import android.content.Intent;
 import android.util.Log;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
+import com.android.bluetooth.hearingaid.HearingAidService;
+import java.util.List;
 
 /**
  * Defines methods used for synchronization between HFP and A2DP
@@ -113,6 +115,17 @@ public class HeadsetA2dpSync {
      */
     public boolean suspendA2DP(int reason, BluetoothDevice device){
         int a2dpState = isA2dpPlaying();
+
+        List<BluetoothDevice> HAActiveDevices = null;
+        HearingAidService mHaService = HearingAidService.getHearingAidService();
+        if (mHaService != null) {
+            HAActiveDevices = mHaService.getActiveDevices();
+        }
+        if (HAActiveDevices != null) {
+            Log.d(TAG,"Ignore suspendA2DP if active device is HearingAid");
+            return false;
+        }
+
         Log.d(TAG," suspendA2DP currPlayingState = "+ a2dpState + " for reason " + reason
               + "mA2dpSuspendTriggered = " + mA2dpSuspendTriggered + " for device " + device);
         if (mA2dpSuspendTriggered != A2DP_SUSPENDED_NOT_TRIGGERED) {
