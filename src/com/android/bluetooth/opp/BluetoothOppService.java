@@ -204,6 +204,7 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
             @Override
             public void run() {
                 trimDatabase(contentResolver);
+                mHandler.sendMessage(mHandler.obtainMessage(MSG_START_UPDATE_THREAD));
             }
         }.start();
 
@@ -232,12 +233,6 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
         if (D) {
             Log.v(TAG, "start()");
         }
-        mObserver = new BluetoothShareContentObserver();
-        getContentResolver().registerContentObserver(BluetoothShare.CONTENT_URI, true, mObserver);
-        mNotifier = new BluetoothOppNotification(this);
-        mNotifier.mNotificationMgr.cancelAll();
-        mNotifier.updateNotification();
-        updateFromProvider();
         setBluetoothOppService(this);
         return true;
     }
@@ -317,6 +312,8 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
     private static final int MSG_INCOMING_BTOPP_CONNECTION = 100;
 
     private static final int STOP_LISTENER = 200;
+
+    private static final int MSG_START_UPDATE_THREAD = 300;
 
     private Handler mHandler = new Handler() {
         @Override
@@ -467,6 +464,17 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                             mHandler.sendMessageDelayed(msg2, 1000);
                         }
                     }
+                    break;
+                case MSG_START_UPDATE_THREAD:
+                    mObserver = new BluetoothShareContentObserver();
+                    getContentResolver().registerContentObserver(BluetoothShare.CONTENT_URI,
+                            true, mObserver);
+
+                    mNotifier = new BluetoothOppNotification(BluetoothOppService.this);
+                    mNotifier.mNotificationMgr.cancelAll();
+                    mNotifier.updateNotification();
+
+                    updateFromProvider();
                     break;
             }
         }
