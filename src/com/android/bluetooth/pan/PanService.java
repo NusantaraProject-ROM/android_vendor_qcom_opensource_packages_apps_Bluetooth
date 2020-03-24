@@ -319,14 +319,14 @@ public class PanService extends ProfileService {
         }
 
         @Override
-        public void setBluetoothTethering(boolean value, String pkgName) {
+        public void setBluetoothTethering(boolean value, String pkgName, String attributionTag) {
             PanService service = getService();
             if (service == null) {
                 return;
             }
             Log.d(TAG, "setBluetoothTethering: " + value + ", pkgName: " + pkgName
                     + ", mTetherOn: " + service.mTetherOn);
-            service.setBluetoothTethering(value, pkgName);
+            service.setBluetoothTethering(value, pkgName, attributionTag);
         }
 
         @Override
@@ -407,7 +407,8 @@ public class PanService extends ProfileService {
         return mTetherOn;
     }
 
-    void setBluetoothTethering(boolean value, final String pkgName) {
+    void setBluetoothTethering(boolean value, final String pkgName,
+            final String callingAttributionTag) {
         if (DBG) {
             Log.d(TAG, "setBluetoothTethering: " + value + ", mTetherOn: " + mTetherOn);
         }
