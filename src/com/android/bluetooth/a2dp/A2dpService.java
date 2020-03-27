@@ -716,21 +716,27 @@ public class A2dpService extends ProfileService {
     }
 
     private void storeActiveDeviceVolume() {
-        // Make sure volume has been stored before been removed from active.
-        if (mFactory.getAvrcpTargetService() != null && mActiveDevice != null) {
-            mFactory.getAvrcpTargetService().storeVolumeForDevice(mActiveDevice);
+        BluetoothDevice activeDevice;
+        synchronized (mStateMachines) {
+            activeDevice = mActiveDevice;
         }
-        if (mActiveDevice != null && mAvrcp_ext != null) {
-            mAvrcp_ext.storeVolumeForDevice(mActiveDevice);
+        // Make sure volume has been stored before been removed from active.
+        if (mFactory.getAvrcpTargetService() != null && activeDevice != null) {
+            mFactory.getAvrcpTargetService().storeVolumeForDevice(activeDevice);
+        }
+        synchronized (mBtAvrcpLock) {
+            if (activeDevice != null && mAvrcp_ext != null) {
+                mAvrcp_ext.storeVolumeForDevice(activeDevice);
+            }
         }
     }
 
     private void removeActiveDevice(boolean forceStopPlayingAudio) {
         BluetoothDevice previousActiveDevice = mActiveDevice;
-        synchronized (mBtA2dpLock) {
-            // Make sure volume has been store before device been remove from active.
-            storeActiveDeviceVolume();
 
+        // Make sure volume has been store before device been remove from active.
+        storeActiveDeviceVolume();
+        synchronized (mBtA2dpLock) {
             // This needs to happen before we inform the audio manager that the device
             // disconnected. Please see comment in updateAndBroadcastActiveDevice() for why.
             updateAndBroadcastActiveDevice(null);
