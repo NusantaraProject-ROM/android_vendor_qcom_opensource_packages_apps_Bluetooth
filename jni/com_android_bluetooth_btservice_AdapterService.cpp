@@ -700,7 +700,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 }
 
 static bool initNative(JNIEnv* env, jobject obj, jboolean isGuest,
-                       jboolean isSingleUserMode) {
+                       jboolean isNiapMode) {
   ALOGV("%s", __func__);
 
   android_bluetooth_UidTraffic.clazz =
@@ -716,7 +716,7 @@ static bool initNative(JNIEnv* env, jobject obj, jboolean isGuest,
 
   int ret = sBluetoothInterface->init(&sBluetoothCallbacks,
                                       isGuest == JNI_TRUE ? 1 : 0,
-                                      isSingleUserMode == JNI_TRUE ? 1 : 0);
+                                      isNiapMode == JNI_TRUE ? 1 : 0);
   if (ret != BT_STATUS_SUCCESS && ret != BT_STATUS_DONE) {
     ALOGE("Error while setting the callbacks: %d\n", ret);
     sBluetoothInterface = NULL;
