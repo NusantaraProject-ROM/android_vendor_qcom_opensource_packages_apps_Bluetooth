@@ -49,7 +49,11 @@ cc_library_shared {
         "IUserManager.cc",
         "permission_helpers.cc",
     ],
-    header_libs: ["libbluetooth_headers", "libnativehelper_header_only"],
+    header_libs: [
+        "jni_headers",
+        "libbluetooth_headers",
+        "libnativehelper_header_only",
+    ],
     include_dirs: [
         "system/bt/types",
         "vendor/qcom/opensource/commonsys/bluetooth_ext/vhal/include",
