@@ -135,6 +135,7 @@ class AvrcpControllerStateMachine extends StateMachine {
 
     AvrcpControllerStateMachine(BluetoothDevice device, AvrcpControllerService service) {
         super(TAG);
+        setDbg(DBG);
         mDevice = device;
         mDeviceAddress = Utils.getByteAddress(mDevice);
         mService = service;
@@ -157,9 +158,8 @@ class AvrcpControllerStateMachine extends StateMachine {
         mRemoteDevice = new RemoteDevice(device);
 
         mAudioManager = (AudioManager) service.getSystemService(Context.AUDIO_SERVICE);
-        IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
-        mService.registerReceiver(mBroadcastReceiver, filter);
 
+        Log.d(TAG, "Setting initial state: Disconnected: " + mDevice);
         setInitialState(mDisconnected);
     }
 
@@ -275,7 +275,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     protected class Disconnected extends State {
         @Override
         public void enter() {
-            logD("Enter Disconnected");
+            logD("Enter Disconnected mDevice:" + mDevice);
             if (mMostRecentState != BluetoothProfile.STATE_DISCONNECTED) {
                 sendMessage(CLEANUP);
             }
@@ -826,6 +826,14 @@ class AvrcpControllerStateMachine extends StateMachine {
             }
         }
     };
+
+    void registerReceiver(BluetoothDevice device) {
+        if (DBG) {
+            Log.d(TAG, " Register receiver for device: " + device);
+        }
+        IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
+        mService.registerReceiver(mBroadcastReceiver, filter);
+    }
 
     void doQuit() {
         Log.d(TAG, "doQuit()");
