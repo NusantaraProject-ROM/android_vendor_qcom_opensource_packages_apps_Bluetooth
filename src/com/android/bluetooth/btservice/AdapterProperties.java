@@ -88,6 +88,9 @@ class AdapterProperties {
     private CopyOnWriteArrayList<BluetoothDevice> mBondedDevices =
             new CopyOnWriteArrayList<BluetoothDevice>();
 
+    private CopyOnWriteArrayList<String> mWhitelistedPlayers =
+            new CopyOnWriteArrayList<String>();
+
     private int mProfilesConnecting, mProfilesConnected, mProfilesDisconnecting;
     private final HashMap<Integer, Pair<Integer, Integer>> mProfileConnectionState =
             new HashMap<>();
@@ -276,6 +279,7 @@ class AdapterProperties {
         }
         mService = null;
         mBondedDevices.clear();
+        mWhitelistedPlayers.clear();
     }
 
     @Override
@@ -803,6 +807,25 @@ class AdapterProperties {
         }
     }
 
+     /**
+     * @return the mWhitelistedPlayers
+     */
+    String[] getWhitelistedMediaPlayers() {
+        String[] WhitelistedPlayersList = new String[0];
+        try {
+            WhitelistedPlayersList = mWhitelistedPlayers.toArray(WhitelistedPlayersList);
+        } catch (ArrayStoreException ee) {
+            errorLog("Error retrieving Whitelisted Players array");
+        }
+        Log.d(TAG, "getWhitelistedMediaPlayers: numWhitelistedPlayers = "
+                                        + WhitelistedPlayersList.length);
+        for (int i=0; i< WhitelistedPlayersList.length;i++) {
+            Log.d(TAG,"players :" + WhitelistedPlayersList[i]);
+        }
+        return WhitelistedPlayersList;
+    }
+
+
     int getDiscoverableTimeout() {
         return mDiscoverableTimeout;
     }
@@ -1036,6 +1059,15 @@ class AdapterProperties {
 
         if (update) {
             mProfileConnectionState.put(profile, new Pair<Integer, Integer>(newHashState, numDev));
+        }
+    }
+
+    void updateWhitelistedMediaPlayers(String playername) {
+        Log.d(TAG, "updateWhitelistedMediaPlayers ");
+
+        if (!mWhitelistedPlayers.contains(playername)) {
+            Log.d(TAG, "Adding to Whitelisted Players list:" + playername);
+            mWhitelistedPlayers.add(playername);
         }
     }
 
