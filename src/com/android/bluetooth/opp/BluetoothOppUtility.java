@@ -46,6 +46,7 @@ import android.database.Cursor;
 import android.database.SQLException;
 import android.net.Uri;
 import android.os.Environment;
+import android.os.ParcelFileDescriptor;
 import android.os.SystemProperties;
 import android.util.Log;
 
@@ -195,8 +196,25 @@ public class BluetoothOppUtility {
             return;
         }
 
-        File f = new File(fileName);
-        if (!f.exists()) {
+        Uri path = null;
+        Cursor metadataCursor = context.getContentResolver().query(uri, new String[]{
+                BluetoothShare.URI}, null, null, null);
+        if (metadataCursor != null) {
+            try {
+                if (metadataCursor.moveToFirst()) {
+                    path = Uri.parse(metadataCursor.getString(0));
+                }
+            } finally {
+                metadataCursor.close();
+            }
+        }
+
+        if (path == null) {
+            Log.e(TAG, "file uri not exist");
+            return;
+        }
+
+        if (!fileExists(context, path)) {
             Intent in = new Intent(context, BluetoothOppBtErrorActivity.class);
             in.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             in.putExtra("title", context.getString(R.string.not_exist_file));
@@ -210,23 +228,6 @@ public class BluetoothOppUtility {
             }
             context.getContentResolver().delete(uri, null, null);
             return;
-        }
-
-        Uri path = null;
-        try {
-            path = BluetoothOppFileProvider.getUriForFile(context,
-                    "com.android.bluetooth.opp.fileprovider", f);
-        } catch (IllegalArgumentException e) {
-            Log.e(TAG, "Not able to find root path:" + f.getAbsolutePath());
-        }
-
-        if (path == null) {
-            Log.w(TAG, "Cannot get content URI for the shared file");
-            return;
-        }
-        // If there is no scheme, then it must be a file
-        if (path.getScheme() == null) {
-            path = Uri.fromFile(new File(fileName));
         }
 
         if (isRecognizedFileType(context, path, mimetype)) {
@@ -256,6 +257,20 @@ public class BluetoothOppUtility {
             in.putExtra("content", context.getString(R.string.unknown_file_desc));
             context.startActivity(in);
         }
+    }
+
+    static boolean fileExists(Context context, Uri uri) {
+        // Open a specific media item using ParcelFileDescriptor.
+        ContentResolver resolver = context.getContentResolver();
+        String readOnlyMode = "r";
+        ParcelFileDescriptor pfd = null;
+        try {
+            pfd = resolver.openFileDescriptor(uri, readOnlyMode);
+            return true;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 
     /**
