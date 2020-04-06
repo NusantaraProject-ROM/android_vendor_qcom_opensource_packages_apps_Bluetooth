@@ -22,6 +22,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Bundle;
 import android.provider.CallLog.Calls;
 import android.provider.ContactsContract.CommonDataKinds;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
@@ -138,11 +139,15 @@ public class AtPhonebook {
     public String getLastDialledNumber() {
         String[] projection = {Calls.NUMBER};
         try {
-            Cursor cursor = mContentResolver.query(Calls.CONTENT_URI, projection,
+            Bundle queryArgs = new Bundle();
+            queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SELECTION,
                     Calls.TYPE + " = " + Calls.OUTGOING_TYPE + " OR " + Calls.TYPE +
                     " = " + OUTGOING_IMS_TYPE + " OR " + Calls.TYPE + " = " +
-                    OUTGOING_WIFI_TYPE, null, Calls.DEFAULT_SORT_ORDER +
-                    " LIMIT 1");
+                    OUTGOING_WIFI_TYPE);
+            queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER, Calls.DEFAULT_SORT_ORDER);
+            queryArgs.putInt(ContentResolver.QUERY_ARG_LIMIT, 1);
+
+            Cursor cursor = mContentResolver.query(Calls.CONTENT_URI, projection, queryArgs, null);
             log("Queried the last dialled number for CS, IMS, WIFI calls");
             if (cursor == null) {
                 Log.w(TAG, "getLastDialledNumber, cursor is null");
