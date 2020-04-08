@@ -1480,7 +1480,7 @@ public class A2dpService extends ProfileService {
                     codecConfig.getCodecPriority(), codecConfig.getSampleRate(),
                     codecConfig.getBitsPerSample(), codecConfig.getChannelMode(),
                     codecConfig.getCodecSpecific1(), codecConfig.getCodecSpecific2(),
-                    codecConfig.getCodecSpecific3(), codecConfig.getCodecSpecific4());
+                    codecConfig.getCodecSpecific3(), codecConfig.getCodecSpecific4(), 0);
                 BluetoothCodecConfig[] codecCapabilities = codecStatus.getCodecsSelectableCapabilities();
                 for (BluetoothCodecConfig codecCapability : codecCapabilities) {
                     BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_A2DP_CODEC_CAPABILITY_CHANGED,
@@ -1488,7 +1488,7 @@ public class A2dpService extends ProfileService {
                         codecCapability.getCodecPriority(), codecCapability.getSampleRate(),
                         codecCapability.getBitsPerSample(), codecCapability.getChannelMode(),
                         codecConfig.getCodecSpecific1(), codecConfig.getCodecSpecific2(),
-                        codecConfig.getCodecSpecific3(), codecConfig.getCodecSpecific4());
+                        codecConfig.getCodecSpecific3(), codecConfig.getCodecSpecific4(), 0);
                 }
             }
         }
@@ -1633,7 +1633,7 @@ public class A2dpService extends ProfileService {
         synchronized (mVariableLock) {
             if (mAdapterService != null)
                 BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_ACTIVE_DEVICE_CHANGED, BluetoothProfile.A2DP,
-                      mAdapterService.obfuscateAddress(device));
+                      mAdapterService.obfuscateAddress(device), 0);
         }
         Intent intent = new Intent(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);

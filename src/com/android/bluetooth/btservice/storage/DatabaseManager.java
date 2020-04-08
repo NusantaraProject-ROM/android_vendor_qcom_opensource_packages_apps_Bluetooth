@@ -1175,6 +1175,6 @@ public class DatabaseManager {
         BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_DEVICE_INFO_REPORTED,
                 mAdapterService.obfuscateAddress(device),
                 BluetoothProtoEnums.DEVICE_INFO_EXTERNAL, callingApp, manufacturerName, modelName,
-                hardwareVersion, softwareVersion);
+                hardwareVersion, softwareVersion, 0);
     }
 }
