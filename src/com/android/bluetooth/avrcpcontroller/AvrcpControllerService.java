@@ -39,6 +39,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import android.content.res.Resources;
+import android.content.res.Resources.NotFoundException;
+
 /**
  * Provides Bluetooth AVRCP Controller profile, as a service in the Bluetooth application.
  */
@@ -303,6 +306,11 @@ public class AvrcpControllerService extends ProfileService {
         StackEvent event =
                 StackEvent.connectionStateChanged(remoteControlConnected, browsingConnected);
         AvrcpControllerStateMachine stateMachine = getOrCreateStateMachine(device);
+        if (stateMachine == null) {
+            Log.e(TAG, "onConnectionStateChanged: mAvrcpCtSm is null, return");
+            return;
+        }
+
         if (remoteControlConnected || browsingConnected) {
             stateMachine.connect(event);
         } else {
@@ -685,7 +693,10 @@ public class AvrcpControllerService extends ProfileService {
         if (stateMachine == null) {
             stateMachine = newStateMachine(device);
             mDeviceStateMap.put(device, stateMachine);
+            Log.d(TAG, "AvrcpControllerStateMachine start() called: " + device);
             stateMachine.start();
+            Log.d(TAG, "AvrcpcontrollerSM started for device: " + device);
+            stateMachine.registerReceiver(device);
         }
         return stateMachine;
     }
