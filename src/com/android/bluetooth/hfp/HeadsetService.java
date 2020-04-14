@@ -18,6 +18,10 @@ package com.android.bluetooth.hfp;
 
 import static android.Manifest.permission.MODIFY_PHONE_STATE;
 
+import static com.android.bluetooth.Utils.enforceBluetoothAdminPermission;
+import static com.android.bluetooth.Utils.enforceBluetoothPermission;
+import static com.android.bluetooth.Utils.enforceBluetoothPrivilegedPermission;
+
 import android.annotation.Nullable;
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothDevice;
@@ -641,12 +645,33 @@ public class HeadsetService extends ProfileService {
         }
 
         @Override
+        public boolean setPriority(BluetoothDevice device, int connectionPolicy) {
+            HeadsetService service = getService();
+            if (service == null) {
+                return false;
+            }
+            enforceBluetoothAdminPermission(service);
+            return service.setConnectionPolicy(device, connectionPolicy);
+        }
+
+        @Override
         public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
             HeadsetService service = getService();
             if (service == null) {
                 return false;
             }
+            enforceBluetoothPrivilegedPermission(service);
             return service.setConnectionPolicy(device, connectionPolicy);
+        }
+
+        @Override
+        public int getPriority(BluetoothDevice device) {
+            HeadsetService service = getService();
+            if (service == null) {
+                return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+            }
+            enforceBluetoothPermission(service);
+            return service.getConnectionPolicy(device);
         }
 
         @Override
@@ -655,6 +680,7 @@ public class HeadsetService extends ProfileService {
             if (service == null) {
                 return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
             }
+            enforceBluetoothPrivilegedPermission(service);
             return service.getConnectionPolicy(device);
         }
 
@@ -1194,7 +1220,6 @@ public class HeadsetService extends ProfileService {
      * @return true if connectionPolicy is set, false on error
      */
     public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         Log.i(TAG, "setConnectionPolicy: device=" + device
                 + ", connectionPolicy=" + connectionPolicy + ", " + Utils.getUidPidString());
         mAdapterService.getDatabase()
@@ -1220,7 +1245,6 @@ public class HeadsetService extends ProfileService {
      * @hide
      */
     public int getConnectionPolicy(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         return mAdapterService.getDatabase()
                 .getProfileConnectionPolicy(device, BluetoothProfile.HEADSET);
     }

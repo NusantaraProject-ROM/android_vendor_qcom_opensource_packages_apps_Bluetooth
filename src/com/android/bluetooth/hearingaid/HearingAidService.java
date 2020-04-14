@@ -230,7 +230,8 @@ public class HearingAidService extends ProfileService {
      * @return true if hearing aid profile successfully connected, false otherwise
      */
     public boolean connect(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
+        enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
+                "Need BLUETOOTH_PRIVILEGED permission");
         if (DBG) {
             Log.d(TAG, "connect(): " + device);
         }
@@ -296,7 +297,8 @@ public class HearingAidService extends ProfileService {
      * @return true if hearing aid profile successfully disconnected, false otherwise
      */
     public boolean disconnect(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
+        enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
+                "Need BLUETOOTH_PRIVILEGED permission");
         if (DBG) {
             Log.d(TAG, "disconnect(): " + device);
         }
@@ -471,7 +473,8 @@ public class HearingAidService extends ProfileService {
      * @return true if connectionPolicy is set, false on error
      */
     public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+        enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
+                "Need BLUETOOTH_PRIVILEGED permission");
         if (DBG) {
             Log.d(TAG, "Saved connectionPolicy " + device + " = " + connectionPolicy);
         }
@@ -498,7 +501,8 @@ public class HearingAidService extends ProfileService {
      * @hide
      */
     public int getConnectionPolicy(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+        enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
+                "Need BLUETOOTH_PRIVILEGED permission");
         return mAdapterService.getDatabase()
                 .getProfileConnectionPolicy(device, BluetoothProfile.HEARING_AID);
     }
@@ -508,6 +512,8 @@ public class HearingAidService extends ProfileService {
     }
 
     long getHiSyncId(BluetoothDevice device) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
+                "Need BLUETOOTH_PRIVILEGED permission");
         if (device == null) {
             return BluetoothHearingAid.HI_SYNC_ID_INVALID;
         }
@@ -567,6 +573,7 @@ public class HearingAidService extends ProfileService {
      * is not active, it will be null on that position
      */
     public List<BluetoothDevice> getActiveDevices() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         if (DBG) {
             Log.d(TAG, "getActiveDevices");
         }
