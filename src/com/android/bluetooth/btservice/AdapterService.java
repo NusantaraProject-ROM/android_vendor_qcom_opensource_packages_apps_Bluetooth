@@ -72,6 +72,7 @@ import android.app.ActivityManager;
 import android.app.AlarmManager;
 import android.app.AppOpsManager;
 import android.app.PendingIntent;
+import android.app.PropertyInvalidatedCache;
 import android.app.Service;
 import android.bluetooth.BluetoothA2dp;
 import android.app.admin.DevicePolicyManager;
@@ -1104,7 +1105,6 @@ public class AdapterService extends Service {
     }
 
     private void invalidateBluetoothCaches() {
-        BluetoothAdapter.invalidateGetProfileConnectionStateCache();
         BluetoothAdapter.invalidateGetProfileConnectionStateCache();
         BluetoothAdapter.invalidateIsOffloadedFilteringSupportedCache();
         BluetoothDevice.invalidateBluetoothGetBondStateCache();
