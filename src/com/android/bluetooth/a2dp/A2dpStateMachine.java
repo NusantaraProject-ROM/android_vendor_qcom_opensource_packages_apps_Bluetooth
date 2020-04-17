@@ -572,6 +572,7 @@ final class A2dpStateMachine extends StateMachine {
 
         // in Connected state
         private void processAudioStateEvent(int state) {
+            Log.i(TAG, "Connected: processAudioStateEvent: state: " + state + " mIsPlaying: " + mIsPlaying);
             switch (state) {
                 case A2dpStackEvent.AUDIO_STATE_STARTED:
                     synchronized (this) {
