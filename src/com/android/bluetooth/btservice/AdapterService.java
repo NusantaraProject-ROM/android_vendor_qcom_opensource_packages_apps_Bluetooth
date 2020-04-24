@@ -114,6 +114,7 @@ import com.android.bluetooth.Utils;
 import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
 import com.android.bluetooth.btservice.RemoteDevices.DeviceProperties;
+import com.android.bluetooth.btservice.bluetoothkeystore.BluetoothKeystoreService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.btservice.storage.MetadataDatabase;
 import com.android.bluetooth.gatt.GattService;
@@ -272,6 +273,7 @@ public class AdapterService extends Service {
     private AppOpsManager mAppOps;
     private VendorSocket mVendorSocket;
 
+    private BluetoothKeystoreService mBluetoothKeystoreService;
     private A2dpService mA2dpService;
     private A2dpSinkService mA2dpSinkService;
     private HeadsetService mHeadsetService;
@@ -571,6 +573,8 @@ public class AdapterService extends Service {
         mAdapterStateMachine =  AdapterState.make(this);
         mJniCallbacks = new JniCallbacks(this, mAdapterProperties);
         mVendorSocket = new VendorSocket(this);
+        mBluetoothKeystoreService = new BluetoothKeystoreService(isNiapMode());
+        mBluetoothKeystoreService.start();
         initNative(isGuest(), isNiapMode(), getInitFlags());
         mNativeAvailable = true;
         mCallbacks = new RemoteCallbackList<IBluetoothCallback>();
@@ -958,6 +962,10 @@ public class AdapterService extends Service {
         if (mSdpManager != null) {
             mSdpManager.cleanup();
             mSdpManager = null;
+        }
+
+        if (mBluetoothKeystoreService != null) {
+            mBluetoothKeystoreService.cleanup();
         }
 
         if (mNativeAvailable) {
@@ -2154,6 +2162,9 @@ public class AdapterService extends Service {
                 service.onBrEdrDown();
             } else {
                 service.disable();
+            }
+            if (service.mBluetoothKeystoreService != null) {
+                service.mBluetoothKeystoreService.factoryReset();
             }
             return service.factoryReset();
         }
