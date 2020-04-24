@@ -103,6 +103,7 @@ public class AdapterServiceTest {
         Assert.assertNotNull(Looper.myLooper());
         AdapterService adapterService = new AdapterService();
         adapterService.initNative(false /* is_restricted */, false /* is_niap_mode */,
+                 0 /* config_compare_result */,
                  new String[0]);
         adapterService.cleanupNative();
         HashMap<String, HashMap<String, String>> adapterConfig = TestUtils.readAdapterConfig();
