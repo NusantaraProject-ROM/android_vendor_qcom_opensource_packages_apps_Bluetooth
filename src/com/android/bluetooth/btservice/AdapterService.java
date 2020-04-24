@@ -590,6 +590,8 @@ public class AdapterService extends Service {
         mBatteryStats = IBatteryStats.Stub.asInterface(
                 ServiceManager.getService(BatteryStats.SERVICE_NAME));
 
+        mBluetoothKeystoreService.initJni();
+
         mSdpManager = SdpManager.init(this);
         registerReceiver(mAlarmBroadcastReceiver, new IntentFilter(ACTION_ALARM_WAKEUP));
         IntentFilter wifiFilter = new IntentFilter();
