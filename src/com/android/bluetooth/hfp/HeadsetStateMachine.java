@@ -1077,8 +1077,6 @@ public class HeadsetStateMachine extends StateMachine {
                     break;
                 }
                 case CALL_STATE_CHANGED: {
-                    if (mDeviceSilenced) break;
-
                     boolean isPts = SystemProperties.getBoolean("vendor.bt.pts.certification", false);
 
                     HeadsetCallState callState = (HeadsetCallState) message.obj;

@@ -1225,10 +1225,12 @@ public class A2dpService extends ProfileService {
             Log.e(TAG, "setCodecConfigPreference: Invalid device");
             return;
         }
-
+        if (codecConfig == null) {
+            Log.e(TAG, "setCodecConfigPreference: Codec config can't be null");
+            return;
+        }
         long cs4 = codecConfig.getCodecSpecific4();
-            GattService mGattService = GattService.getGattService();
-
+        GattService mGattService = GattService.getGattService();
         if(cs4 > 0 && mGattService != null) {
             switch((int)(cs4 & APTX_MODE_MASK)) {
                 case APTX_HQ:
@@ -1248,10 +1250,6 @@ public class A2dpService extends ProfileService {
             }
         }
 
-        if (codecConfig == null) {
-            Log.e(TAG, "setCodecConfigPreference: Codec config can't be null");
-            return;
-        }
         BluetoothCodecStatus codecStatus = getCodecStatus(device);
         if (codecStatus == null) {
             Log.e(TAG, "setCodecConfigPreference: Codec status is null");
