@@ -335,7 +335,7 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                         mTransfer.onBatchCanceled();
                         mTransfer = null;
                     }
-                    unregisterReceivers();
+                    unregisterObserver();
                     synchronized (BluetoothOppService.this) {
                         if (mUpdateThread != null) {
                             mUpdateThread.interrupt();
@@ -508,12 +508,19 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
             Log.v(TAG, "onDestroy");
         }
         stopListeners();
+
+        try {
+            unregisterReceiver(mBluetoothReceiver);
+        } catch (IllegalArgumentException e) {
+            Log.w(TAG, "unregisterReceiver " + e.toString());
+        }
+
         if (mHandler != null) {
             mHandler.removeCallbacksAndMessages(null);
         }
     }
 
-    private void unregisterReceivers() {
+    private void unregisterObserver() {
         try {
             if (mObserver != null) {
                 getContentResolver().unregisterContentObserver(mObserver);
@@ -521,11 +528,6 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
             }
         } catch (IllegalArgumentException e) {
             Log.w(TAG, "unregisterContentObserver " + e.toString());
-        }
-        try {
-            unregisterReceiver(mBluetoothReceiver);
-        } catch (IllegalArgumentException e) {
-            Log.w(TAG, "unregisterReceiver " + e.toString());
         }
     }
 
