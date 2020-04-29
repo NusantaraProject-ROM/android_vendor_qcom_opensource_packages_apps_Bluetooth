@@ -300,6 +300,7 @@ class PhonePolicy {
                 || ArrayUtils.contains(uuids, BluetoothUuid.HFP)) && (
                 headsetService.getConnectionPolicy(device)
                         == BluetoothProfile.CONNECTION_POLICY_UNKNOWN))) {
+            debugLog("setting peer device to connection policy on for hfp" + device);
             headsetService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
             if (peerTwsDevice != null) {
                 debugLog("setting peer earbud to connection policy on for hfp" + peerTwsDevice);
@@ -311,6 +312,7 @@ class PhonePolicy {
                 || ArrayUtils.contains(uuids, BluetoothUuid.ADV_AUDIO_DIST)) && (
                 a2dpService.getConnectionPolicy(device)
                         == BluetoothProfile.CONNECTION_POLICY_UNKNOWN)) {
+            debugLog("setting peer device to connection policy on for a2dp" + device);
             a2dpService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
             if (peerTwsDevice != null) {
                 debugLog("setting peer earbud to connection policy on for a2dp" + peerTwsDevice);
@@ -355,24 +357,11 @@ class PhonePolicy {
                 switch (profileId) {
                     case BluetoothProfile.A2DP:
                         mA2dpRetrySet.remove(device);
-                        // ToDo : TWS auto connect
-                        /*if (mAdapterService.isTwsPlusDevice(device)) {
-                             setAutoConnectForA2dpSink(device);
-                             if (peerTwsDevice != null)
-                                 setAutoConnectForA2dpSink(peerTwsDevice);
-                        }*/
                         break;
                     case BluetoothProfile.HEADSET:
                         mHeadsetRetrySet.remove(device);
-                        // ToDo : TWS auto connect
-                        /*if (mAdapterService.isTwsPlusDevice(device)) {
-                             setAutoConnectForHeadset(device);
-                             if (peerTwsDevice != null)
-                                 setAutoConnectForHeadset(peerTwsDevice);
-                        }*/
                         break;
                     case BluetoothProfile.A2DP_SINK:
-                        // ToDo : TWS auto connect
                         //setAutoConnectForA2dpSource(device);
                         break;
                 }
@@ -383,6 +372,8 @@ class PhonePolicy {
                 if (mAdapterService != null &&
                          mAdapterService.getState() == BluetoothAdapter.STATE_ON) {
                     if (profileId == BluetoothProfile.A2DP) {
+                        Log.w(TAG, "processProfileStateChanged: Calling setDisconnectionA2dp "
+                                    + " for device "+ device);
                         mAdapterService.getDatabase().setDisconnection(device);
                     } else if (profileId == BluetoothProfile.HEADSET) {
                         Log.w(TAG, "processProfileStateChanged: Calling setDisconnectionForHfp "
@@ -498,16 +489,32 @@ class PhonePolicy {
                 return;
             }
 
+            BluetoothDevice device = (mostRecentlyActiveA2dpDevice != null) ?
+                    mostRecentlyActiveA2dpDevice : mostRecentlyActiveHfpDevice;
+
+            BluetoothDevice peerTwsDevice = (mAdapterService != null &&
+                    mAdapterService.isTwsPlusDevice(device)) ?
+                    mAdapterService.getTwsPlusPeerDevice(device) : null;
+
             if (mostRecentlyActiveA2dpDevice != null) {
                 debugLog("autoConnect: recently connected A2DP active Device " +
                     mostRecentlyActiveA2dpDevice + " attempting auto connection for A2DP, HFP");
                 autoConnectHeadset(mostRecentlyActiveA2dpDevice);
                 autoConnectA2dp(mostRecentlyActiveA2dpDevice);
-            } else if(mostRecentlyActiveHfpDevice != null) {
+                if (peerTwsDevice != null) {
+                    debugLog("autoConnect: 2nd pair TWS+ EB");
+                    autoConnectHeadset(peerTwsDevice);
+                    autoConnectA2dp(peerTwsDevice);
+                }
+            } else if (mostRecentlyActiveHfpDevice != null) {
                 debugLog("autoConnect: recently connected A2DP active device is null." +
                      " recently connected HFP Device " + mostRecentlyActiveHfpDevice
                     + " attempting auto connection for HFP");
                 autoConnectHeadset(mostRecentlyActiveHfpDevice);
+                if (peerTwsDevice != null) {
+                    debugLog("autoConnectHF: 2nd pair TWS+ EB");
+                    autoConnectHeadset(peerTwsDevice);
+                }
             }
         } else {
             debugLog("autoConnect() - BT is in quiet mode. Not initiating auto connections");
@@ -760,135 +767,6 @@ class PhonePolicy {
             }
         }
 
-    }
-
-    private void setProfileAutoConnectionPriority(BluetoothDevice device, int profileId,
-            boolean autoConnect) {
-        debugLog("setProfileAutoConnectionPriority: device=" + device + ", profile=" + profileId
-                + ", autoConnect=" + autoConnect);
-        switch (profileId) {
-            case BluetoothProfile.HEADSET: {
-                HeadsetService hsService = mFactory.getHeadsetService();
-                if (hsService == null) {
-                    warnLog("setProfileAutoConnectionPriority: HEADSET service is null");
-                    break;
-                }
-                removeAutoConnectFromDisconnectedHeadsets(hsService);
-                if (autoConnect) {
-                    hsService.setConnectionPolicy(device, BluetoothProfile.PRIORITY_AUTO_CONNECT);
-                }
-                break;
-            }
-            case BluetoothProfile.A2DP: {
-                A2dpService a2dpService = mFactory.getA2dpService();
-                if (a2dpService == null) {
-                    warnLog("setProfileAutoConnectionPriority: A2DP service is null");
-                    break;
-                }
-                removeAutoConnectFromDisconnectedA2dpSinks(a2dpService);
-                if (autoConnect) {
-                    a2dpService.setConnectionPolicy(device, BluetoothProfile.PRIORITY_AUTO_CONNECT);
-                }
-                break;
-            }
-            case BluetoothProfile.A2DP_SINK: {
-                A2dpSinkService a2dpSinkService = mFactory.getA2dpSinkService();
-                if (a2dpSinkService != null) {
-                    if (BluetoothProfile.PRIORITY_AUTO_CONNECT != a2dpSinkService.getConnectionPolicy(
-                            device)) {
-                        adjustOtherSourcePriorities(a2dpSinkService, a2dpSinkService.getConnectedDevices());
-                        a2dpSinkService.setConnectionPolicy(device, BluetoothProfile.PRIORITY_AUTO_CONNECT);
-                    }
-                }
-                break;
-            }
-            default:
-                Log.w(TAG, "Tried to set AutoConnect priority on invalid profile " + profileId);
-                break;
-        }
-    }
-    /**
-     * Set a device's headset profile priority to PRIORITY_AUTO_CONNECT if device support that
-     * profile
-     *
-     * @param device device whose headset profile priority should be PRIORITY_AUTO_CONNECT
-     */
-    private void setAutoConnectForHeadset(BluetoothDevice device) {
-        HeadsetService hsService = mFactory.getHeadsetService();
-        if (hsService == null) {
-            warnLog("setAutoConnectForHeadset: HEADSET service is null");
-            return;
-        }
-        if (hsService.getConnectionPolicy(device) >= BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
-            debugLog("setAutoConnectForHeadset: device " + device + " PRIORITY_AUTO_CONNECT");
-            hsService.setConnectionPolicy(device, BluetoothProfile.PRIORITY_AUTO_CONNECT);
-        }
-    }
-
-    /**
-     * Set a device's A2DP profile priority to PRIORITY_AUTO_CONNECT if device support that profile
-     *
-     * @param device device whose headset profile priority should be PRIORITY_AUTO_CONNECT
-     */
-    private void setAutoConnectForA2dpSink(BluetoothDevice device) {
-        A2dpService a2dpService = mFactory.getA2dpService();
-        if (a2dpService == null) {
-            warnLog("setAutoConnectForA2dpSink: A2DP service is null");
-            return;
-        }
-        if (a2dpService.getConnectionPolicy(device) >= BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
-            debugLog("setAutoConnectForA2dpSink: device " + device + " PRIORITY_AUTO_CONNECT");
-            a2dpService.setConnectionPolicy(device, BluetoothProfile.PRIORITY_AUTO_CONNECT);
-        }
-    }
-
-    /**
-     * Set device A2DP SINK priority to PRIORITY_AUTO_CONNECT if role is A2DP Sink
-     */
-    private void setAutoConnectForA2dpSource(BluetoothDevice device) {
-        A2dpSinkService a2dpSinkService = mFactory.getA2dpSinkService();
-        if (a2dpSinkService == null) {
-            warnLog("setAutoConnectForA2dpSink: A2DP service is null");
-            return;
-        }
-        if (a2dpSinkService.getConnectionPolicy(device) >= BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
-            debugLog("setAutoConnectForA2dpSink: device " + device + " PRIORITY_AUTO_CONNECT");
-            a2dpSinkService.setConnectionPolicy(device, BluetoothProfile.PRIORITY_AUTO_CONNECT);
-        }
-    }
-
-    private void adjustOtherSourcePriorities(
-            A2dpSinkService a2dpSinkService, List<BluetoothDevice> connectedDeviceList) {
-        for (BluetoothDevice device : mAdapterService.getBondedDevices()) {
-            if (a2dpSinkService.getConnectionPolicy(device) >= BluetoothProfile.PRIORITY_AUTO_CONNECT
-                    && !connectedDeviceList.contains(device)) {
-                a2dpSinkService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
-            }
-        }
-    }
-
-    private void removeAutoConnectFromDisconnectedHeadsets(HeadsetService hsService) {
-        List<BluetoothDevice> connectedDeviceList = hsService.getConnectedDevices();
-        for (BluetoothDevice device : mAdapterService.getBondedDevices()) {
-            if (hsService.getConnectionPolicy(device) >= BluetoothProfile.PRIORITY_AUTO_CONNECT
-                    && !connectedDeviceList.contains(device)) {
-                debugLog("removeAutoConnectFromDisconnectedHeadsets, device " + device
-                        + " CONNECTION_POLICY_ALLOWED");
-                hsService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
-            }
-        }
-    }
-
-    private void removeAutoConnectFromDisconnectedA2dpSinks(A2dpService a2dpService) {
-        List<BluetoothDevice> connectedDeviceList = a2dpService.getConnectedDevices();
-        for (BluetoothDevice device : mAdapterService.getBondedDevices()) {
-            if (a2dpService.getConnectionPolicy(device) >= BluetoothProfile.PRIORITY_AUTO_CONNECT
-                    && !connectedDeviceList.contains(device)) {
-                debugLog("removeAutoConnectFromDisconnectedA2dpSinks, device " + device
-                        + " CONNECTION_POLICY_ALLOWED");
-                a2dpService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
-            }
-        }
     }
 
     private static void debugLog(String msg) {

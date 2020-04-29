@@ -487,6 +487,18 @@ public final class Utils {
         return "uid/pid=" + Binder.getCallingUid() + "/" + Binder.getCallingPid();
     }
 
+    public static void enforceBluetoothPermission(Context context) {
+        context.enforceCallingOrSelfPermission(
+            android.Manifest.permission.BLUETOOTH,
+                "Need BLUETOOTH permission");
+    }
+
+    public static void enforceBluetoothAdminPermission(Context context) {
+        context.enforceCallingOrSelfPermission(
+                android.Manifest.permission.BLUETOOTH_ADMIN,
+                "Need BLUETOOTH ADMIN permission");
+    }
+
     public static void enforceBluetoothPrivilegedPermission(Context context) {
         context.enforceCallingOrSelfPermission(
                 android.Manifest.permission.BLUETOOTH_PRIVILEGED,

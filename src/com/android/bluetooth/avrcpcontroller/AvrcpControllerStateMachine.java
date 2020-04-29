@@ -118,6 +118,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     boolean mRemoteControlConnected = false;
     boolean mBrowsingConnected = false;
     final BrowseTree mBrowseTree;
+    private boolean smActive = false;
     private AvrcpPlayer mAddressedPlayer = new AvrcpPlayer();
     private RemoteDevice mRemoteDevice;
     private int mPreviousPercentageVol = -1;
@@ -135,6 +136,7 @@ class AvrcpControllerStateMachine extends StateMachine {
 
     AvrcpControllerStateMachine(BluetoothDevice device, AvrcpControllerService service) {
         super(TAG);
+        setDbg(DBG);
         mDevice = device;
         mDeviceAddress = Utils.getByteAddress(mDevice);
         mService = service;
@@ -151,15 +153,15 @@ class AvrcpControllerStateMachine extends StateMachine {
         addState(mConnected);
         addState(mDisconnecting);
 
+        smActive = true;
         mGetFolderList = new GetFolderList();
         addState(mGetFolderList, mConnected);
 
         mRemoteDevice = new RemoteDevice(device);
 
         mAudioManager = (AudioManager) service.getSystemService(Context.AUDIO_SERVICE);
-        IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
-        mService.registerReceiver(mBroadcastReceiver, filter);
 
+        Log.d(TAG, "Setting initial state: Disconnected: " + mDevice);
         setInitialState(mDisconnected);
     }
 
@@ -227,7 +229,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     }
 
     synchronized void onBrowsingConnected() {
-        if (mBrowsingConnected) return;
+        if (mBrowsingConnected || (!smActive)) return;
         mService.sBrowseTree.mRootNode.addChild(mBrowseTree.mRootNode);
         BluetoothMediaBrowserService.notifyChanged(mService
                 .sBrowseTree.mRootNode);
@@ -236,7 +238,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     }
 
     synchronized void onBrowsingDisconnected() {
-        if (!mBrowsingConnected) return;
+        if (!mBrowsingConnected || (!smActive)) return;
         mAddressedPlayer.setPlayStatus(PlaybackState.STATE_ERROR);
         mAddressedPlayer.updateCurrentTrack(null);
         if (mBrowseTree != null && mBrowseTree.mNowPlayingNode != null) {
@@ -275,7 +277,7 @@ class AvrcpControllerStateMachine extends StateMachine {
     protected class Disconnected extends State {
         @Override
         public void enter() {
-            logD("Enter Disconnected");
+            logD("Enter Disconnected mDevice:" + mDevice);
             if (mMostRecentState != BluetoothProfile.STATE_DISCONNECTED) {
                 sendMessage(CLEANUP);
             }
@@ -827,6 +829,14 @@ class AvrcpControllerStateMachine extends StateMachine {
         }
     };
 
+    void registerReceiver(BluetoothDevice device) {
+        if (DBG) {
+            Log.d(TAG, " Register receiver for device: " + device);
+        }
+        IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
+        mService.registerReceiver(mBroadcastReceiver, filter);
+    }
+
     void doQuit() {
         Log.d(TAG, "doQuit()");
         try {
@@ -834,6 +844,9 @@ class AvrcpControllerStateMachine extends StateMachine {
         } catch (IllegalArgumentException expected) {
             // If the receiver was never registered unregister will throw an
             // IllegalArgumentException.
+        }
+        synchronized(AvrcpControllerStateMachine.this) {
+            smActive = false;
         }
         // we should disacrd, all currently queuedup messages.
         quitNow();

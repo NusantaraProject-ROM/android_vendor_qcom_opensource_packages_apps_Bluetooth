@@ -2209,6 +2209,37 @@ public class HeadsetStateMachine extends StateMachine {
                 mNativeInterface.phoneStateChange(mDevice, updateCallState);
                 mIsCallIndDelay = true;
             }
+            
+            /* The device is blacklisted for sending incoming call setup
+             * indicator after SCO disconnection and sending active call end
+             * indicator. While the incoming call setup indicator is in queue,
+             * waiting call moved to active state. Send call setup update first
+             * and remove it from queue. Create SCO since SCO might be in
+             * disconnecting/disconnected state */
+            if (mIsBlacklistedDevice &&
+                callState.mNumActive == 1 &&
+                callState.mNumHeld == 0 &&
+                callState.mCallState == HeadsetHalConstants.CALL_STATE_IDLE &&
+                hasMessages(SEND_INCOMING_CALL_IND)) {
+
+                Log.w(TAG, "waiting call moved to active state while incoming call");
+                Log.w(TAG, "setup indicator is in queue. Send it first and create SCO");
+                //remove call setup indicator from queue.
+                removeMessages(SEND_INCOMING_CALL_IND);
+
+                HeadsetCallState incomingCallSetupState =
+                        new HeadsetCallState(0, 0, HeadsetHalConstants.CALL_STATE_INCOMING,
+                               mSystemInterface.getHeadsetPhoneState().getNumber(),
+                                 mSystemInterface.getHeadsetPhoneState().getType(),
+                                 "");
+                mNativeInterface.phoneStateChange(mDevice, incomingCallSetupState);
+
+                if (mDevice.equals(mHeadsetService.getActiveDevice())) {
+                    Message m = obtainMessage(CONNECT_AUDIO);
+                    m.obj = mDevice;
+                    sendMessage(m);
+                }
+            }
         }
         mStateMachineCallState.mNumActive = callState.mNumActive;
         mStateMachineCallState.mNumHeld = callState.mNumHeld;
@@ -2634,7 +2665,7 @@ public class HeadsetStateMachine extends StateMachine {
         BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_DEVICE_INFO_REPORTED,
                 mAdapterService.obfuscateAddress(device), BluetoothProtoEnums.DEVICE_INFO_INTERNAL,
                 BluetoothHeadset.VENDOR_SPECIFIC_HEADSET_EVENT_XAPL, vendorId, productId, version,
-                null);
+                null, 0);
         // feature = 2 indicates that we support battery level reporting only
         mNativeInterface.atResponseString(device, "+XAPL=iPhone," + String.valueOf(2));
     }
@@ -2657,8 +2688,10 @@ public class HeadsetStateMachine extends StateMachine {
             mNativeInterface.atResponseCode(device, HeadsetHalConstants.AT_RESPONSE_ERROR, 0);
         } else if (atCommand.equals("+CGMI")) {
             mNativeInterface.atResponseString(device, "+CGMI: \"" + Build.MANUFACTURER + "\"");
+            mNativeInterface.atResponseCode(device, HeadsetHalConstants.AT_RESPONSE_OK, 0);
         } else if (atCommand.equals("+CGMM")) {
             mNativeInterface.atResponseString(device, "+CGMM: " + Build.MODEL);
+            mNativeInterface.atResponseCode(device, HeadsetHalConstants.AT_RESPONSE_OK, 0);
         } else {
             processVendorSpecificAt(atCommand, device);
         }

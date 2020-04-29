@@ -52,6 +52,8 @@
 package com.android.bluetooth.btservice;
 
 import static com.android.bluetooth.Utils.enforceBluetoothPrivilegedPermission;
+import static com.android.bluetooth.Utils.enforceBluetoothAdminPermission;
+import static com.android.bluetooth.Utils.enforceBluetoothPermission;
 
 import android.annotation.Nullable;
 import android.app.ActivityManager;
@@ -364,6 +366,24 @@ public class AdapterService extends Service {
     }
     public boolean isSwbPmEnabled() {
         return mVendor.isSwbPmEnabled();
+    }
+
+    public boolean setClockSyncConfig(boolean enable, int mode, int adv_interval,
+        int channel, int jitter, int offset) {
+        if (!isVendorIntfEnabled())
+            return false;
+
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mVendor.setClockSyncConfig(enable, mode,
+            adv_interval, channel, jitter, offset);
+    }
+
+    public boolean startClockSync() {
+        if (!isVendorIntfEnabled())
+            return false;
+
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        return mVendor.startClockSync();
     }
 
     private static final int MESSAGE_PROFILE_SERVICE_STATE_CHANGED = 1;
@@ -2323,6 +2343,23 @@ public class AdapterService extends Service {
             return service.getSocketOpt(type, channel, optionName, optionVal);
         }
 
+        public boolean setClockSyncConfig(boolean enable, int mode, int adv_interval,
+            int channel, int jitter, int offset) {
+
+            AdapterService service = getService();
+            if (service == null) return false;
+
+            return service.setClockSyncConfig(enable, mode, adv_interval, channel,
+                jitter, offset);
+        }
+
+        public boolean startClockSync() {
+            AdapterService service = getService();
+            if (service == null) return false;
+
+            return service.startClockSync();
+        }
+
         @Override
         public void dump(FileDescriptor fd, String[] args) {
             PrintWriter writer = new PrintWriter(new FileOutputStream(fd));
@@ -2776,7 +2813,7 @@ public class AdapterService extends Service {
     }
 
     boolean cancelBondProcess(BluetoothDevice device) {
-        enforceBluetoothPrivilegedPermission(this);
+        enforceBluetoothAdminPermission(this);
         byte[] addr = Utils.getBytesFromAddress(device.getAddress());
 
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
@@ -2794,7 +2831,9 @@ public class AdapterService extends Service {
             return false;
         }
         deviceProp.setBondingInitiatedLocally(false);
-
+        if (device.isTwsPlusDevice()) {
+            mActiveDeviceManager.notify_active_device_unbonding(device);
+        }
         Message msg = mBondStateMachine.obtainMessage(BondStateMachine.REMOVE_BOND);
         msg.obj = device;
         mBondStateMachine.sendMessage(msg);
@@ -2821,7 +2860,7 @@ public class AdapterService extends Service {
     }
 
     boolean isBondingInitiatedLocally(BluetoothDevice device) {
-        enforceBluetoothPrivilegedPermission(this);
+        enforceBluetoothPermission(this);
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
         if (deviceProp == null) {
             return false;
@@ -3102,7 +3141,7 @@ public class AdapterService extends Service {
     }
 
     boolean setRemoteAlias(BluetoothDevice device, String name) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        enforceBluetoothPermission(this);
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
         if (deviceProp == null) {
             return false;
@@ -3148,7 +3187,7 @@ public class AdapterService extends Service {
     }
 
     int getBatteryLevel(BluetoothDevice device) {
-        enforceBluetoothPrivilegedPermission(this);
+        enforceBluetoothPermission(this);
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
         if (deviceProp == null) {
             return BluetoothDevice.BATTERY_LEVEL_UNKNOWN;
@@ -3210,7 +3249,7 @@ public class AdapterService extends Service {
     }
 
     int getPhonebookAccessPermission(BluetoothDevice device) {
-        enforceBluetoothPrivilegedPermission(this);
+        enforceBluetoothPermission(this);
         SharedPreferences pref = getSharedPreferences(PHONEBOOK_ACCESS_PERMISSION_PREFERENCE_FILE,
                 Context.MODE_PRIVATE);
         if (!pref.contains(device.getAddress())) {

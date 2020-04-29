@@ -18,6 +18,10 @@ package com.android.bluetooth.hfp;
 
 import static android.Manifest.permission.MODIFY_PHONE_STATE;
 
+import static com.android.bluetooth.Utils.enforceBluetoothAdminPermission;
+import static com.android.bluetooth.Utils.enforceBluetoothPermission;
+import static com.android.bluetooth.Utils.enforceBluetoothPrivilegedPermission;
+
 import android.annotation.Nullable;
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothDevice;
@@ -641,12 +645,33 @@ public class HeadsetService extends ProfileService {
         }
 
         @Override
+        public boolean setPriority(BluetoothDevice device, int connectionPolicy) {
+            HeadsetService service = getService();
+            if (service == null) {
+                return false;
+            }
+            enforceBluetoothAdminPermission(service);
+            return service.setConnectionPolicy(device, connectionPolicy);
+        }
+
+        @Override
         public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
             HeadsetService service = getService();
             if (service == null) {
                 return false;
             }
+            enforceBluetoothPrivilegedPermission(service);
             return service.setConnectionPolicy(device, connectionPolicy);
+        }
+
+        @Override
+        public int getPriority(BluetoothDevice device) {
+            HeadsetService service = getService();
+            if (service == null) {
+                return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+            }
+            enforceBluetoothPermission(service);
+            return service.getConnectionPolicy(device);
         }
 
         @Override
@@ -655,6 +680,7 @@ public class HeadsetService extends ProfileService {
             if (service == null) {
                 return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
             }
+            enforceBluetoothPrivilegedPermission(service);
             return service.getConnectionPolicy(device);
         }
 
@@ -989,13 +1015,13 @@ public class HeadsetService extends ProfileService {
                     + Utils.getUidPidString());
             return false;
         }
-        ParcelUuid[] featureUuids = mAdapterService.getRemoteUuids(device);
-        if (!BluetoothUuid.containsAnyUuid(featureUuids, HEADSET_UUIDS)) {
-            Log.e(TAG, "connect: Cannot connect to " + device + ": no headset UUID, "
-                    + Utils.getUidPidString());
-            return false;
-        }
         synchronized (mStateMachines) {
+            ParcelUuid[] featureUuids = mAdapterService.getRemoteUuids(device);
+            if (!BluetoothUuid.containsAnyUuid(featureUuids, HEADSET_UUIDS)) {
+                Log.e(TAG, "connect: Cannot connect to " + device + ": no headset UUID, "
+                    + Utils.getUidPidString());
+                return false;
+            }
             Log.i(TAG, "connect: device=" + device + ", " + Utils.getUidPidString());
             HeadsetStateMachine stateMachine = mStateMachines.get(device);
             if (stateMachine == null) {
@@ -1113,12 +1139,12 @@ public class HeadsetService extends ProfileService {
             Log.e(TAG, "->States is null");
             return devices;
         }
-        final BluetoothDevice[] bondedDevices = mAdapterService.getBondedDevices();
-        if (bondedDevices == null) {
-            Log.e(TAG, "->Bonded device is null");
-            return devices;
-        }
         synchronized (mStateMachines) {
+            final BluetoothDevice[] bondedDevices = mAdapterService.getBondedDevices();
+            if (bondedDevices == null) {
+                Log.e(TAG, "->Bonded device is null");
+                return devices;
+            }
             for (BluetoothDevice device : bondedDevices) {
 
                 int connectionState = getConnectionState(device);
@@ -1194,7 +1220,6 @@ public class HeadsetService extends ProfileService {
      * @return true if connectionPolicy is set, false on error
      */
     public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         Log.i(TAG, "setConnectionPolicy: device=" + device
                 + ", connectionPolicy=" + connectionPolicy + ", " + Utils.getUidPidString());
         mAdapterService.getDatabase()
@@ -1220,7 +1245,6 @@ public class HeadsetService extends ProfileService {
      * @hide
      */
     public int getConnectionPolicy(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         return mAdapterService.getDatabase()
                 .getProfileConnectionPolicy(device, BluetoothProfile.HEADSET);
     }
@@ -2288,7 +2312,7 @@ public class HeadsetService extends ProfileService {
         synchronized (mStateMachines) {
             if (toState == BluetoothHeadset.STATE_AUDIO_DISCONNECTED) {
                 //Transfer SCO is not needed for TWS+ devices
-                if (mAdapterService.isTwsPlusDevice(device) &&
+                if (mAdapterService != null && mAdapterService.isTwsPlusDevice(device) &&
                    mActiveDevice != null &&
                    mAdapterService.isTwsPlusDevice(mActiveDevice) &&
                    isAudioOn()) {
@@ -2299,7 +2323,7 @@ public class HeadsetService extends ProfileService {
                     Log.w(TAG, "onAudioStateChangedFromStateMachine:"
                             + "shouldPersistAudio() returns"
                             + shouldPersistAudio());
-                    if (mAdapterService.isTwsPlusDevice(device) &&
+                    if (mAdapterService != null && mAdapterService.isTwsPlusDevice(device) &&
                                    isAudioOn()) {
                         Log.w(TAG, "TWS: Don't stop VR or VOIP");
                     } else {
@@ -2332,11 +2356,11 @@ public class HeadsetService extends ProfileService {
                     if (mActiveDevice != null &&
                                  !mActiveDevice.equals(device) &&
                                  shouldPersistAudio()) {
-                       if (mAdapterService.isTwsPlusDevice(device)
+                       if (mAdapterService != null && mAdapterService.isTwsPlusDevice(device)
                                                    && isAudioOn()) {
                            Log.d(TAG, "TWS: Wait for both eSCO closed");
                        } else {
-                           if (mAdapterService.isTwsPlusDevice(device) &&
+                           if (mAdapterService != null && mAdapterService.isTwsPlusDevice(device) &&
                                isTwsPlusActive(mActiveDevice)) {
                                /* If the device for which SCO got disconnected
                                   is a TwsPlus device and TWS+ set is active
@@ -2368,7 +2392,7 @@ public class HeadsetService extends ProfileService {
     private void broadcastActiveDevice(BluetoothDevice device) {
         logD("broadcastActiveDevice: " + device);
         BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_ACTIVE_DEVICE_CHANGED,
-                BluetoothProfile.HEADSET, mAdapterService.obfuscateAddress(device));
+                BluetoothProfile.HEADSET, mAdapterService.obfuscateAddress(device), 0);
         Intent intent = new Intent(BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT
