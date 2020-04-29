@@ -845,14 +845,13 @@ class AvrcpControllerStateMachine extends StateMachine {
         int currIndex = mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
 
         /* If SetAbsVolume Control Cmd is received from non-Streaming device then the
-         * requested volume level will not be set fot rendering and current Abs vol level
-         *  at DUT (sink: rendering device) will be sent in response. */
+         * requested volume level would be accepted at SINK device, and current Abs vol level
+         * at DUT (sink: rendering device) will be sent in changed response. */
         Log.d(TAG, "Streaming device: " + A2dpSinkService.getCurrentStreamingDevice()
                 + " Device: " + mDevice + " absVol: " + absVol + " label: " + label);
         if (!mDevice.equals(A2dpSinkService.getCurrentStreamingDevice())) {
-            absVol = (currIndex * ABS_VOL_BASE) / maxVolume;
             Log.w(TAG, "Volume change request came from non-streaming device," +
-                    "respond with current absVol: " + absVol);
+                    "respond with accepted absVol: " + absVol + "at Sink");
             AvrcpControllerService.sendAbsVolRspNative(mRemoteDevice.getBluetoothAddress(), absVol,
                 label);
             int percentageVol = getVolumePercentage();
