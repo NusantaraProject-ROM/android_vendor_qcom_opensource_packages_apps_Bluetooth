@@ -2588,6 +2588,14 @@ public class AdapterService extends Service {
         mAdapterProperties.updateSocFeatureSupport(val);
     }
 
+    void updateWhitelistedMediaPlayers(String Playername) {
+        mAdapterProperties.updateWhitelistedMediaPlayers(Playername);
+    }
+
+    public String[] getWhitelistedMediaPlayers() {
+        return mAdapterProperties.getWhitelistedMediaPlayers();
+    }
+
     int getScanMode() {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
 
