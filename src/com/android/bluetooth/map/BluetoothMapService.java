@@ -41,6 +41,7 @@ import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.SystemProperties;
 import android.provider.Settings;
+import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.SparseArray;
@@ -665,7 +666,8 @@ public class BluetoothMapService extends ProfileService {
         // Move SDP records creation to Handler Thread instead of main thread.
         BluetoothMapFixes.sendCreateMasInstances(this, CREATE_MAS_INSTANCES);
 
-        mSmsCapable = getResources().getBoolean(com.android.internal.R.bool.config_sms_capable);
+        TelephonyManager tm = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+        mSmsCapable = tm.isSmsCapable();
         if (DEBUG) {
              Log.d(TAG, "mSmsCapable :" + mSmsCapable);
         }
