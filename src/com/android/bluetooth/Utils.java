@@ -36,6 +36,9 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.Log;
 
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -519,5 +522,15 @@ public final class Utils {
         context.enforceCallingOrSelfPermission(
                 android.Manifest.permission.BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH PRIVILEGED permission");
+    }
+
+    public static void skipCurrentTag(XmlPullParser parser)
+            throws XmlPullParserException, IOException {
+        int outerDepth = parser.getDepth();
+        int type;
+        while ((type = parser.next()) != XmlPullParser.END_DOCUMENT
+                && (type != XmlPullParser.END_TAG
+                || parser.getDepth() > outerDepth)) {
+        }
     }
 }
