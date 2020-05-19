@@ -115,6 +115,7 @@ public class HeadsetA2dpSync {
      */
     public boolean suspendA2DP(int reason, BluetoothDevice device){
         int a2dpState = isA2dpPlaying();
+        String a2dpSuspendStatus;
 
         List<BluetoothDevice> HAActiveDevices = null;
         HearingAidService mHaService = HearingAidService.getHearingAidService();
@@ -129,7 +130,13 @@ public class HeadsetA2dpSync {
 
         Log.d(TAG," suspendA2DP currPlayingState = "+ a2dpState + " for reason " + reason
               + "mA2dpSuspendTriggered = " + mA2dpSuspendTriggered + " for device " + device);
-        if (mA2dpSuspendTriggered != A2DP_SUSPENDED_NOT_TRIGGERED) {
+
+        a2dpSuspendStatus = mSystemInterface.getAudioManager().getParameters("A2dpSuspended");
+
+        Log.d(TAG, "a2dpSuspendStatus " + a2dpSuspendStatus);
+
+        if (mA2dpSuspendTriggered != A2DP_SUSPENDED_NOT_TRIGGERED &&
+             a2dpSuspendStatus.contains("true")) {
             // A2DPSuspend was triggered already, don't need to do anything.
             if(a2dpState == A2DP_PLAYING) {
                 // we are still waiting for suspend from a2dp.Caller shld wait
