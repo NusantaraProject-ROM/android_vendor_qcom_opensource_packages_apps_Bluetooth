@@ -701,7 +701,8 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 }
 
 static bool initNative(JNIEnv* env, jobject obj, jboolean isGuest,
-                       jboolean isSingleUserMode) {
+                       jboolean isSingleUserMode,
+                       jobjectArray initFlags) {
   ALOGV("%s", __func__);
 
   android_bluetooth_UidTraffic.clazz =
@@ -715,10 +716,31 @@ static bool initNative(JNIEnv* env, jobject obj, jboolean isGuest,
     return JNI_FALSE;
   }
 
+  int flagCount = env->GetArrayLength(initFlags);
+  jstring* flagObjs = new jstring[flagCount];
+  const char** flags = nullptr;
+  if (flagCount > 0) {
+    flags = new const char*[flagCount + 1];
+    flags[flagCount] = nullptr;
+  }
+
+  for (int i = 0; i < flagCount; i++) {
+    flagObjs[i] = (jstring)env->GetObjectArrayElement(initFlags, i);
+    flags[i] = env->GetStringUTFChars(flagObjs[i], NULL);
+  }
+
   int ret = sBluetoothInterface->init(&sBluetoothCallbacks,
                                       isGuest == JNI_TRUE ? 1 : 0,
                                       isSingleUserMode == JNI_TRUE ? 1 : 0,
-                                      0);
+                                      0, flags);
+
+  for (int i = 0; i < flagCount; i++) {
+    env->ReleaseStringUTFChars(flagObjs[i], flags[i]);
+  }
+
+  delete[] flags;
+  delete[] flagObjs;
+
   if (ret != BT_STATUS_SUCCESS && ret != BT_STATUS_DONE) {
     ALOGE("Error while setting the callbacks: %d\n", ret);
     sBluetoothInterface = NULL;
@@ -1267,7 +1289,7 @@ static jbyteArray obfuscateAddressNative(JNIEnv* env, jobject obj,
 static JNINativeMethod sMethods[] = {
     /* name, signature, funcPtr */
     {"classInitNative", "()V", (void*)classInitNative},
-    {"initNative", "(ZZ)Z", (void*)initNative},
+    {"initNative", "(ZZ[Ljava/lang/String;)Z", (void*)initNative},
     {"cleanupNative", "()V", (void*)cleanupNative},
     {"enableNative", "()Z", (void*)enableNative},
     {"disableNative", "()Z", (void*)disableNative},

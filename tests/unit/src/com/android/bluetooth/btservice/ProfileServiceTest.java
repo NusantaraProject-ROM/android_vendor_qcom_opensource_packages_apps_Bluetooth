@@ -98,8 +98,8 @@ public class ProfileServiceTest {
 
         mProfiles = Config.getSupportedProfiles();
 
-        mMockAdapterService.initNative(false /* is_restricted */, false /* is_single_user_mode */);
-
+        mMockAdapterService.initNative(false /* is_restricted */, false /* is_single_user_mode */,
+                new String[0]);
         TestUtils.setAdapterService(mMockAdapterService);
         doReturn(mDatabaseManager).when(mMockAdapterService).getDatabase();
 
