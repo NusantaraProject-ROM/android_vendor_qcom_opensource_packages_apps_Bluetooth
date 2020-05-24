@@ -2195,7 +2195,9 @@ public class HeadsetService extends ProfileService {
                     getDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES);
             if (fromState != BluetoothProfile.STATE_CONNECTED
                     && toState == BluetoothProfile.STATE_CONNECTED) {
-                if (audioConnectableDevices.size() > 1 && isInbandRingingEnabled()) {
+                if (audioConnectableDevices.size() > 1 &&
+                     BluetoothHeadset.isInbandRingingSupported(this) &&
+                     !SystemProperties.getBoolean(DISABLE_INBAND_RINGING_PROPERTY, true) ) {
                     mInbandRingingRuntimeDisable = true;
                     doForEachConnectedStateMachine(
                             stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.SEND_BSIR,
