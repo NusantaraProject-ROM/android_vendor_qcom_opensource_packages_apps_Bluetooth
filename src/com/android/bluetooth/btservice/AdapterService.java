@@ -3301,7 +3301,7 @@ public class AdapterService extends Service {
         return mSilenceDeviceManager.getSilenceMode(device);
     }
 
-    boolean setPhonebookAccessPermission(BluetoothDevice device, int value) {
+    public boolean setPhonebookAccessPermission(BluetoothDevice device, int value) {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH PRIVILEGED permission");
         SharedPreferences pref = getSharedPreferences(PHONEBOOK_ACCESS_PERMISSION_PREFERENCE_FILE,
@@ -3327,7 +3327,7 @@ public class AdapterService extends Service {
                 : BluetoothDevice.ACCESS_REJECTED;
     }
 
-    boolean setMessageAccessPermission(BluetoothDevice device, int value) {
+    public boolean setMessageAccessPermission(BluetoothDevice device, int value) {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH PRIVILEGED permission");
         SharedPreferences pref = getSharedPreferences(MESSAGE_ACCESS_PERMISSION_PREFERENCE_FILE,
@@ -3353,7 +3353,7 @@ public class AdapterService extends Service {
                 : BluetoothDevice.ACCESS_REJECTED;
     }
 
-    boolean setSimAccessPermission(BluetoothDevice device, int value) {
+    public boolean setSimAccessPermission(BluetoothDevice device, int value) {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH PRIVILEGED permission");
         SharedPreferences pref =
@@ -4270,13 +4270,13 @@ public class AdapterService extends Service {
     native boolean getDevicePropertyNative(byte[] address, int type);
 
     /*package*/
-    native boolean createBondNative(byte[] address, int transport);
+    public native boolean createBondNative(byte[] address, int transport);
 
     /*package*/
     native boolean createBondOutOfBandNative(byte[] address, int transport, OobData oobData);
 
     /*package*/
-    native boolean removeBondNative(byte[] address);
+    public native boolean removeBondNative(byte[] address);
 
     /*package*/
     native boolean cancelBondNative(byte[] address);
