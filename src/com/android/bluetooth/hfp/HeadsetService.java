@@ -2207,11 +2207,6 @@ public class HeadsetService extends ProfileService {
                     && toState == BluetoothProfile.STATE_DISCONNECTED) {
                 if (audioConnectableDevices.size() <= 1 ) {
                     mInbandRingingRuntimeDisable = false;
-                    if(isInbandRingingEnabled()) {
-                        doForEachConnectedStateMachine(
-                            stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.SEND_BSIR,
-                                   1));
-                    }
                 }
                 if (device.equals(mActiveDevice)) {
                     AdapterService adapterService = AdapterService.getAdapterService();
