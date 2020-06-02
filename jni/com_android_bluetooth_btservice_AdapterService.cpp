@@ -38,6 +38,7 @@
 #include <sys/stat.h>
 
 #include <hardware/bluetooth.h>
+#include <nativehelper/JNIPlatformHelp.h>
 #include <mutex>
 
 using android::bluetooth::BluetoothSocketManagerBinderServer;
