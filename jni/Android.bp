@@ -1,5 +1,5 @@
 cc_library_shared {
-    name: "libbluetooth_jni",
+    name: "libbluetooth_qti_jni",
     compile_multilib: "first",
     srcs: [
         "bluetooth_socket_manager.cc",

@@ -33,7 +33,7 @@ public class AdapterApp extends Application {
         if (DBG) {
             Log.d(TAG, "Loading JNI Library");
         }
-        System.loadLibrary("bluetooth_jni");
+        System.loadLibrary("bluetooth_qti_jni");
     }
 
     public AdapterApp() {
