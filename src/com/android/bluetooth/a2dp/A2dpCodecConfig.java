@@ -218,7 +218,8 @@ class A2dpCodecConfig {
                     if(a2dp_offload_cap.contains("aptxadaptiver2")) {
                         int aptxaa_r2_priority;
                         try {
-                            aptxaa_r2_priority = resources.getInteger(R.integer.a2dp_source_codec_priority_max);
+                            aptxaa_r2_priority = resources.getInteger(
+                                    R.integer.a2dp_source_codec_priority_aptx_adaptive_r2);
                         } catch (NotFoundException e) {
                             aptxaa_r2_priority = value;
                         }

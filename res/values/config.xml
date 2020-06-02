@@ -92,17 +92,12 @@
          value should be unique. -->
     <integer name="a2dp_source_codec_priority_sbc">1001</integer>
     <integer name="a2dp_source_codec_priority_aac">2001</integer>
-    <integer name="a2dp_source_codec_priority_ldac">3001</integer>
     <integer name="a2dp_source_codec_priority_aptx">4001</integer>
     <integer name="a2dp_source_codec_priority_aptx_hd">5001</integer>
     <integer name="a2dp_source_codec_priority_aptx_adaptive">6001</integer>
     <integer name="a2dp_source_codec_priority_aptx_tws">7001</integer>
-    <!-- max priority is used to dynamically increase the priority
-         of codecs(mainly Aptx Adaptive) to highest value based
-         on config
-         Value of a2dp_source_codec_priority_max should be set to
-         1000 + priority of codec with highest priority-->
-    <integer name="a2dp_source_codec_priority_max">8001</integer>
+    <integer name="a2dp_source_codec_priority_aptx_adaptive_r2">8001</integer>
+    <integer name="a2dp_source_codec_priority_ldac">9001</integer>
 
     <!-- Package that is responsible for user interaction on pairing request,
          success or cancel.
