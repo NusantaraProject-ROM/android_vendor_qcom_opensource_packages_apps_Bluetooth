@@ -575,6 +575,7 @@ public class A2dpService extends ProfileService {
     private boolean connectionAllowedCheckMaxDevices(BluetoothDevice device) {
         int connected = 0;
         int tws_device = 0;
+
         // Count devices that are in the process of connecting or already connected
         synchronized (mBtA2dpLock) {
              for (A2dpStateMachine sm : mStateMachines.values()) {
@@ -597,14 +598,16 @@ public class A2dpService extends ProfileService {
         }
         Log.d(TAG,"connectionAllowedCheckMaxDevices connected = " + connected +
               "tws connected = " + tws_device);
-        synchronized (mVariableLock) {
-            if (mAdapterService != null &&  mAdapterService.isVendorIntfEnabled() &&
-                ((tws_device > 0) || mAdapterService.isTwsPlusDevice(device) ||
-                ((tws_device > 0) && connected == mMaxConnectedAudioDevices &&
-                !mAdapterService.isTwsPlusDevice(device)))) {
-                return isConnectionAllowed(device, tws_device, connected);
+        synchronized (mBtA2dpLock) {
+            Log.d(TAG, "Going to acquire mVariableLock");
+            synchronized (mVariableLock) {
+                if (mAdapterService != null &&  mAdapterService.isVendorIntfEnabled() &&
+                    ((tws_device > 0) || mAdapterService.isTwsPlusDevice(device))) {
+                    return isConnectionAllowed(device, tws_device, connected);
+                }
             }
         }
+
         if (mSetMaxConnectedAudioDevices == 1 &&
             connected == mSetMaxConnectedAudioDevices) {
             disconnectExisting = true;
