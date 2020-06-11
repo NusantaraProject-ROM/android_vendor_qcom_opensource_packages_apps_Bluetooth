@@ -38,6 +38,7 @@ import android.util.Log;
 
 import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
+import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.hid.HidHostService;
@@ -49,6 +50,7 @@ import com.android.internal.util.ArrayUtils;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 
 // Describes the phone policy
 //
@@ -97,6 +99,7 @@ class PhonePolicy {
     private static final String delayConnectTimeoutDevice[] = {"00:23:3D"}; // volkswagen carkit
     private static final String delayReducedConnectTimeoutDevice[] = {"10:4F:A8"}; //h.ear (MDR-EX750BT)
 
+    private DatabaseManager mDatabaseManager;
     private final AdapterService mAdapterService;
     private final ServiceFactory mFactory;
     private final Handler mHandler;
@@ -268,6 +271,8 @@ class PhonePolicy {
 
     PhonePolicy(AdapterService service, ServiceFactory factory) {
         mAdapterService = service;
+        mDatabaseManager = Objects.requireNonNull(mAdapterService.getDatabase(),
+                "DatabaseManager cannot be null when PhonePolicy starts");
         mFactory = factory;
         mHandler = new PhonePolicyHandler(service.getMainLooper());
     }
@@ -381,11 +386,11 @@ class PhonePolicy {
                     if (profileId == BluetoothProfile.A2DP) {
                         Log.w(TAG, "processProfileStateChanged: Calling setDisconnectionA2dp "
                                     + " for device "+ device);
-                        mAdapterService.getDatabase().setDisconnection(device);
+                        mDatabaseManager.setDisconnection(device);
                     } else if (profileId == BluetoothProfile.HEADSET) {
                         Log.w(TAG, "processProfileStateChanged: Calling setDisconnectionForHfp "
                                     + " for device "+ device);
-                        mAdapterService.getDatabase().setDisconnectionForHfp(device);
+                        mDatabaseManager.setDisconnectionForHfp(device);
                     }
                 }
                 handleAllProfilesDisconnected(device);
@@ -403,19 +408,19 @@ class PhonePolicy {
         debugLog("processActiveDeviceChanged, device=" + device + ", profile=" + profileId);
 
         if (device != null) {
-            mAdapterService.getDatabase().setConnection(device, profileId == BluetoothProfile.A2DP);
+            mDatabaseManager.setConnection(device, profileId == BluetoothProfile.A2DP);
 
             if (profileId == BluetoothProfile.HEADSET) {
                 Log.w(TAG, "processActiveDeviceChanged: Calling setConnectionForHfp for device "
                             + device);
-                mAdapterService.getDatabase().setConnectionForHfp(device);
+                mDatabaseManager.setConnectionForHfp(device);
             }
         }
     }
 
     private void processDeviceConnected(BluetoothDevice device) {
         debugLog("processDeviceConnected, device=" + device);
-        mAdapterService.getDatabase().setConnection(device, false);
+        mDatabaseManager.setConnection(device, false);
     }
 
     private boolean handleAllProfilesDisconnected(BluetoothDevice device) {
@@ -488,9 +493,9 @@ class PhonePolicy {
         if (!mAdapterService.isQuietModeEnabled()) {
             debugLog("autoConnect: Initiate auto connection on BT on...");
             final BluetoothDevice mostRecentlyActiveA2dpDevice =
-                    mAdapterService.getDatabase().getMostRecentlyConnectedA2dpDevice();
+                    mDatabaseManager.getMostRecentlyConnectedA2dpDevice();
             final BluetoothDevice mostRecentlyActiveHfpDevice =
-                    mAdapterService.getDatabase().getMostRecentlyConnectedHfpDevice();
+                    mDatabaseManager.getMostRecentlyConnectedHfpDevice();
             if (mostRecentlyActiveA2dpDevice == null && mostRecentlyActiveHfpDevice == null) {
                 errorLog("autoConnect: most recently active a2dp and hfp devices are null");
                 return;
