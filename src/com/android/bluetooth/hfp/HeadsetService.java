@@ -220,7 +220,6 @@ public class HeadsetService extends ProfileService {
         filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_PLAYING_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
-        filter.addAction(TelecomManager.ACTION_CALL_TYPE);
         registerReceiver(mHeadsetReceiver, filter);
         // Step 7: Mark service as started
 
@@ -543,13 +542,6 @@ public class HeadsetService extends ProfileService {
                     logD("Received BluetoothA2dp Connection State changed");
                     mHfpA2dpSyncInterface.updateA2DPConnectionState(intent);
                     break;
-                }
-                case TelecomManager.ACTION_CALL_TYPE: {
-                    logD("Received BluetoothHeadset action call type");
-                    synchronized (mStateMachines) {
-                        doForEachConnectedStateMachine(stateMachine -> stateMachine.sendMessage(
-                            HeadsetStateMachine.UPDATE_CALL_TYPE, intent));
-                    }
                 }
                 default:
                     Log.w(TAG, "Unknown action " + action);
@@ -2195,7 +2187,9 @@ public class HeadsetService extends ProfileService {
                     getDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES);
             if (fromState != BluetoothProfile.STATE_CONNECTED
                     && toState == BluetoothProfile.STATE_CONNECTED) {
-                if (audioConnectableDevices.size() > 1 && isInbandRingingEnabled()) {
+                if (audioConnectableDevices.size() > 1 &&
+                     BluetoothHeadset.isInbandRingingSupported(this) &&
+                     !SystemProperties.getBoolean(DISABLE_INBAND_RINGING_PROPERTY, true) ) {
                     mInbandRingingRuntimeDisable = true;
                     doForEachConnectedStateMachine(
                             stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.SEND_BSIR,

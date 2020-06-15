@@ -36,6 +36,7 @@ import android.util.Log;
 
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.Utils;
+import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.internal.annotations.VisibleForTesting;
@@ -660,14 +661,37 @@ public class HidDeviceService extends ProfileService {
     public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
         if (DBG) {
-            Log.d(TAG, "setConnectionPolicy: device " + device
-                    + " and connectionPolicy " + connectionPolicy);
+            Log.d(TAG, "Saved connectionPolicy " + device + " = " + connectionPolicy);
         }
+        AdapterService.getAdapterService().getDatabase()
+                .setProfileConnectionPolicy(device, BluetoothProfile.HID_DEVICE, connectionPolicy);
         if (connectionPolicy == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
             disconnect(device);
             return true;
         }
         return false;
+    }
+
+    /**
+     * Get the connection policy of the profile.
+     *
+     * <p> The connection policy can be any of:
+     * {@link BluetoothProfile#CONNECTION_POLICY_ALLOWED},
+     * {@link BluetoothProfile#CONNECTION_POLICY_FORBIDDEN},
+     * {@link BluetoothProfile#CONNECTION_POLICY_UNKNOWN}
+     *
+     * @param device Bluetooth device
+     * @return connection policy of the device
+     * @hide
+     */
+    public int getConnectionPolicy(BluetoothDevice device) {
+        if (device == null) {
+            throw new IllegalArgumentException("Null device");
+        }
+        enforceCallingOrSelfPermission(
+                BLUETOOTH_PRIVILEGED, "Need BLUETOOTH_PRIVILEGED permission");
+        return AdapterService.getAdapterService().getDatabase()
+                .getProfileConnectionPolicy(device, BluetoothProfile.HID_DEVICE);
     }
 
     synchronized boolean reportError(BluetoothDevice device, byte error) {

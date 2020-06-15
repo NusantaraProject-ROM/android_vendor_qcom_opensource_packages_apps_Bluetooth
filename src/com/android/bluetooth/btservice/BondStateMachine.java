@@ -240,7 +240,11 @@ final class BondStateMachine extends StateMachine {
                             break;
                         }
                         /* this is either none/bonded, remove and transition */
-                        result = !mDevices.remove(dev);
+                        if (mDevices.contains(dev)) {
+                            result = !mDevices.remove(dev);
+                        } else  {
+                            Log.w(TAG,"device already removed from mDevices");
+                        }
                         if (mDevices.isEmpty()) {
                             // Whenever mDevices is empty, then we need to
                             // set result=false. Else, we will end up adding
