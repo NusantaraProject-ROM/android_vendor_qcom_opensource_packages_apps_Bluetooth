@@ -46,7 +46,7 @@ import java.util.List;
 @VisibleForTesting
 public class HeadsetSystemInterface {
     private static final String TAG = HeadsetSystemInterface.class.getSimpleName();
-    private static final boolean DBG = false;
+    private static final boolean DBG = true;
 
     private final HeadsetService mHeadsetService;
     private final AudioManager mAudioManager;
@@ -57,7 +57,7 @@ public class HeadsetSystemInterface {
         @Override
         public void onServiceConnected(ComponentName className, IBinder service) {
             if (DBG) {
-                Log.d(TAG, "Proxy object connected");
+                Log.w(TAG, "Proxy object connected");
             }
             synchronized (HeadsetSystemInterface.this) {
                 mPhoneProxy = IBluetoothHeadsetPhone.Stub.asInterface(service);
@@ -67,7 +67,7 @@ public class HeadsetSystemInterface {
         @Override
         public void onServiceDisconnected(ComponentName className) {
             if (DBG) {
-                Log.d(TAG, "Proxy object disconnected");
+                Log.w(TAG, "Proxy object disconnected");
             }
             synchronized (HeadsetSystemInterface.this) {
                 mPhoneProxy = null;
@@ -96,10 +96,14 @@ public class HeadsetSystemInterface {
         // Bind to Telecom phone proxy service
         Intent intent = new Intent(IBluetoothHeadsetPhone.class.getName());
         intent.setComponent(resolveSystemService(mHeadsetService.getPackageManager(), 0, intent));
-        if (intent.getComponent() == null || !mHeadsetService.bindService(intent,
-                mPhoneProxyConnection, 0)) {
+        ComponentName component = intent.getComponent();
+        Log.w(TAG, "getComponent return = " + component);
+
+        boolean isBoundService = mHeadsetService.bindService(intent, mPhoneProxyConnection, 0);
+        Log.w(TAG, "Finished bindService with result = " + isBoundService);
+        if (component == null || !isBoundService) {
             // Crash the stack if cannot bind to Telecom
-            Log.wtf(TAG, "Could not bind to IBluetoothHeadsetPhone Service, intent=" + intent);
+            Log.w(TAG, "Could not bind to IBluetoothHeadsetPhone Service, intent=" + intent);
         }
     }
 
@@ -142,7 +146,7 @@ public class HeadsetSystemInterface {
     public synchronized void stop() {
         if (mPhoneProxy != null) {
             if (DBG) {
-                Log.d(TAG, "Unbinding phone proxy");
+                Log.w(TAG, "Unbinding phone proxy");
             }
             mPhoneProxy = null;
             // Synchronization should make sure unbind can be successful
