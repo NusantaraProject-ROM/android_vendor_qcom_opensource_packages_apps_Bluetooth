@@ -800,6 +800,12 @@ public class AdapterService extends Service {
         }
     }
 
+    void informTimeoutToHidl() {
+        if (isVendorIntfEnabled()) {
+            mVendor.informTimeoutToHidl();
+        }
+    }
+
     void startBrEdrCleanup(){
         mAdapterProperties.onBluetoothDisable();
         if (isVendorIntfEnabled()) {

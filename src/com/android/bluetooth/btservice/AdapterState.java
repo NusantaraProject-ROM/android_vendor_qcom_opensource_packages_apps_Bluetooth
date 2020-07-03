@@ -426,6 +426,7 @@ final class AdapterState extends StateMachine {
 
                 case BREDR_CLEANUP_TIMEOUT:
                     errorLog("Error cleaningup Bluetooth profiles (cleanup timeout)");
+                    mAdapterService.informTimeoutToHidl();
                     mAdapterService.disableProfileServices(false);
                     mAdapterService.StartHCIClose();
                     errorLog("BREDR_CLEANUP_TIMEOUT going to kill the process as part of cleanup");
@@ -491,6 +492,7 @@ final class AdapterState extends StateMachine {
                     break;
 
                 case STACK_DISABLE_TIMEOUT:
+                    mAdapterService.informTimeoutToHidl();
                     mAdapterService.disableProfileServices(true);
                     mAdapterService.StartHCIClose();
                     errorLog("STACK_DISABLE_TIMEOUT going to kill the process as part of cleanup");
