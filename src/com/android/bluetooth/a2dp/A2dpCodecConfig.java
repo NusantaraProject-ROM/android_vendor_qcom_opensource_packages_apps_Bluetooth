@@ -108,11 +108,22 @@ class A2dpCodecConfig {
             return;
         }
 
+        boolean sbc_priority = Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.SBC_HD_PRIORITY, 0) != 0;
+
         // Set the mandatory codec's priority to default, and remove the rest
         for (int i = 0; i < assigned_codec_length; i++) {
             BluetoothCodecConfig codecConfig = codecConfigArray[i];
             if (codecConfig != null && !codecConfig.isMandatoryCodec()) {
                 codecConfigArray[i] = null;
+            } else if (sbc_priority) {
+                // Rebuild SBC selectable codec with Dual Channel (SBC HD audio)
+                codecConfigArray[i] = new BluetoothCodecConfig(
+                  BluetoothCodecConfig.SOURCE_CODEC_TYPE_SBC, mA2dpSourceCodecPrioritySbc,
+                  BluetoothCodecConfig.SAMPLE_RATE_NONE,
+                  BluetoothCodecConfig.BITS_PER_SAMPLE_NONE,
+                  BluetoothCodecConfig.CHANNEL_MODE_DUAL_CHANNEL, 0 /* codecSpecific1 */,
+                  0 /* codecSpecific2 */, 0 /* codecSpecific3 */, 0 /* codecSpecific4 */);
             }
         }
 
