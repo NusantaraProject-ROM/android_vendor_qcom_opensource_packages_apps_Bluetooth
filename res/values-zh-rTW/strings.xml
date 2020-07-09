@@ -134,6 +134,7 @@
     <string name="bluetooth_disconnected" msgid="3318303728981478873">"已中斷與藍牙音訊的連線"</string>
     <string name="a2dp_sink_mbs_label" msgid="7566075853395412558">"藍牙音訊"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="8894450394309084519">"無法轉移大於 4GB 的檔案"</string>
+    <string name="bluetooth_connect_action" msgid="4009848433321657090">"使用藍牙連線"</string>
     <string name="bluetooth_rc_feat_title">"藍芽音頻瀏覽"</string>
     <string name="bluetooth_rc_feat_content">"對端支持該先進功能"</string>
     <string name="bluetooth_rc_feat_subtext">"重新配對對端設備使其支持該功能"</string>

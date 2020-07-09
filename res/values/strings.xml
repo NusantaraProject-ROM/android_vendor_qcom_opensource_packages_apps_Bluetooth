@@ -254,6 +254,7 @@
     <string name="bluetooth_disconnected">Bluetooth audio disconnected"</string>
     <string name="a2dp_sink_mbs_label">Bluetooth Audio</string>
     <string name="bluetooth_opp_file_limit_exceeded">Files bigger than 4GB cannot be transferred</string>
+    <string name="bluetooth_connect_action">Connect to Bluetooth</string>
     <!-- Bluetooth AVRCP Browsing Dialog and Notification-->
     <string name="avrcp_notification_name">BT ADVANCE FEATURE AVRCP</string>
     <string name="bluetooth_advanced_feat_description">Bluetooth Advanced Browsing Feature</string>
