@@ -591,7 +591,8 @@ public class A2dpSinkService extends ProfileService {
             mStreamingDevice = device;
             mA2dpSinkStreamHandler.obtainMessage(
                     A2dpSinkStreamHandler.SRC_STR_START).sendToTarget();
-        } else if (state == StackEvent.AUDIO_STATE_STOPPED) {
+        } else if (state == StackEvent.AUDIO_STATE_STOPPED
+                || state == StackEvent.AUDIO_STATE_REMOTE_SUSPEND) {
             mA2dpSinkStreamHandler.obtainMessage(
                     A2dpSinkStreamHandler.SRC_STR_STOP).sendToTarget();
         }
