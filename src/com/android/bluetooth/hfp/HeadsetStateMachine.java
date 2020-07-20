@@ -1604,6 +1604,7 @@ public class HeadsetStateMachine extends StateMachine {
             // has SCO, dont need to update teh Audio Manager
 
             setAudioParameters();
+            mSystemInterface.getAudioManager().setBluetoothScoOn(true);
 
             broadcastStateTransitions();
         }
@@ -1708,6 +1709,7 @@ public class HeadsetStateMachine extends StateMachine {
                         //any devices before letting Audio knowing about it
                         stateLogI("TWS+ device and other SCO is still Active, no BT_SCO=off");
                     } else {
+                        mSystemInterface.getAudioManager().setBluetoothScoOn(false);
                         if(mSystemInterface.getAudioManager().isSpeakerphoneOn()) {
                             mSystemInterface.getAudioManager().setSpeakerphoneOn(true);
                         }
@@ -1791,6 +1793,7 @@ public class HeadsetStateMachine extends StateMachine {
                          //any devices before letting Audio knowing about it
                          stateLogI("TWS+ device and other SCO is still Active, no BT_SCO=off");
                     } else {
+                        mSystemInterface.getAudioManager().setBluetoothScoOn(false);
                         if(mSystemInterface.getAudioManager().isSpeakerphoneOn()) {
                             mSystemInterface.getAudioManager().setSpeakerphoneOn(true);
                         }
