@@ -681,30 +681,33 @@ public class A2dpService extends ProfileService {
         if (bondedDevices == null) {
             return devices;
         }
-        synchronized (mStateMachines) {
-            for (BluetoothDevice device : bondedDevices) {
-                synchronized (mVariableLock) {
-                    if (mAdapterService != null && !ArrayUtils.contains(mAdapterService.getRemoteUuids(device),
+
+        for (BluetoothDevice device : bondedDevices) {
+            synchronized (mVariableLock) {
+                if (mAdapterService != null &&
+                    !ArrayUtils.contains(mAdapterService.getRemoteUuids(device),
                                                  BluetoothUuid.A2DP_SINK)) {
-                        continue;
-                    }
-                }
-                int connectionState = BluetoothProfile.STATE_DISCONNECTED;
-                synchronized (mBtA2dpLock) {
-                    A2dpStateMachine sm = mStateMachines.get(device);
-                    if (sm != null) {
-                        connectionState = sm.getConnectionState();
-                    }
-                }
-                for (int state : states) {
-                    if (connectionState == state) {
-                        devices.add(device);
-                        break;
-                    }
+                    continue;
                 }
             }
-            return devices;
+            int connectionState = BluetoothProfile.STATE_DISCONNECTED;
+            synchronized (mStateMachines) {
+                Log.d(TAG," getDevicesMatchingConnectionStates() Acquired mStateMachines lock:");
+                A2dpStateMachine sm = mStateMachines.get(device);
+                if (sm != null) {
+                    connectionState = sm.getConnectionState();
+                }
+                Log.d(TAG," getDevicesMatchingConnectionStates() Released mStateMachines lock:");
+            }
+            Log.d(TAG," getDevicesMatchingConnectionStates() connectionState: " + connectionState);
+            for (int state : states) {
+                if (connectionState == state) {
+                    devices.add(device);
+                    break;
+                }
+            }
         }
+        return devices;
     }
 
     /**
@@ -752,6 +755,7 @@ public class A2dpService extends ProfileService {
 
     private void removeActiveDevice(boolean forceStopPlayingAudio) {
         BluetoothDevice previousActiveDevice = mActiveDevice;
+        Log.d(TAG," removeActiveDevice(): forceStopPlayingAudio:  " + forceStopPlayingAudio);
 
         // Make sure volume has been store before device been remove from active.
         storeActiveDeviceVolume();
@@ -857,6 +861,7 @@ public class A2dpService extends ProfileService {
     public boolean setActiveDevice(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
 
+        Log.d(TAG, "setActiveDevice: " + device );
         synchronized (mBtA2dpLock) {
             if(Objects.equals(device, mActiveDevice)) {
                 Log.e(TAG, "setActiveDevice(" + device + "): already set to active ");
