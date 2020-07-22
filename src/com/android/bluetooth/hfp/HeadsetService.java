@@ -129,8 +129,6 @@ public class HeadsetService extends ProfileService {
     private boolean mIsTwsPlusEnabled = false;
     private boolean mIsTwsPlusShoEnabled = false;
     private vendorhfservice  mVendorHf;
-    private Context mContext = null;
-    private AudioServerStateCallback mServerStateCallback = new AudioServerStateCallback();
 
     @Override
     public IProfileServiceBinder initBinder() {
@@ -228,11 +226,6 @@ public class HeadsetService extends ProfileService {
             mVendorHf.init();
             mVendorHf.enableSwb(isSwbEnabled());
         }
-
-        Log.d(TAG, "registering audio server state callback");
-        mContext = getApplicationContext();
-        Executor exec = mContext.getMainExecutor();
-        mSystemInterface.getAudioManager().setAudioServerStateCallback(exec, mServerStateCallback);
 
         Log.i(TAG, " HeadsetService Started ");
         return true;
@@ -429,30 +422,6 @@ public class HeadsetService extends ProfileService {
                         "State machine not found for stack event: " + stackEvent);
             }
             stateMachine.sendMessage(HeadsetStateMachine.STACK_EVENT, stackEvent);
-        }
-    }
-
-    private class AudioServerStateCallback extends AudioManager.AudioServerStateCallback {
-        @Override
-        public void onAudioServerDown() {
-            Log.d(TAG, "notifying onAudioServerDown");
-        }
-
-        @Override
-        public void onAudioServerUp() {
-            Log.d(TAG, "notifying onAudioServerUp");
-            if (isAudioOn()) {
-                Log.d(TAG, "onAudioServerUp: Audio is On, Notify HeadsetStateMachine");
-                synchronized (mStateMachines) {
-                    for (HeadsetStateMachine stateMachine : mStateMachines.values()) {
-                        if (stateMachine.getAudioState()
-                                == BluetoothHeadset.STATE_AUDIO_CONNECTED) {
-                            stateMachine.onAudioServerUp();
-                            break;
-                        }
-                    }
-                }
-            }
         }
     }
 
