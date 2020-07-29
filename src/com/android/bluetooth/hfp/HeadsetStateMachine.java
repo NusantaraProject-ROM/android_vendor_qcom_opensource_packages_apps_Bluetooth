@@ -1366,6 +1366,7 @@ public class HeadsetStateMachine extends StateMachine {
                 // devices that previously successfully connected.
                 removeDeferredMessages(CONNECT);
             }
+            broadcastStateTransitions();
             if ((mPrevState == mAudioOn) || (mPrevState == mAudioDisconnecting)||
                  (mPrevState == mAudioConnecting)) {
                 if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging())) {
@@ -1374,7 +1375,6 @@ public class HeadsetStateMachine extends StateMachine {
                         mHeadsetService.getHfpA2DPSyncInterface().releaseA2DP(mDevice);
                 }
             }
-            broadcastStateTransitions();
         }
 
         @Override
