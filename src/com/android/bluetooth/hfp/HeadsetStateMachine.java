@@ -1592,16 +1592,13 @@ public class HeadsetStateMachine extends StateMachine {
     class MyAudioServerStateCallback extends AudioManager.AudioServerStateCallback {
         @Override
         public void onAudioServerDown() {
-            Log.i(TAG, "onAudioServerDown");
+            logi("onAudioServerDown");
         }
 
         @Override
         public void onAudioServerUp() {
-            Log.i(TAG, "onAudioSeverUp: restoring audio parameters");
-            mSystemInterface.getAudioManager().setBluetoothScoOn(false);
-            mSystemInterface.getAudioManager().setParameters("A2dpSuspended=true");
+            logi("onAudioServerUp restoring audio parameters");
             setAudioParameters();
-            mSystemInterface.getAudioManager().setBluetoothScoOn(true);
         }
     }
 
@@ -1920,6 +1917,14 @@ public class HeadsetStateMachine extends StateMachine {
         }
         mDeviceSilenced = silence;
         return true;
+    }
+
+    public void onAudioServerUp() {
+        Log.i(TAG, "onAudioSeverUp: restore audio parameters");
+        mSystemInterface.getAudioManager().setBluetoothScoOn(false);
+        mSystemInterface.getAudioManager().setParameters("A2dpSuspended=true");
+        setAudioParameters();
+        mSystemInterface.getAudioManager().setBluetoothScoOn(true);
     }
 
     /*
