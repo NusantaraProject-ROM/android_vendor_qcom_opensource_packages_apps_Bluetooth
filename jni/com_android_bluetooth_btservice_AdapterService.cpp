@@ -703,6 +703,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 static bool initNative(JNIEnv* env, jobject obj, jboolean isGuest,
                        jboolean isNiapMode,
                        int configCompareResult,
+                       jboolean isAtvDevice,
                        jobjectArray initFlags) {
   ALOGV("%s", __func__);
 
@@ -733,7 +734,8 @@ static bool initNative(JNIEnv* env, jobject obj, jboolean isGuest,
   int ret = sBluetoothInterface->init(&sBluetoothCallbacks,
                                       isGuest == JNI_TRUE ? 1 : 0,
                                       isNiapMode == JNI_TRUE ? 1 : 0,
-                                      configCompareResult, flags, false);
+                                      configCompareResult, flags,
+                                      isAtvDevice == JNI_TRUE ? 1 : 0);
 
   for (int i = 0; i < flagCount; i++) {
     env->ReleaseStringUTFChars(flagObjs[i], flags[i]);
@@ -1290,7 +1292,7 @@ static jbyteArray obfuscateAddressNative(JNIEnv* env, jobject obj,
 static JNINativeMethod sMethods[] = {
     /* name, signature, funcPtr */
     {"classInitNative", "()V", (void*)classInitNative},
-    {"initNative", "(ZZI[Ljava/lang/String;)Z", (void*)initNative},
+    {"initNative", "(ZZIZ[Ljava/lang/String;)Z", (void*)initNative},
     {"cleanupNative", "()V", (void*)cleanupNative},
     {"enableNative", "()Z", (void*)enableNative},
     {"disableNative", "()Z", (void*)disableNative},
