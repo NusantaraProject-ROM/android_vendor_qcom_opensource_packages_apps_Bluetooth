@@ -1789,10 +1789,6 @@ public class AdapterService extends Service {
             if (service == null) {
                 return false;
             }
-            if ((getState() == BluetoothAdapter.STATE_BLE_ON) ||
-                (getState() == BluetoothAdapter.STATE_BLE_TURNING_ON)) {
-                service.onBrEdrDown();
-            }
             return service.factoryReset();
         }
 
