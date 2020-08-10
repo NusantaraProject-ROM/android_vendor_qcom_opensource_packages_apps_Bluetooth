@@ -297,6 +297,9 @@ public class HeadsetService extends ProfileService {
             }
             mStateMachines.clear();
         }
+        // Reset A2DP suspend flag if bluetooth is turned off while call is already in progress
+        Log.d(TAG,"setting A2dpSuspended=false during BT off");
+        mSystemInterface.getAudioManager().setParameters("A2dpSuspended=false");
         // Step 4: Destroy native interface
         mNativeInterface.cleanup();
         // Step 3: Destroy system interface
