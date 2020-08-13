@@ -46,6 +46,7 @@ import java.util.UUID;
     public boolean isQApp;
     public boolean hasNetworkSettingsPermission;
     public boolean hasNetworkSetupWizardPermission;
+    public List<String> associatedDevices;
 
     public AppScanStats stats = null;
 

@@ -106,6 +106,8 @@ import java.util.UUID;
         /** Whether the calling app has the network setup wizard permission */
         boolean mHasNetworkSetupWizardPermission;
 
+        public List<String> mAssociatedDevices;
+
         /** Internal callback info queue, waiting to be send on congestion clear */
         private List<CallbackInfo> mCongestionQueue = new ArrayList<CallbackInfo>();
 
