@@ -740,7 +740,21 @@ public class HeadsetService extends ProfileService {
             if (service == null) {
                 return false;
             }
-            return service.disconnectAudio();
+            else {
+                   if(!service.mVirtualCallStarted &&
+                      !service.mVoiceRecognitionStarted &&
+                      service.mSystemInterface.getHeadsetPhoneState().getNumActiveCall() == 0 &&
+                      service.mSystemInterface.getHeadsetPhoneState().getNumHeldCall() == 0  &&
+                      (service.mSystemInterface.getHeadsetPhoneState().getCallState() ==
+                       HeadsetHalConstants.CALL_STATE_IDLE ||
+                       service.mSystemInterface.getHeadsetPhoneState().getCallState() ==
+                       HeadsetHalConstants.CALL_STATE_DISCONNECTED)) {
+                       Log.d(TAG, "There are no active/held calls, call setup or VR,"
+                          + "ignoring disconnectAudio.");
+                       return true;
+                   }
+                   return service.disconnectAudio();
+                 }
         }
 
         @Override
