@@ -1352,6 +1352,12 @@ public class HeadsetService extends ProfileService {
                         + " is not active, use active device " + mActiveDevice + " instead");
                 device = mActiveDevice;
             }
+            if(device == null) {
+               Log.w(TAG, "Requested device is null. resume A2DP");
+               mVoiceRecognitionStarted = false;
+               mHfpA2dpSyncInterface.releaseA2DP(null);
+               return false;
+            }
             if (mAdapterService.isTwsPlusDevice(device) &&
                     !isAudioConnected(device)) {
                 BluetoothDevice peerDevice = getTwsPlusConnectedPeer(device);
