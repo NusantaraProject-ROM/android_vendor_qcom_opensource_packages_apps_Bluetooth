@@ -456,8 +456,13 @@ public class AtPhonebook {
 
         if (ancillaryPhonebook) {
             try {
-                pbr.cursor = mContentResolver.query(Calls.CONTENT_URI, CALLS_PROJECTION, where,
-                          null, Calls.DEFAULT_SORT_ORDER + " LIMIT " + MAX_PHONEBOOK_SIZE);
+                Bundle queryArgs = new Bundle();
+                queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SELECTION, where);
+                queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER,
+                                       Calls.DEFAULT_SORT_ORDER);
+                queryArgs.putInt(ContentResolver.QUERY_ARG_LIMIT, MAX_PHONEBOOK_SIZE);
+                pbr.cursor = mContentResolver.query(Calls.CONTENT_URI, CALLS_PROJECTION,
+                                   queryArgs, null);
                 if (pbr.cursor == null) {
                     return false;
                 }
@@ -476,8 +481,11 @@ public class AtPhonebook {
             if (simPhonebook) {
                 final Uri mysimUri = Uri.parse(SIM_URI);
                 try {
+                    Bundle queryArgs = new Bundle();
+                    queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SELECTION, where);
+                    queryArgs.putInt(ContentResolver.QUERY_ARG_LIMIT, MAX_PHONEBOOK_SIZE);
                     pbr.cursor = mContentResolver.query(mysimUri, SIM_PROJECTION,
-                            where, null, null);
+                                   queryArgs, null);
                     Log.i(TAG, "querySIMcontactbook where " + where + " uri :" + mysimUri);
                     if (pbr.cursor == null) {
                         Log.i(TAG, "querying phone contacts on sim returned null.");
@@ -499,8 +507,11 @@ public class AtPhonebook {
             } else {
                 final Uri phoneContentUri = DevicePolicyUtils.getEnterprisePhoneUri(mContext);
                 try {
+                    Bundle queryArgs = new Bundle();
+                    queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SELECTION, where);
+                    queryArgs.putInt(ContentResolver.QUERY_ARG_LIMIT, MAX_PHONEBOOK_SIZE);
                     pbr.cursor = mContentResolver.query(phoneContentUri, PHONES_PROJECTION,
-                            where, null, Phone.NUMBER + " LIMIT " + MAX_PHONEBOOK_SIZE);
+                                   queryArgs, null);
                     Log.i(TAG, "queryPhonebook where " + where + " uri :" + phoneContentUri);
                     if (pbr.cursor == null) {
                         Log.i(TAG, "querying phone contacts on memory returned null.");
