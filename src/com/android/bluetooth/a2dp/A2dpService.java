@@ -1315,7 +1315,7 @@ public class A2dpService extends ProfileService {
      * active A2DP Bluetooth device.
      * @hide
      */
-    public void enableOptionalCodecs(BluetoothDevice device) {
+    public boolean enableOptionalCodecs(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         if (DBG) {
             Log.d(TAG, "enableOptionalCodecs(" + device + ")");
@@ -1325,18 +1325,24 @@ public class A2dpService extends ProfileService {
         }
         if (device == null) {
             Log.e(TAG, "enableOptionalCodecs: Invalid device");
-            return;
+            return false;
         }
         if (getSupportsOptionalCodecs(device) != BluetoothA2dp.OPTIONAL_CODECS_SUPPORTED) {
             Log.e(TAG, "enableOptionalCodecs: No optional codecs");
-            return;
+            return false;
         }
         BluetoothCodecStatus codecStatus = getCodecStatus(device);
         if (codecStatus == null) {
             Log.e(TAG, "enableOptionalCodecs: Codec status is null");
-            return;
+            return false;
         }
-        mA2dpCodecConfig.enableOptionalCodecs(device, codecStatus.getCodecConfig());
+        boolean ret = mA2dpCodecConfig.enableOptionalCodecs(device, codecStatus.getCodecConfig());
+        if (!ret) {
+            Log.e(TAG, "enableOptionalCodecs: failed, broadcast current codec config again");
+            broadcastCodecConfig(device, codecStatus);
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -1346,7 +1352,7 @@ public class A2dpService extends ProfileService {
      * active A2DP Bluetooth device.
      * @hide
      */
-    public void disableOptionalCodecs(BluetoothDevice device) {
+    public boolean disableOptionalCodecs(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         if (DBG) {
             Log.d(TAG, "disableOptionalCodecs(" + device + ")");
@@ -1356,18 +1362,24 @@ public class A2dpService extends ProfileService {
         }
         if (device == null) {
             Log.e(TAG, "disableOptionalCodecs: Invalid device");
-            return;
+            return false;
         }
         if (getSupportsOptionalCodecs(device) != BluetoothA2dp.OPTIONAL_CODECS_SUPPORTED) {
             Log.e(TAG, "disableOptionalCodecs: No optional codecs");
-            return;
+            return false;
         }
         BluetoothCodecStatus codecStatus = getCodecStatus(device);
         if (codecStatus == null) {
             Log.e(TAG, "disableOptionalCodecs: Codec status is null");
-            return;
+            return false;
         }
-        mA2dpCodecConfig.disableOptionalCodecs(device, codecStatus.getCodecConfig());
+        boolean ret = mA2dpCodecConfig.disableOptionalCodecs(device, codecStatus.getCodecConfig());
+        if (!ret) {
+            Log.e(TAG, "disbleOptionalCodecs: failed, broadcast current codec config again");
+            broadcastCodecConfig(device, codecStatus);
+            return false;
+        }
+        return true;
     }
 
     public int getSupportsOptionalCodecs(BluetoothDevice device) {
@@ -2042,7 +2054,22 @@ public class A2dpService extends ProfileService {
             if (service == null) {
                 return;
             }
-            service.enableOptionalCodecs(device);
+            boolean ret = service.enableOptionalCodecs(device);
+            if (ret) {
+                return;
+            }
+
+            BluetoothCodecStatus codecStatus = getCodecStatus(device);
+            if (codecStatus == null || codecStatus.getCodecConfig() == null) {
+                Log.e(TAG, "enableOptionalCodecs: Codec status is null");
+                return;
+            }
+            int enabled = getOptionalCodecsEnabled(device);
+            if (enabled == BluetoothA2dp.OPTIONAL_CODECS_PREF_ENABLED
+                && codecStatus.getCodecConfig().isMandatoryCodec()) {
+                Log.e(TAG, "enableOptionalCodecs: failed, setOptionalCodecsEnabled to false");
+                setOptionalCodecsEnabled(device, BluetoothA2dp.OPTIONAL_CODECS_PREF_DISABLED);
+            }
         }
 
         @Override
@@ -2051,7 +2078,22 @@ public class A2dpService extends ProfileService {
             if (service == null) {
                 return;
             }
-            service.disableOptionalCodecs(device);
+            boolean ret = service.disableOptionalCodecs(device);
+            if (ret) {
+                return;
+            }
+
+            BluetoothCodecStatus codecStatus = getCodecStatus(device);
+            if (codecStatus == null || codecStatus.getCodecConfig() == null) {
+                Log.e(TAG, "disableOptionalCodecs: Codec status is null");
+                return;
+            }
+            int enabled = getOptionalCodecsEnabled(device);
+            if (enabled == BluetoothA2dp.OPTIONAL_CODECS_PREF_DISABLED
+                && !codecStatus.getCodecConfig().isMandatoryCodec()) {
+                Log.e(TAG, "disableOptionalCodecs: failed, setOptionalCodecsEnabled to true");
+                setOptionalCodecsEnabled(device, BluetoothA2dp.OPTIONAL_CODECS_PREF_ENABLED);
+            }
         }
 
         public int supportsOptionalCodecs(BluetoothDevice device) {
