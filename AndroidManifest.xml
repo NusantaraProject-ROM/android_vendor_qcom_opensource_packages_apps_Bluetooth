@@ -74,7 +74,7 @@
     <uses-permission android:name="com.android.email.permission.ACCESS_PROVIDER"/>
     <uses-permission android:name="com.android.email.permission.READ_ATTACHMENT"/>
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
-    <uses-permission android:name="android.permission.NETWORK_SETTINGS" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.OVERRIDE_WIFI_CONFIG" />
     <uses-permission android:name="android.permission.READ_DEVICE_CONFIG"/>
     <!-- Allows application to write to internal media storage -->
