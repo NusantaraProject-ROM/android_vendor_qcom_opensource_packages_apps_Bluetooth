@@ -386,7 +386,6 @@ public class A2dpSinkService extends ProfileService {
                     *  of streaming device to PRIORITY_AUTO_CONNECT */
                    avrcpService.onDeviceUpdated(device);
                    setConnectionPolicy(otherDevice, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
-                   setConnectionPolicy(device, BluetoothProfile.PRIORITY_AUTO_CONNECT);
                    break;
                }
            }

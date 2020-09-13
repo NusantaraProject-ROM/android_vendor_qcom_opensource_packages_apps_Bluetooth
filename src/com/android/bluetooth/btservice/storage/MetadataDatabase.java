@@ -312,10 +312,14 @@ public abstract class MetadataDatabase extends RoomDatabase {
             try {
                 database.execSQL("ALTER TABLE metadata ADD COLUMN `is_active_hfp_device` "
                         + "INTEGER NOT NULL DEFAULT 0");
+                database.execSQL("ALTER TABLE metadata ADD COLUMN `is_connected_a2dpsrc_device` "
+                        + "INTEGER NOT NULL DEFAULT 0");
+
             } catch (SQLException ex) {
                 // Check if user has new schema, but is just missing the version update
                 Cursor cursor = database.query("SELECT * FROM metadata");
-                if (cursor == null || cursor.getColumnIndex("is_active_hfp_device") == -1) {
+                if (cursor == null || (cursor.getColumnIndex("is_active_hfp_device") == -1) ||
+                    (cursor.getColumnIndex("is_connected_a2dpsrc_device") == -1)) {
                     throw ex;
                 }
             }

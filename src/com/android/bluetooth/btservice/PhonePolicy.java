@@ -374,7 +374,7 @@ class PhonePolicy {
                         mHeadsetRetrySet.remove(device);
                         break;
                     case BluetoothProfile.A2DP_SINK:
-                        //setAutoConnectForA2dpSource(device);
+                        mDatabaseManager.setConnectionForA2dpSrc(device);
                         break;
                 }
                 connectOtherProfile(device);
@@ -391,6 +391,11 @@ class PhonePolicy {
                         Log.w(TAG, "processProfileStateChanged: Calling setDisconnectionForHfp "
                                     + " for device "+ device);
                         mDatabaseManager.setDisconnectionForHfp(device);
+                    }
+                    if (profileId == BluetoothProfile.A2DP_SINK) {
+                        Log.w(TAG, "processProfileStateChanged: Calling setDisconnectionForA2dpSrc "
+                                    + " for device "+ device);
+                        mDatabaseManager.setDisconnectionForA2dpSrc(device);
                     }
                 }
                 handleAllProfilesDisconnected(device);
@@ -496,8 +501,14 @@ class PhonePolicy {
                     mDatabaseManager.getMostRecentlyConnectedA2dpDevice();
             final BluetoothDevice mostRecentlyActiveHfpDevice =
                     mDatabaseManager.getMostRecentlyConnectedHfpDevice();
-            if (mostRecentlyActiveA2dpDevice == null && mostRecentlyActiveHfpDevice == null) {
-                errorLog("autoConnect: most recently active a2dp and hfp devices are null");
+            final BluetoothDevice mostRecentlyConnectedA2dpSrcDevice =
+                    mDatabaseManager.getMostRecentlyConnectedA2dpSrcDevice();
+            debugLog("autoConnect: mostRecentlyConnectedA2dpSrcDevice: " +
+                                                mostRecentlyConnectedA2dpSrcDevice);
+            if (mostRecentlyActiveA2dpDevice == null &&
+                mostRecentlyActiveHfpDevice == null &&
+                mostRecentlyConnectedA2dpSrcDevice == null) {
+                errorLog("autoConnect: most recently active a2dp, hfp and A2dpSrc devices are null");
                 return;
             }
 
@@ -527,6 +538,12 @@ class PhonePolicy {
                     debugLog("autoConnectHF: 2nd pair TWS+ EB");
                     autoConnectHeadset(peerTwsDevice);
                 }
+            }
+            //Initiate auto-connection for latest connected a2dp source device.
+            if (mostRecentlyConnectedA2dpSrcDevice != null) {
+               debugLog("autoConnect: attempting auto connection for recently"+
+                        " connected A2DP Source device:" + mostRecentlyConnectedA2dpSrcDevice);
+               autoConnectA2dpSink(mostRecentlyConnectedA2dpSrcDevice);
             }
         } else {
             debugLog("autoConnect() - BT is in quiet mode. Not initiating auto connections");
@@ -565,27 +582,21 @@ class PhonePolicy {
         }
     }
 
-    private void autoConnectA2dpSink() {
+    private void autoConnectA2dpSink(BluetoothDevice device) {
         A2dpSinkService a2dpSinkService = A2dpSinkService.getA2dpSinkService();
         if (a2dpSinkService == null) {
             errorLog("autoConnectA2dpSink, service is null");
             return;
         }
-        BluetoothDevice bondedDevices[] =  mAdapterService.getBondedDevices();
-        if (bondedDevices == null) {
-            errorLog("autoConnectA2dpSink, bondedDevices are null");
-            return;
+
+         int priority = a2dpSinkService.getConnectionPolicy(device);
+         debugLog("autoConnectA2dpSink, attempt auto-connect with device " + device
+                 + " priority " + priority);
+        if (priority == BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
+            debugLog("autoConnectA2dpSink() - Connecting A2DP Sink with " + device.toString());
+            a2dpSinkService.connect(device);
         }
 
-        for (BluetoothDevice device : bondedDevices) {
-             int priority = a2dpSinkService.getConnectionPolicy(device);
-             debugLog("autoConnectA2dpSink, attempt auto-connect with device " + device
-                     + " priority " + priority);
-            if (priority == BluetoothProfile.PRIORITY_AUTO_CONNECT) {
-                debugLog("autoConnectA2dpSink() - Connecting A2DP Sink with " + device.toString());
-                a2dpSinkService.connect(device);
-            }
-        }
     }
 
     private boolean isConnectTimeoutDelayApplicable(BluetoothDevice device){
