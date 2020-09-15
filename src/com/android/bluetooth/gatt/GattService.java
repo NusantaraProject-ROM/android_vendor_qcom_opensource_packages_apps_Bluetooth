@@ -45,14 +45,18 @@ import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
+import android.companion.ICompanionDeviceManager;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.ParcelUuid;
 import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.WorkSource;
+import android.provider.Settings;
 import android.util.Log;
 
 import com.android.bluetooth.BluetoothMetricsProto;
@@ -181,6 +185,8 @@ public class GattService extends ProfileService {
     private PeriodicScanManager mPeriodicScanManager;
     private ScanManager mScanManager;
     private AppOpsManager mAppOps;
+    private ICompanionDeviceManager mCompanionManager;
+    private String mExposureNotificationPackage;
 
     private static GattService sGattService;
     private boolean mNativeAvailable;
@@ -206,9 +212,14 @@ public class GattService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "start()");
         }
+        mExposureNotificationPackage = getString(R.string.exposure_notification_package);
+        Settings.Global.putInt(
+                getContentResolver(), "bluetooth_sanitized_exposure_notification_supported", 1);
         initializeNative();
         mNativeAvailable = true;
         mAdapter = BluetoothAdapter.getDefaultAdapter();
+        mCompanionManager = ICompanionDeviceManager.Stub.asInterface(
+                ServiceManager.getService(Context.COMPANION_DEVICE_SERVICE));
         mAppOps = getSystemService(AppOpsManager.class);
         mAdvertiseManager = new AdvertiseManager(this, AdapterService.getAdapterService());
         mAdvertiseManager.start();
@@ -966,6 +977,56 @@ public class GattService extends ProfileService {
      * Callback functions - CLIENT
      *************************************************************************/
 
+    // EN format defined here:
+    // https://blog.google/documents/70/Exposure_Notification_-_Bluetooth_Specification_v1.2.2.pdf
+    private static final byte[] EXPOSURE_NOTIFICATION_FLAGS_PREAMBLE = new byte[] {
+        // size 2, flag field, flags byte (value is not important)
+        (byte) 0x02, (byte) 0x01
+    };
+    private static final int EXPOSURE_NOTIFICATION_FLAGS_LENGTH = 0x2 + 1;
+    private static final byte[] EXPOSURE_NOTIFICATION_PAYLOAD_PREAMBLE = new byte[] {
+        // size 3, complete 16 bit UUID, EN UUID
+        (byte) 0x03, (byte) 0x03, (byte) 0x6F, (byte) 0xFD,
+        // size 23, data for 16 bit UUID, EN UUID
+        (byte) 0x17, (byte) 0x16, (byte) 0x6F, (byte) 0xFD,
+        // ...payload
+    };
+    private static final int EXPOSURE_NOTIFICATION_PAYLOAD_LENGTH = 0x03 + 0x17 + 2;
+
+    private static boolean arrayStartsWith(byte[] array, byte[] prefix) {
+        if (array.length < prefix.length) {
+            return false;
+        }
+        for (int i = 0; i < prefix.length; i++) {
+            if (prefix[i] != array[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    ScanResult getSanitizedExposureNotification(ScanResult result) {
+        ScanRecord record = result.getScanRecord();
+        // Remove the flags part of the payload, if present
+        if (record.getBytes().length > EXPOSURE_NOTIFICATION_FLAGS_LENGTH
+                && arrayStartsWith(record.getBytes(), EXPOSURE_NOTIFICATION_FLAGS_PREAMBLE)) {
+            record = ScanRecord.parseFromBytes(
+                    Arrays.copyOfRange(
+                            record.getBytes(),
+                            EXPOSURE_NOTIFICATION_FLAGS_LENGTH,
+                            record.getBytes().length));
+        }
+
+        if (record.getBytes().length != EXPOSURE_NOTIFICATION_PAYLOAD_LENGTH) {
+            return null;
+        }
+        if (!arrayStartsWith(record.getBytes(), EXPOSURE_NOTIFICATION_PAYLOAD_PREAMBLE)) {
+            return null;
+        }
+
+        return new ScanResult(null, 0, 0, 0, 0, 0, result.getRssi(), 0, record, 0);
+    }
+
     void onScanResult(int eventType, int addressType, String address, int primaryPhy,
             int secondaryPhy, int advertisingSid, int txPower, int rssi, int periodicAdvInt,
             byte[] advData) {
@@ -1024,9 +1085,25 @@ public class GattService extends ProfileService {
                             txPower, rssi, periodicAdvInt,
                             ScanRecord.parseFromBytes(scanRecordData),
                             SystemClock.elapsedRealtimeNanos());
-            // Do not report if location mode is OFF or the client has no location permission
-            if (!hasScanResultPermission(client) || !matchesFilters(client, result)) {
+            boolean hasPermission = hasScanResultPermission(client);
+            if (!hasPermission) {
+                for (String associatedDevice : client.associatedDevices) {
+                    if (associatedDevice.equalsIgnoreCase(address)) {
+                        hasPermission = true;
+                        break;
+                    }
+                }
+            }
+            if (!hasPermission || !matchesFilters(client, result)) {
                 continue;
+            }
+
+            if (!hasPermission && client.eligibleForSanitizedExposureNotification) {
+                ScanResult sanitized = getSanitizedExposureNotification(result);
+                if (sanitized != null) {
+                    hasPermission = true;
+                    result = sanitized;
+                }
             }
 
             if ((settings.getCallbackType() & ScanSettings.CALLBACK_TYPE_ALL_MATCHES) == 0) {
@@ -1950,6 +2027,26 @@ public class GattService extends ProfileService {
         mScanManager.unregisterScanner(scannerId);
     }
 
+    private List<String> getAssociatedDevices(String callingPackage, UserHandle userHandle) {
+        if (mCompanionManager == null) {
+            return new ArrayList<String>();
+        }
+        long identity = Binder.clearCallingIdentity();
+        try {
+            return mCompanionManager.getAssociations(
+                    callingPackage, userHandle.getIdentifier());
+        } catch (SecurityException se) {
+            // Not an app with associated devices
+        } catch (RemoteException re) {
+            Log.e(TAG, "Cannot reach companion device service", re);
+        } catch (Exception e) {
+            Log.e(TAG, "Cannot check device associations for " + callingPackage, e);
+        } finally {
+            Binder.restoreCallingIdentity(identity);
+        }
+        return new ArrayList<String>();
+    }
+
     void startScan(int scannerId, ScanSettings settings, List<ScanFilter> filters,
             List<List<ResultStorageDescriptor>> storages, String callingPackage,
             @Nullable String callingFeatureId) {
@@ -1964,6 +2061,8 @@ public class GattService extends ProfileService {
         final ScanClient scanClient = new ScanClient(scannerId, settings, filters, storages);
         scanClient.userHandle = UserHandle.of(UserHandle.getCallingUserId());
         mAppOps.checkPackage(Binder.getCallingUid(), callingPackage);
+        scanClient.eligibleForSanitizedExposureNotification =
+                callingPackage.equals(mExposureNotificationPackage);
         scanClient.isQApp = Utils.isQApp(this, callingPackage);
         if (scanClient.isQApp) {
             scanClient.hasLocationPermission = Utils.checkCallerHasFineLocation(this, mAppOps,
@@ -1976,6 +2075,7 @@ public class GattService extends ProfileService {
                 Utils.checkCallerHasNetworkSettingsPermission(this);
         scanClient.hasNetworkSetupWizardPermission =
                 Utils.checkCallerHasNetworkSetupWizardPermission(this);
+        scanClient.associatedDevices = getAssociatedDevices(callingPackage, scanClient.userHandle);
 
         AppScanStats app = mScannerMap.getAppScanStatsById(scannerId);
         if (app != null) {
@@ -2010,6 +2110,8 @@ public class GattService extends ProfileService {
         ScannerMap.App app = mScannerMap.add(uuid, null, null, piInfo, this);
         app.mUserHandle = UserHandle.of(UserHandle.getCallingUserId());
         mAppOps.checkPackage(Binder.getCallingUid(), callingPackage);
+        app.mEligibleForSanitizedExposureNotification =
+                callingPackage.equals(mExposureNotificationPackage);
         app.mIsQApp = Utils.isQApp(this, callingPackage);
         try {
             if (app.mIsQApp) {
@@ -2027,6 +2129,7 @@ public class GattService extends ProfileService {
                 Utils.checkCallerHasNetworkSettingsPermission(this);
         app.mHasNetworkSetupWizardPermission =
                 Utils.checkCallerHasNetworkSetupWizardPermission(this);
+        app.mAssociatedDevices = getAssociatedDevices(callingPackage, app.mUserHandle);
         mScanManager.registerScanner(uuid);
     }
 
@@ -2037,8 +2140,11 @@ public class GattService extends ProfileService {
         scanClient.hasLocationPermission = app.hasLocationPermission;
         scanClient.userHandle = app.mUserHandle;
         scanClient.isQApp = app.mIsQApp;
+        scanClient.eligibleForSanitizedExposureNotification =
+                app.mEligibleForSanitizedExposureNotification;
         scanClient.hasNetworkSettingsPermission = app.mHasNetworkSettingsPermission;
         scanClient.hasNetworkSetupWizardPermission = app.mHasNetworkSetupWizardPermission;
+        scanClient.associatedDevices = app.mAssociatedDevices;
 
         AppScanStats scanStats = mScannerMap.getAppScanStatsById(scannerId);
         if (scanStats != null) {
