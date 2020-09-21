@@ -503,20 +503,29 @@ class PhonePolicy {
                     mDatabaseManager.getMostRecentlyConnectedHfpDevice();
             final BluetoothDevice mostRecentlyConnectedA2dpSrcDevice =
                     mDatabaseManager.getMostRecentlyConnectedA2dpSrcDevice();
+            debugLog("autoConnect: mostRecentlyActiveA2dpDevice: " +
+                                                mostRecentlyActiveA2dpDevice);
+            debugLog("autoConnect: mostRecentlyActiveHfpDevice: " +
+                                                mostRecentlyActiveHfpDevice);
             debugLog("autoConnect: mostRecentlyConnectedA2dpSrcDevice: " +
                                                 mostRecentlyConnectedA2dpSrcDevice);
+            //Initiate auto-connection for latest connected a2dp source device.
+            if (mostRecentlyConnectedA2dpSrcDevice != null) {
+               debugLog("autoConnect: attempting auto connection for recently"+
+                        " connected A2DP Source device:" + mostRecentlyConnectedA2dpSrcDevice);
+               autoConnectA2dpSink(mostRecentlyConnectedA2dpSrcDevice);
+            }
             if (mostRecentlyActiveA2dpDevice == null &&
-                mostRecentlyActiveHfpDevice == null &&
-                mostRecentlyConnectedA2dpSrcDevice == null) {
-                errorLog("autoConnect: most recently active a2dp, hfp and A2dpSrc devices are null");
+                mostRecentlyActiveHfpDevice == null) {
+                errorLog("autoConnect: most recently active a2dp and hfp devices are null");
                 return;
             }
 
             BluetoothDevice device = (mostRecentlyActiveA2dpDevice != null) ?
                     mostRecentlyActiveA2dpDevice : mostRecentlyActiveHfpDevice;
 
-            BluetoothDevice peerTwsDevice = (mAdapterService != null &&
-                    mAdapterService.isTwsPlusDevice(device)) ?
+            BluetoothDevice peerTwsDevice = (mAdapterService != null && device != null
+                    && mAdapterService.isTwsPlusDevice(device)) ?
                     mAdapterService.getTwsPlusPeerDevice(device) : null;
 
             if (mostRecentlyActiveA2dpDevice != null) {
@@ -538,12 +547,6 @@ class PhonePolicy {
                     debugLog("autoConnectHF: 2nd pair TWS+ EB");
                     autoConnectHeadset(peerTwsDevice);
                 }
-            }
-            //Initiate auto-connection for latest connected a2dp source device.
-            if (mostRecentlyConnectedA2dpSrcDevice != null) {
-               debugLog("autoConnect: attempting auto connection for recently"+
-                        " connected A2DP Source device:" + mostRecentlyConnectedA2dpSrcDevice);
-               autoConnectA2dpSink(mostRecentlyConnectedA2dpSrcDevice);
             }
         } else {
             debugLog("autoConnect() - BT is in quiet mode. Not initiating auto connections");
