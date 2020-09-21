@@ -939,15 +939,6 @@ public class A2dpService extends ProfileService {
                 Log.d(TAG, "Switch A2DP devices to " + device + " from " + mActiveDevice);
             }
             storeActiveDeviceVolume();
-            if(previousActiveDevice != null && !tws_switch && isA2dpPlaying(previousActiveDevice)) {
-                synchronized (mAudioManagerLock) {
-                    if (mAudioManager != null && !mAudioManager.isStreamMute(AudioManager.STREAM_MUSIC)) {
-                        mAudioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC,
-                                AudioManager.ADJUST_MUTE,
-                                mAudioManager.FLAG_BLUETOOTH_ABS_VOLUME);
-                    }
-                }
-            }
             Log.w(TAG, "setActiveDevice coming out of mutex lock");
         }
 
