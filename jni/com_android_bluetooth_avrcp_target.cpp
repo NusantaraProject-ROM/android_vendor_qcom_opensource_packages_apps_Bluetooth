@@ -461,6 +461,12 @@ static PlayStatus getCurrentPlayStatus() {
   if (!sCallbackEnv.valid() || !mJavaInterface) return PlayStatus();
 
   PlayStatus status;
+  /* Fix for below KW issue
+   * 'status.position' is used uninitialized in this function.
+   * 'status.duration' is used uninitialized in this function.
+   * 'status.state' is used uninitialized in this function.
+   */
+  memset(&status, 0, sizeof(PlayStatus));
   jobject playStatus =
       sCallbackEnv->CallObjectMethod(mJavaInterface, method_getPlaybackStatus);
 
