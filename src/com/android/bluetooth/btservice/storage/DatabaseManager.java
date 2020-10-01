@@ -605,6 +605,42 @@ public class DatabaseManager {
     }
 
     /**
+     * Updates the time this device was last connected with A2dpSource
+     *
+     * @param device is the remote bluetooth device for which we are setting the connection time
+     */
+    public void setConnectionForA2dpSrc(BluetoothDevice device) {
+        synchronized (mMetadataCache) {
+            Log.d(TAG, "setConnectionForA2dpSrc: device=" + device);
+            if (device == null) {
+                Log.e(TAG, "setConnectionForA2dpSrc: device is null");
+                return;
+            }
+
+            resetConnectedA2dpSrcDevice();
+
+            String address = device.getAddress();
+
+            if (!mMetadataCache.containsKey(address)) {
+                Log.w(TAG, "setConnectionForA2dpSrc: Creating new metadata entry for device: "
+                        + device);
+                createMetadataA2dpSrc(address);
+                return;
+            }
+            // Updates last_active_time to the current counter value and increments the counter
+            Metadata metadata = mMetadataCache.get(address);
+            metadata.last_active_time = MetadataDatabase.sCurrentConnectionNumber++;
+
+            // Only update is_connected_a2dpsrc_device if a a2dpsrc device is connected
+            metadata.is_connected_a2dpsrc_device = true;
+
+            Log.d(TAG, "Updating last connected time for device: " + device + " to "
+                    + metadata.last_active_time);
+            updateDatabase(metadata);
+        }
+    }
+
+    /**
      * Sets is_active_device to false if currently true for device
      *
      * @param device is the remote bluetooth device with which we have disconnected a2dp
@@ -661,6 +697,34 @@ public class DatabaseManager {
     }
 
     /**
+     * Sets is_connected_a2dpsrc_device to false if currently true for device
+     *
+     * @param device is the remote bluetooth device with which we have disconnected A2dpSrc
+     */
+    public void setDisconnectionForA2dpSrc(BluetoothDevice device) {
+        synchronized (mMetadataCache) {
+            if (device == null) {
+                Log.e(TAG, "setDisconnectionForA2dpSrc: device is null");
+                return;
+            }
+
+            String address = device.getAddress();
+
+            if (!mMetadataCache.containsKey(address)) {
+                return;
+            }
+            // Updates last connected time to either current time if connected or -1 if disconnected
+            Metadata metadata = mMetadataCache.get(address);
+            if (metadata.is_connected_a2dpsrc_device) {
+                metadata.is_connected_a2dpsrc_device = false;
+                Log.w(TAG, "setDisconnectionForA2dpSrc: Set setDisconnectionForA2dpSrc to false" +
+                                     " for device: " + device);
+                updateDatabase(metadata);
+            }
+        }
+    }
+
+    /**
      * Remove a2dpActiveDevice from the current active device in the connection order table
      */
     private void resetActiveA2dpDevice() {
@@ -688,6 +752,24 @@ public class DatabaseManager {
                 if (metadata.is_active_hfp_device) {
                     Log.d(TAG, "resetActiveHfpDevice");
                     metadata.is_active_hfp_device = false;
+                    updateDatabase(metadata);
+                }
+            }
+        }
+    }
+
+    /**
+     * Remove ConnectedA2dpSrc device from the current connetced device
+     * in the connection order table
+     */
+    private void resetConnectedA2dpSrcDevice() {
+        synchronized (mMetadataCache) {
+            Log.d(TAG, "resetConnectedA2dpSrcDevice()");
+            for (Map.Entry<String, Metadata> entry : mMetadataCache.entrySet()) {
+                Metadata metadata = entry.getValue();
+                if (metadata.is_connected_a2dpsrc_device) {
+                    Log.d(TAG, "resetConnectedA2dpSrcDevice");
+                    metadata.is_connected_a2dpsrc_device = false;
                     updateDatabase(metadata);
                 }
             }
@@ -765,6 +847,29 @@ public class DatabaseManager {
         return null;
     }
 
+    /**
+     * Gets the last Connected A2dpSource device
+     *
+     * @return the most recently connected a2dpsource device or null
+     * if the last a2dpsource device was null
+     */
+    public BluetoothDevice getMostRecentlyConnectedA2dpSrcDevice() {
+        synchronized (mMetadataCache) {
+            for (Map.Entry<String, Metadata> entry : mMetadataCache.entrySet()) {
+                Metadata metadata = entry.getValue();
+                if (metadata.is_connected_a2dpsrc_device) {
+                    try {
+                        return BluetoothAdapter.getDefaultAdapter().getRemoteDevice(
+                                metadata.getAddress());
+                    } catch (IllegalArgumentException ex) {
+                        Log.d(TAG, "getMostRecentlyConnectedA2dpSrcDevice: Invalid address for "
+                                + "device " + metadata.getAddress());
+                    }
+                }
+            }
+        }
+        return null;
+    }
 
     /**
      *
@@ -879,6 +984,18 @@ public class DatabaseManager {
         else
            data = new Metadata(address);
         data.is_active_hfp_device = true;
+        mMetadataCache.put(address, data);
+        updateDatabase(data);
+    }
+
+    void createMetadataA2dpSrc(String address) {
+        // TODO: cross check the logic
+        Metadata data;
+        if (mMetadataCache.containsKey(address))
+           data = mMetadataCache.get(address);
+        else
+           data = new Metadata(address);
+        data.is_connected_a2dpsrc_device = true;
         mMetadataCache.put(address, data);
         updateDatabase(data);
     }

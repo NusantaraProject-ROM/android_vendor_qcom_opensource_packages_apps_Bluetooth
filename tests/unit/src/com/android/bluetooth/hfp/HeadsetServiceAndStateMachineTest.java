@@ -168,6 +168,7 @@ public class HeadsetServiceAndStateMachineTest {
         doReturn(MAX_HEADSET_CONNECTIONS).when(mAdapterService).getMaxConnectedAudioDevices();
         doReturn(new ParcelUuid[]{BluetoothUuid.HFP}).when(mAdapterService)
                 .getRemoteUuids(any(BluetoothDevice.class));
+        doReturn(mDatabaseManager).when(mAdapterService).getDatabase();
         // We cannot mock HeadsetObjectsFactory.getInstance() with Mockito.
         // Hence we need to use reflection to call a private method to
         // initialize properly the HeadsetObjectsFactory.sInstance field.
@@ -279,7 +280,6 @@ public class HeadsetServiceAndStateMachineTest {
     @Test
     public void testConnectFromApi() {
         BluetoothDevice device = TestUtils.getTestDevice(mAdapter, 0);
-        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
         when(mDatabaseManager.getProfileConnectionPolicy(device, BluetoothProfile.HEADSET))
                 .thenReturn(BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
         mBondedDevices.add(device);
@@ -323,7 +323,6 @@ public class HeadsetServiceAndStateMachineTest {
     @Test
     public void testUnbondDevice_disconnectBeforeUnbond() {
         BluetoothDevice device = TestUtils.getTestDevice(mAdapter, 0);
-        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
         when(mDatabaseManager.getProfileConnectionPolicy(device, BluetoothProfile.HEADSET))
                 .thenReturn(BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
         mBondedDevices.add(device);
@@ -367,7 +366,6 @@ public class HeadsetServiceAndStateMachineTest {
     @Test
     public void testUnbondDevice_disconnectAfterUnbond() {
         BluetoothDevice device = TestUtils.getTestDevice(mAdapter, 0);
-        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
         when(mDatabaseManager.getProfileConnectionPolicy(device, BluetoothProfile.HEADSET))
                 .thenReturn(BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
         mBondedDevices.add(device);
@@ -1153,7 +1151,6 @@ public class HeadsetServiceAndStateMachineTest {
     }
 
     private void connectTestDevice(BluetoothDevice device) {
-        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
         when(mDatabaseManager.getProfileConnectionPolicy(device, BluetoothProfile.HEADSET))
                 .thenReturn(BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
         // Make device bonded

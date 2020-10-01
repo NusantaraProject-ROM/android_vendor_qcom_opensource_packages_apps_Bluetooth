@@ -52,12 +52,14 @@ import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.btservice.ProfileService;
+import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 public class BluetoothMapService extends ProfileService {
@@ -116,6 +118,7 @@ public class BluetoothMapService extends ProfileService {
     private static final int MAS_ID_SMS_MMS = 0;
 
     private BluetoothAdapter mAdapter;
+    private DatabaseManager mDatabaseManager;
 
     private BluetoothMnsObexClient mBluetoothMnsObexClient = null;
 
@@ -621,8 +624,11 @@ public class BluetoothMapService extends ProfileService {
         if (DEBUG) {
             Log.d(TAG, "Saved connectionPolicy " + device + " = " + connectionPolicy);
         }
-        AdapterService.getAdapterService().getDatabase()
-                .setProfileConnectionPolicy(device, BluetoothProfile.MAP, connectionPolicy);
+
+        if (!mDatabaseManager.setProfileConnectionPolicy(device, BluetoothProfile.MAP,
+                 connectionPolicy)) {
+            return false;
+        }
         if (connectionPolicy == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
             disconnect(device);
         }
@@ -644,7 +650,7 @@ public class BluetoothMapService extends ProfileService {
     int getConnectionPolicy(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH_PRIVILEGED permission");
-        return AdapterService.getAdapterService().getDatabase()
+        return mDatabaseManager
                 .getProfileConnectionPolicy(device, BluetoothProfile.MAP);
     }
 
@@ -658,6 +664,10 @@ public class BluetoothMapService extends ProfileService {
         if (DEBUG) {
             Log.d(TAG, "start()");
         }
+
+        mDatabaseManager = Objects.requireNonNull(AdapterService.getAdapterService().getDatabase(),
+                "DatabaseManager cannot be null when MapService starts");
+
         HandlerThread thread = new HandlerThread("BluetoothMapHandler");
         thread.start();
         Looper looper = thread.getLooper();
