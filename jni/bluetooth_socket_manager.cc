@@ -30,8 +30,8 @@ namespace bluetooth {
 
 Status BluetoothSocketManagerBinderServer::connectSocket(
     const BluetoothDevice& device, int32_t type,
-    const std::unique_ptr<ParcelUuid>& uuid, int32_t port, int32_t flag,
-    std::unique_ptr<ParcelFileDescriptor>* _aidl_return) {
+    const std::optional<ParcelUuid>& uuid, int32_t port, int32_t flag,
+    std::optional<ParcelFileDescriptor>* _aidl_return) {
   if (!isCallerActiveUserOrManagedProfile()) {
     LOG(WARNING) << "connectSocket() - Not allowed for non-active users";
     return Status::fromExceptionCode(
@@ -56,15 +56,14 @@ Status BluetoothSocketManagerBinderServer::connectSocket(
     return Status::ok();
   }
 
-  _aidl_return->reset(
-      new ParcelFileDescriptor(android::base::unique_fd(socket_fd)));
+  _aidl_return->emplace(android::base::unique_fd(socket_fd));
   return Status::ok();
 }
 
 Status BluetoothSocketManagerBinderServer::createSocketChannel(
-    int32_t type, const std::unique_ptr<::android::String16>& serviceName,
-    const std::unique_ptr<ParcelUuid>& uuid, int32_t port, int32_t flag,
-    std::unique_ptr<ParcelFileDescriptor>* _aidl_return) {
+    int32_t type, const std::optional<::android::String16>& serviceName,
+    const std::optional<ParcelUuid>& uuid, int32_t port, int32_t flag,
+    std::optional<ParcelFileDescriptor>* _aidl_return) {
   if (!isCallerActiveUserOrManagedProfile()) {
     LOG(WARNING) << "createSocketChannel() - Not allowed for non-active users";
     return Status::fromExceptionCode(
@@ -96,8 +95,7 @@ Status BluetoothSocketManagerBinderServer::createSocketChannel(
     return Status::ok();
   }
 
-  _aidl_return->reset(
-      new ParcelFileDescriptor(android::base::unique_fd(socket_fd)));
+  _aidl_return->emplace(android::base::unique_fd(socket_fd));
   return Status::ok();
 }
 
