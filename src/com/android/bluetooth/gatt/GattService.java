@@ -723,7 +723,7 @@ public class GattService extends ProfileService {
         @Override
         public void leConnectionUpdate(int clientIf, String address,
                 int minConnectionInterval, int maxConnectionInterval,
-                int slaveLatency, int supervisionTimeout,
+                int peripheralLatency, int supervisionTimeout,
                 int minConnectionEventLen, int maxConnectionEventLen,
                 AttributionSource attributionSource) {
             GattService service = getService();
@@ -731,7 +731,7 @@ public class GattService extends ProfileService {
                 return;
             }
             service.leConnectionUpdate(clientIf, address, minConnectionInterval,
-                                       maxConnectionInterval, slaveLatency,
+                                       maxConnectionInterval, peripheralLatency,
                                        supervisionTimeout, minConnectionEventLen,
                                        maxConnectionEventLen);
         }
@@ -2949,7 +2949,7 @@ public class GattService extends ProfileService {
         int minInterval;
         int maxInterval;
 
-        // Slave latency
+        // Peripheral latency
         int latency;
 
         // Link supervision timeout is measured in N * 10ms
@@ -2987,7 +2987,7 @@ public class GattService extends ProfileService {
     }
 
     void leConnectionUpdate(int clientIf, String address, int minInterval,
-                            int maxInterval, int slaveLatency,
+                            int maxInterval, int peripheralLatency,
                             int supervisionTimeout, int minConnectionEventLen,
                             int maxConnectionEventLen) {
         if (!Utils.checkConnectPermissionForPreflight(this)) {
@@ -2996,14 +2996,14 @@ public class GattService extends ProfileService {
 
         if (DBG) {
             Log.d(TAG, "leConnectionUpdate() - address=" + address + ", intervals="
-                        + minInterval + "/" + maxInterval + ", latency=" + slaveLatency
+                        + minInterval + "/" + maxInterval + ", latency=" + peripheralLatency
                         + ", timeout=" + supervisionTimeout + "msec" + ", min_ce="
                         + minConnectionEventLen + ", max_ce=" + maxConnectionEventLen);
 
 
         }
         gattConnectionParameterUpdateNative(clientIf, address, minInterval, maxInterval,
-                                            slaveLatency, supervisionTimeout,
+                                            peripheralLatency, supervisionTimeout,
                                             minConnectionEventLen, maxConnectionEventLen);
     }
 
