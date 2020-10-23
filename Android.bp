@@ -33,7 +33,10 @@ java_library {
 android_app {
     name: "Bluetooth",
 
-    defaults: ["btadva_java_defaults"],
+    defaults: [
+        "btadva_java_defaults",
+        "platform_app_defaults",
+    ],
     srcs: [
         "src/**/*.java",
         ":vendor_qcom_opensource_commonsys_bluetooth_ext_packages_apps_bluetooth_ext",
