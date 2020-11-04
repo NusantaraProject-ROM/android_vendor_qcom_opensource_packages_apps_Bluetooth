@@ -655,7 +655,7 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler
             Log.d(TAG, "onClose isHandover :" + isHandover);
         }
         if (isHandover) {
-            BluetoothOppManager.getInstance(mContext).removeWhitelist(destination);
+            BluetoothOppManager.getInstance(mContext).removeAcceptlist(destination);
         }
         releaseWakeLocks();
         mBluetoothOppService.acceptNewConnections();
