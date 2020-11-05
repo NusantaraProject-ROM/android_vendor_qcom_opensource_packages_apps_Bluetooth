@@ -4210,6 +4210,31 @@ public class AdapterService extends Service {
     }
 
     private static final String GD_CORE_FLAG = "INIT_gd_core";
+    private static final String GD_ADVERTISING_FLAG = "INIT_gd_advertising";
+    private static final String GD_HCI_FLAG = "INIT_gd_hci";
+    private static final String GD_CONTROLLER_FLAG = "INIT_gd_controller";
+    private static final String GD_ACL_FLAG = "INIT_gd_acl";
+    /**
+     * Logging flags logic (only applies to DEBUG and VERBOSE levels):
+     * if LOG_TAG in LOGGING_DEBUG_DISABLED_FOR_TAGS_FLAG:
+     *   DO NOT LOG
+     * else if LOG_TAG in LOGGING_DEBUG_ENABLED_FOR_TAGS_FLAG:
+     *   DO LOG
+     * else if LOGGING_DEBUG_ENABLED_FOR_ALL_FLAG:
+     *   DO LOG
+     * else:
+     *   DO NOT LOG
+     */
+    private static final String LOGGING_DEBUG_ENABLED_FOR_ALL_FLAG =
+            "INIT_logging_debug_enabled_for_all";
+    // String flags
+    // Comma separated tags
+    private static final String LOGGING_DEBUG_ENABLED_FOR_TAGS_FLAG =
+            "INIT_logging_debug_enabled_for_tags";
+    private static final String LOGGING_DEBUG_DISABLED_FOR_TAGS_FLAG =
+            "INIT_logging_debug_disabled_for_tags";
+    private static final String BTAA_HCI_LOG_FLAG = "INIT_btaa_hci";
+
     private String[] getInitFlags() {
         ArrayList<String> initFlags = new ArrayList<>();
         if (DeviceConfig.getBoolean(DeviceConfig.NAMESPACE_BLUETOOTH, GD_CORE_FLAG, false)) {
