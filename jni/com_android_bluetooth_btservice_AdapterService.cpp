@@ -1290,7 +1290,7 @@ static jbyteArray obfuscateAddressNative(JNIEnv* env, jobject obj,
 static JNINativeMethod sMethods[] = {
     /* name, signature, funcPtr */
     {"classInitNative", "()V", (void*)classInitNative},
-    {"initNative", "(ZZ[Ljava/lang/String;I)Z", (void*)initNative},
+    {"initNative", "(ZZI[Ljava/lang/String;)Z", (void*)initNative},
     {"cleanupNative", "()V", (void*)cleanupNative},
     {"enableNative", "()Z", (void*)enableNative},
     {"disableNative", "()Z", (void*)disableNative},
