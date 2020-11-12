@@ -50,7 +50,7 @@ android_app {
     optimize: {
         enabled: false,
     },
-    required: ["libbluetooth"],
+    required: ["libbluetooth_qti"],
 
     proto: {
         type: "micro",
