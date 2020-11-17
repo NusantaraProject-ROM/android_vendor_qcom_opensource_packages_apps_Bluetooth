@@ -196,20 +196,20 @@ public class BluetoothOppManager {
         return false;
     }
 
-    synchronized void removeWhitelist(String address) {
-        Log.d(TAG, " removeWhitelist :" + address);
+    synchronized void removeAcceptlist(String address) {
+        Log.d(TAG, " removeAcceptlist :" + address);
         if (address == null) {
             return;
         }
         // Remove any existing entries
-        for (Iterator<Pair<String, Long>> iter = mWhitelist.iterator(); iter.hasNext(); ) {
+        for (Iterator<Pair<String, Long>> iter = mAcceptlist.iterator(); iter.hasNext(); ) {
             Pair<String, Long> entry = iter.next();
             if (entry.first.equals(address)) {
                 iter.remove();
-                Log.i(TAG," removeWhitelist device found removed ");
+                Log.i(TAG," removeAcceptlist device found removed ");
             }
         }
-        Log.d(TAG," removeWhitelist END :");
+        Log.d(TAG," removeAcceptlist END :");
     }
 
 
