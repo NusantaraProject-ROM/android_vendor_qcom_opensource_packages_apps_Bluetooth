@@ -200,7 +200,7 @@ public class AdapterService extends Service {
 
     private static final int CONTROLLER_ENERGY_UPDATE_TIMEOUT_MILLIS = 30;
     private static final int DELAY_A2DP_SLEEP_MILLIS = 100;
-
+    private static final int TYPE_BREDR = 100;
     private final ArrayList<DiscoveringPackage> mDiscoveringPackages = new ArrayList<>();
 
     static {
@@ -2378,6 +2378,9 @@ public class AdapterService extends Service {
 
             return service.startClockSync();
         }
+
+        @Override
+        public int getDeviceType(BluetoothDevice device) { return TYPE_BREDR; }
 
         @Override
         public void dump(FileDescriptor fd, String[] args) {
