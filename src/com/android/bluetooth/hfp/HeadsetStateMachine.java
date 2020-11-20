@@ -125,6 +125,7 @@ public class HeadsetStateMachine extends StateMachine {
     static final int CS_CALL_STATE_CHANGED_ACTIVE = 23;
     static final int A2DP_STATE_CHANGED = 24;
     static final int RESUME_A2DP = 26;
+    static final int AUDIO_SERVER_UP = 27;
 
     static final int STACK_EVENT = 101;
     private static final int CLCC_RSP_TIMEOUT = 104;
@@ -1673,6 +1674,10 @@ public class HeadsetStateMachine extends StateMachine {
                 case INTENT_SCO_VOLUME_CHANGED:
                     processIntentScoVolume((Intent) message.obj, mDevice);
                     break;
+                case AUDIO_SERVER_UP:
+                    stateLogD("AUDIO_SERVER_UP event");
+                    processAudioServerUp();
+                    break;
                 case STACK_EVENT:
                     HeadsetStackEvent event = (HeadsetStackEvent) message.obj;
                     stateLogD("STACK_EVENT: " + event);
@@ -1891,7 +1896,7 @@ public class HeadsetStateMachine extends StateMachine {
         return true;
     }
 
-    public void onAudioServerUp() {
+    private void processAudioServerUp() {
         Log.i(TAG, "onAudioSeverUp: restore audio parameters");
         mSystemInterface.getAudioManager().setBluetoothScoOn(false);
         mSystemInterface.getAudioManager().setParameters("A2dpSuspended=true");
@@ -3077,6 +3082,8 @@ public class HeadsetStateMachine extends StateMachine {
                 return "CLCC_RSP_TIMEOUT";
             case CONNECT_TIMEOUT:
                 return "CONNECT_TIMEOUT";
+            case AUDIO_SERVER_UP:
+                return "AUDIO_SERVER_UP";
             default:
                 return "UNKNOWN(" + what + ")";
         }
