@@ -57,6 +57,7 @@ import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.IBluetoothConnectionCallback;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -65,6 +66,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.ParcelUuid;
+import android.os.RemoteException;
 import android.util.Log;
 
 import com.android.bluetooth.BluetoothStatsLog;
@@ -776,6 +778,22 @@ final class RemoteDevices {
                     | Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
             intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
             sAdapterService.sendBroadcast(intent, sAdapterService.BLUETOOTH_PERM);
+
+            synchronized (sAdapterService.getBluetoothConnectionCallbacks()) {
+                Set<IBluetoothConnectionCallback> bluetoothConnectionCallbacks =
+                        sAdapterService.getBluetoothConnectionCallbacks();
+                for (IBluetoothConnectionCallback callback : bluetoothConnectionCallbacks) {
+                    try {
+                        if (connectionState == BluetoothAdapter.STATE_CONNECTED) {
+                            callback.onDeviceConnected(device);
+                        } else {
+                            callback.onDeviceDisconnected(device);
+                        }
+                    } catch (RemoteException ex) {
+                        Log.e(TAG, "RemoteException in calling IBluetoothConnectionCallback");
+                    }
+                }
+            }
         } else {
             Log.e(TAG, "aclStateChangeCallback intent is null. deviceBondState: "
                     + device.getBondState());
