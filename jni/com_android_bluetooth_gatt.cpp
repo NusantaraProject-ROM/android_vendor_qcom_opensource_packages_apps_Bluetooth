@@ -2232,9 +2232,11 @@ static void onSyncStarted(int reg_id, uint8_t status, uint16_t sync_handle,
     ALOGE("mPeriodicScanCallbacksObj is NULL. Return.");
     return;
   }
+  ScopedLocalRef<jstring> addr(sCallbackEnv.get(),
+                                 bdaddr2newjstr(sCallbackEnv.get(), &address));
 
   sCallbackEnv->CallVoidMethod(mPeriodicScanCallbacksObj, method_onSyncStarted,
-                               reg_id, sync_handle, sid, address_type, address,
+                               reg_id, sync_handle, sid, address_type, addr.get(),
                                phy, interval, status);
 }
 
@@ -2280,7 +2282,7 @@ static void startSyncNative(JNIEnv* env, jobject object, jint sid,
                               base::Bind(&onSyncLost));
 }
 
-static void stopSyncNative(int sync_handle) {
+static void stopSyncNative(JNIEnv* env, jobject object, jint sync_handle) {
   if (!sGattIf) return;
 
   sGattIf->scanner->StopSync(sync_handle);
