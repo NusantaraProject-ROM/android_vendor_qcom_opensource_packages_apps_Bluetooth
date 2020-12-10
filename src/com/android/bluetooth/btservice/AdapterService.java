@@ -4291,6 +4291,8 @@ public class AdapterService extends Service {
     }
 
     private boolean isPowerbackRequired() {
+
+/*
         try {
 
             WifiManager mWifiManager = (WifiManager)getSystemService(Context.WIFI_SERVICE);
@@ -4307,6 +4309,7 @@ public class AdapterService extends Service {
         } catch(SecurityException e) {
             debugLog(e.toString());
         }
+*/
         return false;
    }
 
