@@ -4337,12 +4337,9 @@ public class AdapterService extends Service {
 
             WifiManager mWifiManager = (WifiManager)getSystemService(Context.WIFI_SERVICE);
             final WifiConfiguration config = mWifiManager.getWifiApConfiguration();
-            if ((mWifiManager != null) && (mWifiManager.isWifiEnabled() ||
+            if ((mWifiManager != null) && ((mWifiManager.isWifiEnabled() ||
                 ((mWifiManager.getWifiApState() == WifiManager.WIFI_AP_STATE_ENABLED) &&
-                ((config != null) && ((config.apBand == WifiConfiguration.AP_BAND_5GHZ) ||
-                (config.apBand == WifiConfiguration.AP_BAND_ANY) ||
-                (config.apBand == WifiConfiguration.AP_BAND_DUAL)))))) {
-
+                (config.apBand == WifiConfiguration.AP_BAND_5GHZ))))) {
                 return true;
             }
             return false;
