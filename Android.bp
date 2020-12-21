@@ -21,29 +21,13 @@ java_defaults {
     ],
 }
 
-soong_config_module_type_import {
-    from: "device/qcom/qssi/Android.bp",
-    module_types: ["aosp_vs_qva_java_defaults"],
-}
-
-aosp_vs_qva_java_defaults {
-    name: "framework_wifi_impl_default",
-    soong_config_variables: {
-        aosp_or_qva: {
-            qva: {
-                // order matters: classes in framework-wifi are resolved before framework, meaning
-                // @hide APIs in framework-wifi are resolved before @SystemApi stubs in framework
-                libs: ["framework-wifi.impl"],
-            }
-        }
-    }
-}
-
 java_defaults {
      name: "BT-wifi-vendor-hide-access-defaults",
      sdk_version: "core_platform", // tests can use @CorePlatformApi's
-     defaults: ["framework_wifi_impl_default"],
      libs: [
+        // order matters: classes in framework-wifi are resolved before framework, meaning
+        // @hide APIs in framework-wifi are resolved before @SystemApi stubs in framework
+        "framework-wifi.impl",
         "framework",
 
         // if sdk_version="" this gets automatically included, but here we need to add manually.
