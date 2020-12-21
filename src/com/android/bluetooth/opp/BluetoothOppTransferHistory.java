@@ -166,8 +166,8 @@ public class BluetoothOppTransferHistory extends Activity
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        int id = item.getItemId();
-        if (id == R.id.transfer_menu_clear_all) {
+        switch (item.getItemId()) {
+            case R.id.transfer_menu_clear_all:
                 promptClearList();
                 return true;
         }
@@ -181,12 +181,13 @@ public class BluetoothOppTransferHistory extends Activity
             return true;
         }
         mTransferCursor.moveToPosition(mContextMenuPosition);
-        int id = item.getItemId();
-        if (id == R.id.transfer_menu_open) {
+        switch (item.getItemId()) {
+            case R.id.transfer_menu_open:
                 openCompleteTransfer();
                 updateNotificationWhenBtDisabled();
                 return true;
-        } else if (id == R.id.transfer_menu_clear) {
+
+            case R.id.transfer_menu_clear:
                 int sessionId = mTransferCursor.getInt(mIdColumnId);
                 Uri contentUri = Uri.parse(BluetoothShare.CONTENT_URI + "/" + sessionId);
                 BluetoothOppUtility.updateVisibilityToHidden(this, contentUri);
