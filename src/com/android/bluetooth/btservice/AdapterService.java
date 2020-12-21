@@ -175,6 +175,7 @@ public class AdapterService extends Service {
             "com.android.bluetooth.btservice.action.STATE_CHANGED";
     public static final String EXTRA_ACTION = "action";
     public static final int PROFILE_CONN_REJECTED = 2;
+    public static final int  SOFT_AP_BAND_DUAL = 1 << 3;
 
     private static final String ACTION_ALARM_WAKEUP =
             "com.android.bluetooth.btservice.action.ALARM_WAKEUP";
@@ -201,6 +202,7 @@ public class AdapterService extends Service {
     private static final int CONTROLLER_ENERGY_UPDATE_TIMEOUT_MILLIS = 30;
     private static final int DELAY_A2DP_SLEEP_MILLIS = 100;
     private static final int TYPE_BREDR = 100;
+
     private final ArrayList<DiscoveringPackage> mDiscoveringPackages = new ArrayList<>();
 
     static {
@@ -4252,13 +4254,21 @@ public class AdapterService extends Service {
     }
 
     private boolean isPowerbackRequired() {
+
         try {
 
             WifiManager mWifiManager = (WifiManager)getSystemService(Context.WIFI_SERVICE);
             final SoftApConfiguration config = mWifiManager.getSoftApConfiguration();
+
+            if (config != null)
+                    Log.d(TAG, "Soft AP is on band: " + config.getBand());
+
             if ((mWifiManager != null) && ((mWifiManager.isWifiEnabled() ||
                 ((mWifiManager.getWifiApState() == WifiManager.WIFI_AP_STATE_ENABLED) &&
-                (config.getBand() == SoftApConfiguration.BAND_5GHZ))))) {
+                (config != null) &&
+                (((config.getBand() & SoftApConfiguration.BAND_5GHZ) != 0) ||
+                ((config.getBand() & SoftApConfiguration.BAND_6GHZ) != 0) ||
+                ((config.getBand() & SOFT_AP_BAND_DUAL) !=0 )))))) {
                 return true;
             }
             return false;
