@@ -458,7 +458,7 @@ public class HeadsetService extends ProfileService {
                     for (HeadsetStateMachine stateMachine : mStateMachines.values()) {
                         if (stateMachine.getAudioState()
                                 == BluetoothHeadset.STATE_AUDIO_CONNECTED) {
-                            stateMachine.onAudioServerUp();
+                            stateMachine.sendMessage(HeadsetStateMachine.AUDIO_SERVER_UP);
                             break;
                         }
                     }
