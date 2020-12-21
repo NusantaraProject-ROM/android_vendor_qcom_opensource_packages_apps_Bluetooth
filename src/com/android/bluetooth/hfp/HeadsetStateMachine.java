@@ -44,6 +44,7 @@ import android.os.Build;
 
 import com.android.bluetooth.BluetoothStatsLog;
 import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.btservice.InteropUtil;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.State;
@@ -152,17 +153,6 @@ public class HeadsetStateMachine extends StateMachine {
     private int CS_CALL_ACTIVE_DELAY_TIME_MSEC = 10;
     private static final int INCOMING_CALL_IND_DELAY = 200;
     private static final int MAX_RETRY_CONNECT_COUNT = 2;
-    // Blacklist remote device addresses to send incoimg call indicators with delay of 200ms
-    private static final String [] BlacklistDeviceAddrToDelayCallInd =
-                                                               {"00:15:83", /* Beiqi Carkit */
-                                                                "2a:eb:00", /* BIAC Carkit */
-                                                                "30:53:00", /* BIAC series */
-                                                                "00:17:53", /* ADAYO Carkit */
-                                                                "40:ef:4c", /* Road Rover Carkit */
-                                                                "00:07:04", /* Tiguan RNS315 */
-                                                               };
-    private static final String [] BlacklistDeviceForSendingVOIPCallIndsBackToBack =
-                                                               {"f4:15:fd"}; /* Rongwei 360 Car */
     private static final String VOIP_CALL_NUMBER = "10000000";
 
     //VR app launched successfully
@@ -2934,28 +2924,19 @@ public class HeadsetStateMachine extends StateMachine {
     }
 
     boolean isConnectedDeviceBlacklistedforIncomingCall() {
-        // Checking for the Blacklisted device Addresses
-        for (int j = 0; j < BlacklistDeviceAddrToDelayCallInd.length;j++) {
-            String addr = BlacklistDeviceAddrToDelayCallInd[j];
-            if (mDevice.toString().toLowerCase().startsWith(addr.toLowerCase())) {
-                log("Remote device address Blacklisted for sending delay");
-                return true;
-            }
-        }
-        return false;
+        boolean matched = InteropUtil.interopMatchAddrOrName(
+            InteropUtil.InteropFeature.INTEROP_HFP_FAKE_INCOMING_CALL_INDICATOR,
+            mDevice.getAddress());
+
+        return matched;
     }
 
     boolean isDeviceBlacklistedForSendingCallIndsBackToBack() {
-        // Checking for the Blacklisted device Addresses
-        for (int j = 0; j < BlacklistDeviceForSendingVOIPCallIndsBackToBack.length;j++) {
-            String addr = BlacklistDeviceForSendingVOIPCallIndsBackToBack[j];
-            if (mDevice.toString().toLowerCase().startsWith(addr.toLowerCase())) {
-                Log.w(TAG, "Remote device " + mDevice +
-                   " address Blacklisted for sending VOIP call inds back to back");
-                return true;
-            }
-        }
-        return false;
+        boolean matched = InteropUtil.interopMatchAddrOrName(
+            InteropUtil.InteropFeature.INTEROP_HFP_SEND_CALL_INDICATORS_BACK_TO_BACK,
+            mDevice.getAddress());
+
+        return matched;
     }
 
     private void sendVoipConnectivityNetworktype(boolean isVoipStarted) {
