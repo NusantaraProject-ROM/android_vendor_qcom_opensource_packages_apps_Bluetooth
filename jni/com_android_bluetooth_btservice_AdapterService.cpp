@@ -732,7 +732,7 @@ static bool initNative(JNIEnv* env, jobject obj, jboolean isGuest,
   int ret = sBluetoothInterface->init(&sBluetoothCallbacks,
                                       isGuest == JNI_TRUE ? 1 : 0,
                                       isSingleUserMode == JNI_TRUE ? 1 : 0,
-                                      0, flags);
+                                      0, flags, false);
 
   for (int i = 0; i < flagCount; i++) {
     env->ReleaseStringUTFChars(flagObjs[i], flags[i]);

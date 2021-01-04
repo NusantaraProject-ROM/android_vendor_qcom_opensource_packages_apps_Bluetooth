@@ -264,7 +264,7 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler
             mimeType = mimeType.toLowerCase();
         }
 
-        // Reject anything outside the "whitelist" plus unspecified MIME Types.
+        // Reject anything outside the "acceptlist" plus unspecified MIME Types.
         if (mimeType == null || (!isHandover && !Constants.mimeTypeMatches(mimeType,
                 Constants.ACCEPTABLE_SHARE_INBOUND_TYPES))) {
             if (D) {
@@ -611,7 +611,7 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler
         } else {
             destination = "FF:FF:FF:00:00:00";
         }
-        isHandover = BluetoothOppManager.getInstance(mContext).isWhitelisted(destination);
+        isHandover = BluetoothOppManager.getInstance(mContext).isAcceptlisted(destination);
         if (D) Log.d(TAG, "isHandover :" + isHandover);
         if (isHandover) {
             // Notify the handover requester file transfer has started
@@ -655,7 +655,7 @@ public class BluetoothOppObexServerSession extends ServerRequestHandler
             Log.d(TAG, "onClose isHandover :" + isHandover);
         }
         if (isHandover) {
-            BluetoothOppManager.getInstance(mContext).removeWhitelist(destination);
+            BluetoothOppManager.getInstance(mContext).removeAcceptlist(destination);
         }
         releaseWakeLocks();
         mBluetoothOppService.acceptNewConnections();

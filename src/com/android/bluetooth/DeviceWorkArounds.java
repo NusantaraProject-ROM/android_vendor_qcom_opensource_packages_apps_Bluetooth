@@ -26,6 +26,7 @@ public final class DeviceWorkArounds {
     public static final String SYNC_CARKIT = "D0:39:72";
     public static final String BREZZA_ZDI_CARKIT = "28:a1:83";
     public static final String MERCEDES_BENZ_CARKIT = "00:26:e8";
+    public static final String HYUNDAI_SONATA_CARKIT = "CC:88:26";
 
     /**
      * @hide
