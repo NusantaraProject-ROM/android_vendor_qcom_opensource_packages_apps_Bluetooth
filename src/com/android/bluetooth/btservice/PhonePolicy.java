@@ -38,6 +38,7 @@ import android.util.Log;
 
 import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
+import com.android.bluetooth.btservice.InteropUtil;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
@@ -96,8 +97,6 @@ class PhonePolicy {
 
     private static final int MESSAGE_PROFILE_ACTIVE_DEVICE_CHANGED = 5;
     private static final int MESSAGE_DEVICE_CONNECTED = 6;
-    private static final String delayConnectTimeoutDevice[] = {"00:23:3D"}; // volkswagen carkit
-    private static final String delayReducedConnectTimeoutDevice[] = {"10:4F:A8"}; //h.ear (MDR-EX750BT)
 
     private DatabaseManager mDatabaseManager;
     private final AdapterService mAdapterService;
@@ -602,26 +601,24 @@ class PhonePolicy {
 
     }
 
-    private boolean isConnectTimeoutDelayApplicable(BluetoothDevice device){
-        boolean isConnectionTimeoutDelayed = false;
-        String deviceAddress = device.getAddress();
-        for (int i = 0; i < delayConnectTimeoutDevice.length;i++) {
-            if (deviceAddress.indexOf(delayConnectTimeoutDevice[i]) == 0) {
-                isConnectionTimeoutDelayed = true;
-            }
-        }
-        return isConnectionTimeoutDelayed;
+    private boolean isConnectTimeoutDelayApplicable(BluetoothDevice device) {
+        if (device == null) return false;
+
+        boolean matched = InteropUtil.interopMatchAddrOrName(
+            InteropUtil.InteropFeature.INTEROP_PHONE_POLICY_INCREASED_DELAY_CONNECT_OTHER_PROFILES,
+            device.getAddress());
+
+        return matched;
     }
 
-    private boolean isConnectReducedTimeoutDelayApplicable(BluetoothDevice device){
-        boolean isConnectionReducedTimeoutDelayed = false;
-        String deviceAddress = device.getAddress();
-        for (int i = 0; i < delayReducedConnectTimeoutDevice.length;i++) {
-            if (deviceAddress.indexOf(delayReducedConnectTimeoutDevice[i]) == 0) {
-                isConnectionReducedTimeoutDelayed = true;
-            }
-        }
-        return isConnectionReducedTimeoutDelayed;
+    private boolean isConnectReducedTimeoutDelayApplicable(BluetoothDevice device) {
+        if (device == null) return false;
+
+        boolean matched = InteropUtil.interopMatchAddrOrName(
+            InteropUtil.InteropFeature.INTEROP_PHONE_POLICY_REDUCED_DELAY_CONNECT_OTHER_PROFILES,
+            device.getAddress());
+
+        return matched;
     }
 
     private void connectOtherProfile(BluetoothDevice device) {
