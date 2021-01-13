@@ -26,7 +26,7 @@ import android.util.Log;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
 import com.android.bluetooth.R;
-import com.android.bluetooth.hfp.BluetoothInCallService;
+import com.android.bluetooth.telephony.BluetoothInCallService;
 
 /**
  * This state machine handles Bluetooth Adapter State.
