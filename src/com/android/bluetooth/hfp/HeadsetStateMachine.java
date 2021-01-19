@@ -1705,9 +1705,6 @@ public class HeadsetStateMachine extends StateMachine {
                         stateLogI("TWS+ device and other SCO is still Active, no BT_SCO=off");
                     } else {
                         mSystemInterface.getAudioManager().setBluetoothScoOn(false);
-                        if(mSystemInterface.getAudioManager().isSpeakerphoneOn()) {
-                            mSystemInterface.getAudioManager().setSpeakerphoneOn(true);
-                        }
                     }
                     if (!mSystemInterface.getHeadsetPhoneState().getIsCsCall()) {
                         stateLogI("Sco disconnected for call other than CS, check network type");
@@ -1789,9 +1786,6 @@ public class HeadsetStateMachine extends StateMachine {
                          stateLogI("TWS+ device and other SCO is still Active, no BT_SCO=off");
                     } else {
                         mSystemInterface.getAudioManager().setBluetoothScoOn(false);
-                        if(mSystemInterface.getAudioManager().isSpeakerphoneOn()) {
-                            mSystemInterface.getAudioManager().setSpeakerphoneOn(true);
-                        }
                     }
                     transitionTo(mConnected);
                     break;
