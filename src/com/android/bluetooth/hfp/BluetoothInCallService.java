@@ -28,6 +28,7 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.IBinder;
+import android.os.Bundle;
 import android.telecom.Call;
 import android.telecom.CallAudioState;
 import android.telecom.Connection;
@@ -42,6 +43,7 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.annotation.VisibleForTesting;
+import com.android.internal.telephony.PhoneConstants;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -418,6 +420,48 @@ public class BluetoothInCallService extends InCallService {
             updateHeadsetWithCallState(true);
             return true;
         }
+    }
+
+    public boolean isCsCallInProgress() {
+        boolean isCsCall = false;
+        BluetoothCall activeCall = mCallInfo.getActiveCall();
+        if (mNumActiveCalls > 0) {
+            isCsCall =  ((activeCall != null) &&
+             !(activeCall.isHighDefAudio() ||
+             activeCall.isWifi()));
+        }
+        Log.i(TAG, "isCsCallInProgress: "+ isCsCall);
+        return isCsCall;
+    }
+
+    public boolean isHighDefCallInProgress() {
+        boolean isHighDef = false;
+        BluetoothCall ringingCall = mCallInfo.getRingingOrSimulatedRingingCall();
+        BluetoothCall dialingCall = mCallInfo.getOutgoingCall();
+        BluetoothCall activeCall = mCallInfo.getActiveCall();
+
+        /* If its an incoming call we will have codec info in dialing state */
+        if (ringingCall != null) {
+            isHighDef = ringingCall.isHighDefAudio();
+        } else if (dialingCall != null) { /* CS dialing call has codec info in dialing state */
+            Bundle extras = dialingCall.getDetails().getExtras();
+            if (extras != null) {
+                int phoneType = extras.getInt(
+                    TelecomManager.EXTRA_CALL_TECHNOLOGY_TYPE);
+                if (phoneType == PhoneConstants.PHONE_TYPE_GSM
+                    || phoneType == PhoneConstants.PHONE_TYPE_CDMA) {
+                    isHighDef = dialingCall.isHighDefAudio();
+                /* For IMS calls codec info is not present in dialing state */
+                } else if (phoneType == PhoneConstants.PHONE_TYPE_IMS
+                    || phoneType == PhoneConstants.PHONE_TYPE_CDMA_LTE) {
+                    isHighDef = true;
+                }
+             }
+        } else if (activeCall != null) {
+            isHighDef = activeCall.isHighDefAudio();
+        }
+        Log.i(TAG, "isHighDefCallInProgress: Call is High Def " + isHighDef);
+        return isHighDef;
     }
 
     public boolean processChld(int chld) {

@@ -297,6 +297,14 @@ public class BluetoothCall {
         return getDetails().hasProperty(Call.Details.PROPERTY_IS_EXTERNAL_CALL);
     }
 
+    public boolean isHighDefAudio() {
+         return getDetails().hasProperty(Call.Details.PROPERTY_HIGH_DEF_AUDIO);
+     }
+
+    public boolean isWifi() {
+         return getDetails().hasProperty(Call.Details.PROPERTY_WIFI);
+     }
+
     public String getTelecomCallId() {
         return getDetails().getTelecomCallId();
     }

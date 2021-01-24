@@ -225,12 +225,9 @@ public class HeadsetSystemInterface {
      */
     @VisibleForTesting
     public boolean isHighDefCallInProgress() {
-        if (mPhoneProxy != null) {
-            try {
-                return mPhoneProxy.isHighDefCallInProgress();
-            } catch (RemoteException e) {
-                Log.e(TAG, Log.getStackTraceString(new Throwable()));
-            }
+        BluetoothInCallService bluetoothInCallService = getBluetoothInCallServiceInstance();
+        if (bluetoothInCallService != null) {
+            return bluetoothInCallService.isHighDefCallInProgress();
         } else {
             Log.e(TAG, "Handsfree phone proxy null");
         }
@@ -242,12 +239,9 @@ public class HeadsetSystemInterface {
      */
     @VisibleForTesting
     public boolean isCsCallInProgress() {
-        if (mPhoneProxy != null) {
-            try {
-                return mPhoneProxy.isCsCallInProgress();
-            } catch (RemoteException e) {
-                Log.e(TAG, Log.getStackTraceString(new Throwable()));
-            }
+        BluetoothInCallService bluetoothInCallService = getBluetoothInCallServiceInstance();
+        if (bluetoothInCallService != null) {
+            return bluetoothInCallService.isCsCallInProgress();
         } else {
             Log.e(TAG, "Handsfree phone proxy null");
         }
