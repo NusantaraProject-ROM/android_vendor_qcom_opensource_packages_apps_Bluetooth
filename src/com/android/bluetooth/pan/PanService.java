@@ -292,25 +292,6 @@ public class PanService extends ProfileService {
             return service.getConnectionState(device);
         }
 
-        private boolean isPanNapOn() {
-            PanService service = getService();
-            if (service == null) {
-                return false;
-            }
-            return service.isPanNapOn();
-        }
-
-        private boolean isPanUOn() {
-            if (DBG) {
-                Log.d(TAG, "isTetheringOn call getPanLocalRoleNative");
-            }
-            PanService service = getService();
-            if (service == null) {
-                return false;
-            }
-            return service.isPanUOn();
-        }
-
         @Override
         public boolean isTetheringOn(AttributionSource source) {
             // TODO(BT) have a variable marking the on/off state
@@ -395,20 +376,6 @@ public class PanService extends ProfileService {
             return BluetoothPan.STATE_DISCONNECTED;
         }
         return panDevice.mState;
-    }
-
-    boolean isPanNapOn() {
-        if (DBG) {
-            Log.d(TAG, "isTetheringOn call getPanLocalRoleNative");
-        }
-        return (getPanLocalRoleNative() & BluetoothPan.LOCAL_NAP_ROLE) != 0;
-    }
-
-    boolean isPanUOn() {
-        if (DBG) {
-            Log.d(TAG, "isTetheringOn call getPanLocalRoleNative");
-        }
-        return (getPanLocalRoleNative() & BluetoothPan.LOCAL_PANU_ROLE) != 0;
     }
 
     public boolean isTetheringOn() {
@@ -824,7 +791,5 @@ public class PanService extends ProfileService {
     private native boolean connectPanNative(byte[] btAddress, int localRole, int remoteRole);
 
     private native boolean disconnectPanNative(byte[] btAddress);
-
-    private native int getPanLocalRoleNative();
 
 }
