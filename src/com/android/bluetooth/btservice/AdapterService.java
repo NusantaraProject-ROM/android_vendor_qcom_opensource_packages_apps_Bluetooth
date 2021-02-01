@@ -114,6 +114,7 @@ import com.android.bluetooth.Utils;
 import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
 import com.android.bluetooth.btservice.RemoteDevices.DeviceProperties;
+import com.android.bluetooth.btservice.bluetoothkeystore.BluetoothKeystoreService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.btservice.storage.MetadataDatabase;
 import com.android.bluetooth.gatt.GattService;
@@ -272,6 +273,7 @@ public class AdapterService extends Service {
     private AppOpsManager mAppOps;
     private VendorSocket mVendorSocket;
 
+    private BluetoothKeystoreService mBluetoothKeystoreService;
     private A2dpService mA2dpService;
     private A2dpSinkService mA2dpSinkService;
     private HeadsetService mHeadsetService;
@@ -561,6 +563,15 @@ public class AdapterService extends Service {
     public void onCreate() {
         super.onCreate();
         debugLog("onCreate()");
+
+        Log.i(TAG, "Current user: " + ActivityManager.getCurrentUser() +
+                  " Owner user: " + UserHandle.myUserId());
+        if (ActivityManager.getCurrentUser() != UserHandle.myUserId())
+        {
+            Log.i(TAG, "Not match with current user. Quit...");
+            System.exit(0);
+        }
+
         mAdapter = BluetoothAdapter.getDefaultAdapter();
         mRemoteDevices = new RemoteDevices(this, Looper.getMainLooper());
         mRemoteDevices.init();
@@ -571,7 +582,14 @@ public class AdapterService extends Service {
         mAdapterStateMachine =  AdapterState.make(this);
         mJniCallbacks = new JniCallbacks(this, mAdapterProperties);
         mVendorSocket = new VendorSocket(this);
-        initNative(isGuest(), isSingleUserMode(), getInitFlags());
+        mBluetoothKeystoreService = new BluetoothKeystoreService(isNiapMode());
+        mBluetoothKeystoreService.start();
+        int configCompareResult = mBluetoothKeystoreService.getCompareResult();
+
+        // Android TV doesn't show consent dialogs for just works and encryption only le pairing
+        boolean isAtvDevice = getApplicationContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_LEANBACK_ONLY);
+        initNative(isGuest(), isNiapMode(), configCompareResult, isAtvDevice, getInitFlags());
         mNativeAvailable = true;
         mCallbacks = new RemoteCallbackList<IBluetoothCallback>();
         mAppOps = getSystemService(AppOpsManager.class);
@@ -584,6 +602,8 @@ public class AdapterService extends Service {
         mUserManager = (UserManager) getSystemService(Context.USER_SERVICE);
         mBatteryStats = IBatteryStats.Stub.asInterface(
                 ServiceManager.getService(BatteryStats.SERVICE_NAME));
+
+        mBluetoothKeystoreService.initJni();
 
         mSdpManager = SdpManager.init(this);
         registerReceiver(mAlarmBroadcastReceiver, new IntentFilter(ACTION_ALARM_WAKEUP));
@@ -697,6 +717,19 @@ public class AdapterService extends Service {
                 int fuid = intent.getIntExtra(Intent.EXTRA_USER_HANDLE, 0);
                 Utils.setForegroundUserId(fuid);
                 setForegroundUserIdNative(fuid);
+
+                Log.i(TAG, "User switched: Current user: " + ActivityManager.getCurrentUser() +
+                      " Owner user: " + UserHandle.myUserId());
+                if (ActivityManager.getCurrentUser() != UserHandle.myUserId()) {
+                    Log.i(TAG, "Not match with current user. Quit...");
+                    if (getAdapterService() != null) {
+                        /* Stop all profile services before quit */
+                        Log.i(TAG, "ssrCleanupCallback");
+                        getAdapterService().ssrCleanupCallback();
+                    } else {
+                        System.exit(0);
+                    }
+                }
             }
         }
     };
@@ -958,6 +991,10 @@ public class AdapterService extends Service {
         if (mSdpManager != null) {
             mSdpManager.cleanup();
             mSdpManager = null;
+        }
+
+        if (mBluetoothKeystoreService != null) {
+            mBluetoothKeystoreService.cleanup();
         }
 
         if (mNativeAvailable) {
@@ -2154,6 +2191,9 @@ public class AdapterService extends Service {
                 service.onBrEdrDown();
             } else {
                 service.disable();
+            }
+            if (service.mBluetoothKeystoreService != null) {
+                service.mBluetoothKeystoreService.factoryReset();
             }
             return service.factoryReset();
         }
@@ -4238,8 +4278,8 @@ public class AdapterService extends Service {
         return UserManager.get(this).isGuestUser();
     }
 
-    private boolean isSingleUserMode() {
-        return UserManager.get(this).hasUserRestriction(UserManager.DISALLOW_ADD_USER);
+    private boolean isNiapMode() {
+        return Settings.Global.getInt(getContentResolver(), "niap_mode", 0) == 1;
     }
 
     private static final String GD_CORE_FLAG = "INIT_gd_core";
@@ -4315,7 +4355,8 @@ public class AdapterService extends Service {
 
     static native void classInitNative();
 
-    native boolean initNative(boolean startRestricted, boolean isSingleUserMode,
+    native boolean initNative(boolean startRestricted, boolean isNiapMode,
+            int configCompareResult, boolean isAtvDevice,
             String[] initFlags);
 
     native void cleanupNative();

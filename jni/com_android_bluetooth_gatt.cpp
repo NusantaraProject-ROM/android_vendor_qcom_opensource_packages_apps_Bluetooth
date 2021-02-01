@@ -185,7 +185,7 @@ static jmethodID method_onPeriodicAdvertisingEnabled;
 static jmethodID method_onSyncLost;
 static jmethodID method_onSyncReport;
 static jmethodID method_onSyncStarted;
-
+static jmethodID method_onSyncTransferedCallback;
 /**
  * Static variables
  */
@@ -1195,10 +1195,11 @@ static int gattClientGetDeviceTypeNative(JNIEnv* env, jobject object,
 
 static void gattClientRegisterAppNative(JNIEnv* env, jobject object,
                                         jlong app_uuid_lsb,
-                                        jlong app_uuid_msb) {
+                                        jlong app_uuid_msb,
+                                        jboolean eatt_support) {
   if (!sGattIf) return;
   Uuid uuid = from_java_uuid(app_uuid_msb, app_uuid_lsb);
-  sGattIf->client->register_client(uuid);
+  sGattIf->client->register_client(uuid, eatt_support);
 }
 
 static void gattClientUnregisterAppNative(JNIEnv* env, jobject object,
@@ -1768,10 +1769,11 @@ static void gattClientReadScanReportsNative(JNIEnv* env, jobject object,
  */
 static void gattServerRegisterAppNative(JNIEnv* env, jobject object,
                                         jlong app_uuid_lsb,
-                                        jlong app_uuid_msb) {
+                                        jlong app_uuid_msb,
+                                        jboolean eatt_support) {
   if (!sGattIf) return;
   Uuid uuid = from_java_uuid(app_uuid_msb, app_uuid_lsb);
-  sGattIf->server->register_server(uuid);
+  sGattIf->server->register_server(uuid, eatt_support);
 }
 
 static void gattServerUnregisterAppNative(JNIEnv* env, jobject object,
@@ -2306,6 +2308,8 @@ static void periodicScanClassInitNative(JNIEnv* env, jclass clazz) {
       env->GetMethodID(clazz, "onSyncStarted", "(IIIILjava/lang/String;III)V");
   method_onSyncReport = env->GetMethodID(clazz, "onSyncReport", "(IIII[B)V");
   method_onSyncLost = env->GetMethodID(clazz, "onSyncLost", "(I)V");
+  method_onSyncTransferedCallback =
+      env->GetMethodID(clazz, "onSyncTransferedCallback", "(IILjava/lang/String;)V");
 }
 
 static void periodicScanInitializeNative(JNIEnv* env, jobject object) {
@@ -2334,9 +2338,11 @@ static void onSyncStarted(int reg_id, uint8_t status, uint16_t sync_handle,
     ALOGE("mPeriodicScanCallbacksObj is NULL. Return.");
     return;
   }
+  ScopedLocalRef<jstring> addr(sCallbackEnv.get(),
+                                 bdaddr2newjstr(sCallbackEnv.get(), &address));
 
   sCallbackEnv->CallVoidMethod(mPeriodicScanCallbacksObj, method_onSyncStarted,
-                               reg_id, sync_handle, sid, address_type, address,
+                               reg_id, sync_handle, sid, address_type, addr.get(),
                                phy, interval, status);
 }
 
@@ -2375,17 +2381,48 @@ static void startSyncNative(JNIEnv* env, jobject object, jint sid,
                             jstring address, jint skip, jint timeout,
                             jint reg_id) {
   if (!sGattIf) return;
-
   sGattIf->scanner->StartSync(sid, str2addr(env, address), skip, timeout,
                               base::Bind(&onSyncStarted, reg_id),
                               base::Bind(&onSyncReport),
                               base::Bind(&onSyncLost));
 }
 
-static void stopSyncNative(int sync_handle) {
+static void stopSyncNative(JNIEnv* env, jobject object, jint sync_handle) {
   if (!sGattIf) return;
-
   sGattIf->scanner->StopSync(sync_handle);
+}
+
+static void cancelSyncNative(JNIEnv* env, jobject object, jint sid, jstring address) {
+  if (!sGattIf) return;
+  sGattIf->scanner->CancelCreateSync(sid, str2addr(env, address));
+}
+static void onSyncTransferedCb(int pa_source,uint8_t status, RawAddress address) {
+  CallbackEnv sCallbackEnv(__func__);
+  if (!sCallbackEnv.valid()) return;
+  if (!mPeriodicScanCallbacksObj) {
+    ALOGE("mPeriodicScanCallbacksObj is NULL. Return.");
+    return;
+  }
+  ScopedLocalRef<jstring> addr(sCallbackEnv.get(),
+                                 bdaddr2newjstr(sCallbackEnv.get(), &address));
+
+  sCallbackEnv->CallVoidMethod(mPeriodicScanCallbacksObj, method_onSyncTransferedCallback, pa_source,
+                              status, addr.get());
+
+}
+
+static void syncTransferNative(JNIEnv* env, jobject object, jint pa_source,
+                                       jstring addr,jint service_data, jint sync_handle) {
+  if (!sGattIf) return;
+  sGattIf->scanner->TransferSync(str2addr(env,addr), service_data, sync_handle,
+                                 base::Bind(&onSyncTransferedCb, pa_source));
+}
+
+static void TransferSetInfoNative(JNIEnv* env, jobject object, jint pa_source,
+                                       jstring addr,jint service_data, jint adv_handle) {
+  if (!sGattIf) return;
+  sGattIf->scanner->TransferSetInfo(str2addr(env,addr), service_data, adv_handle,
+                                 base::Bind(&onSyncTransferedCb, pa_source));
 }
 
 static void gattTestNative(JNIEnv* env, jobject object, jint command,
@@ -2446,6 +2483,11 @@ static JNINativeMethod sPeriodicScanMethods[] = {
     {"cleanupNative", "()V", (void*)periodicScanCleanupNative},
     {"startSyncNative", "(ILjava/lang/String;III)V", (void*)startSyncNative},
     {"stopSyncNative", "(I)V", (void*)stopSyncNative},
+    {"cancelSyncNative", "(ILjava/lang/String;)V", (void*)cancelSyncNative},
+    {"syncTransferNative", "(ILjava/lang/String;II)V",
+      (void*)syncTransferNative},
+    {"TransferSetInfoNative", "(ILjava/lang/String;II)V",
+      (void*)TransferSetInfoNative},
 };
 
 // JNI functions defined in ScanManager class.
@@ -2488,7 +2530,7 @@ static JNINativeMethod sMethods[] = {
     {"cleanupNative", "()V", (void*)cleanupNative},
     {"gattClientGetDeviceTypeNative", "(Ljava/lang/String;)I",
      (void*)gattClientGetDeviceTypeNative},
-    {"gattClientRegisterAppNative", "(JJ)V",
+    {"gattClientRegisterAppNative", "(JJZ)V",
      (void*)gattClientRegisterAppNative},
     {"gattClientUnregisterAppNative", "(I)V",
      (void*)gattClientUnregisterAppNative},
@@ -2527,7 +2569,7 @@ static JNINativeMethod sMethods[] = {
      (void*)gattClientConfigureMTUNative},
     {"gattConnectionParameterUpdateNative", "(ILjava/lang/String;IIIIII)V",
      (void*)gattConnectionParameterUpdateNative},
-    {"gattServerRegisterAppNative", "(JJ)V",
+    {"gattServerRegisterAppNative", "(JJZ)V",
      (void*)gattServerRegisterAppNative},
     {"gattServerUnregisterAppNative", "(I)V",
      (void*)gattServerUnregisterAppNative},
