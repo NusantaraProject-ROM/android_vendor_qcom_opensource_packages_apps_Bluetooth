@@ -2181,6 +2181,11 @@ public class AdapterService extends Service {
         }
 
         @Override
+        public boolean isBroadcastActive() {
+            return false;
+        }
+
+        @Override
         public boolean factoryReset() {
             AdapterService service = getService();
             if (service == null) {
