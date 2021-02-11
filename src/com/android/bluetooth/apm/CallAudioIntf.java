@@ -95,6 +95,29 @@ public class CallAudioIntf {
         return false;
     }
 
+    public boolean connect(BluetoothDevice device, boolean allProfiles) {
+        if(CallAudio == null)
+            return false;
+
+        Class[] arg = new Class[2];
+        arg[0] = BluetoothDevice.class;
+        arg[1] = Boolean.class;
+
+        try {
+            Method connect = CallAudio.getDeclaredMethod("connect", arg);
+            Boolean ret = (Boolean)connect.invoke(mCallAudio, device, allProfiles);
+            return ret;
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+
+        return false;
+    }
+
     public boolean disconnect(BluetoothDevice device) {
         if(CallAudio == null)
             return false;
@@ -105,6 +128,29 @@ public class CallAudioIntf {
         try {
             Method disconnect = CallAudio.getDeclaredMethod("disconnect", arg);
             Boolean ret = (Boolean)disconnect.invoke(mCallAudio, device);
+            return ret;
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+
+        return false;
+    }
+
+    public boolean disconnect(BluetoothDevice device, boolean allProfiles) {
+        if(CallAudio == null)
+            return false;
+
+        Class[] arg = new Class[2];
+        arg[0] = BluetoothDevice.class;
+        arg[1] = Boolean.class;
+
+        try {
+            Method disconnect = CallAudio.getDeclaredMethod("disconnect", arg);
+            Boolean ret = (Boolean)disconnect.invoke(mCallAudio, device, allProfiles);
             return ret;
         } catch(IllegalAccessException e) {
             Log.i(TAG, "Exception" + e);

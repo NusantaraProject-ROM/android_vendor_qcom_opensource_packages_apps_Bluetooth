@@ -363,6 +363,8 @@ class PhonePolicy {
 
         // If we do not have a stored priority for HFP/A2DP (all roles) then default to on.
         if ((headsetService != null) && ((ArrayUtils.contains(uuids, BluetoothUuid.HSP)
+                || ArrayUtils.contains(uuids, ADV_AUDIO_P_VOICE)
+                || ArrayUtils.contains(uuids, ADV_AUDIO_T_VOICE)
                 || ArrayUtils.contains(uuids, BluetoothUuid.HFP)) && (
                 headsetService.getConnectionPolicy(device)
                         == BluetoothProfile.CONNECTION_POLICY_UNKNOWN))) {
