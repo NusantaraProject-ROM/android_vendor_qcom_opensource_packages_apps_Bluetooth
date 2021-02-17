@@ -9,66 +9,20 @@ java_library {
     srcs: ["lib/mapapi/**/*.java"],
 }
 
+// Bluetooth APK
 
-java_defaults {
-    name: "BT-obex-vendor-hide-access-defaults",
-    sdk_version: "core_platform", // tests can use @CorePlatformApi's
-    libs: [
-        // order matters: classes in framework-obex are resolved before framework, meaning
-        // @hide APIs in framework-obex are resolved before @SystemApi stubs in framework
-        "javax.obex.impl",
-        "javax.obex",
-    ],
-}
-
-soong_config_module_type_import {
-    from: "device/qcom/qssi/Android.bp",
-    module_types: ["aosp_vs_qva_java_defaults"],
-}
-
-aosp_vs_qva_java_defaults {
-    name: "framework_wifi_impl_default",
-    soong_config_variables: {
-        aosp_or_qva: {
-            qva: {
-                // order matters: classes in framework-wifi are resolved before framework, meaning
-                // @hide APIs in framework-wifi are resolved before @SystemApi stubs in framework
-                libs: ["framework-wifi.impl"],
-            }
-        }
-    }
-}
-
-java_defaults {
-     name: "BT-wifi-vendor-hide-access-defaults",
-     sdk_version: "core_platform", // tests can use @CorePlatformApi's
-     defaults: ["framework_wifi_impl_default"],
-     libs: [
-        "framework",
-
-        // if sdk_version="" this gets automatically included, but here we need to add manually.
-        "framework-res",
-    ],
-}
-
-
-android_library {
-    name: "Bluetooth_source",
+android_app {
+    name: "Bluetooth",
 
     srcs: [
         "src/**/*.java",
         ":vendor_qcom_opensource_commonsys_bluetooth_ext_packages_apps_bluetooth_ext",
         ":statslog-bluetooth-java-gen",
-
     ],
-    manifest: "AndroidManifest.xml",
     platform_apis: true,
+    certificate: "platform",
 
-    defaults: [
-        "BT-obex-vendor-hide-access-defaults",
-        "BT-wifi-vendor-hide-access-defaults",
-    ],
-
+    jni_libs: ["libbluetooth_qti_jni"],
     libs: [
         "javax.obex",
         "telephony-common",
@@ -90,30 +44,13 @@ android_library {
         "androidx.room_room-compiler-plugin",
     ],
 
-    required: ["libbluetooth"],
-
-
     // Add in path to Bluetooth directory because local path does not exist
     javacflags: ["-Aroom.schemaLocation=vendor/qcom/opensource/commonsys/packages/apps/Bluetooth/tests/unit/src/com/android/bluetooth/btservice/storage/schemas"],
-}
-
-// Bluetooth APK
-
-android_app {
-    name: "Bluetooth",
-
-    platform_apis: true,
-    certificate: "platform",
-
-    jni_libs: ["libbluetooth_qti_jni"],
-
-    static_libs: [
-        "Bluetooth_source",
-    ],
 
     optimize: {
         enabled: false,
     },
+    required: ["libbluetooth"],
 
     proto: {
         type: "micro",
