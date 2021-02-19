@@ -38,6 +38,8 @@ import android.util.Log;
 
 import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
+import com.android.bluetooth.apm.ApmConst;
+import com.android.bluetooth.apm.MediaAudio;
 import com.android.bluetooth.btservice.InteropUtil;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.hearingaid.HearingAidService;
@@ -48,6 +50,10 @@ import com.android.bluetooth.ba.BATService;
 import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.ArrayUtils;
+
+///*_REF
+import java.lang.reflect.*;
+//_REF*/
 
 import java.util.HashSet;
 import java.util.List;
@@ -105,6 +111,29 @@ class PhonePolicy {
     private final HashSet<BluetoothDevice> mHeadsetRetrySet = new HashSet<>();
     private final HashSet<BluetoothDevice> mA2dpRetrySet = new HashSet<>();
     private final HashSet<BluetoothDevice> mConnectOtherProfilesDeviceSet = new HashSet<>();
+    ///*_REF
+    Object mBCService = null;
+    Method mBCGetService = null;
+    Method mBCGetConnPolicy = null;
+    Method mBCSetConnPolicy = null;
+    Method mBCConnect = null;
+    Method mBCDisconnect = null;
+    Method mBCGetConnState = null;
+    String mBCId = null;
+    //_REF*/
+    Object mBroadcastService = null;
+    Method mBroadcastGetAddr = null;
+    Method mBroadcastIsActive = null;
+    private String broadcastBDA = null;
+    private void initBCReferences() {
+        if (mAdapterService != null) {
+            mBCService = mAdapterService.getBCService();
+            mBCGetConnPolicy = mAdapterService.getBCGetConnPolicy();
+            mBCSetConnPolicy = mAdapterService.getBCSetConnPolicy();
+            mBCConnect = mAdapterService.getBCConnect();
+            mBCId = mAdapterService.getBCId();
+        }
+    }
 
     // Broadcast receiver for all changes to states of various profiles
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
@@ -278,6 +307,25 @@ class PhonePolicy {
 
     // Policy implementation, all functions MUST be private
     private void processInitProfilePriorities(BluetoothDevice device, ParcelUuid[] uuids) {
+
+        ParcelUuid ADV_AUDIO_T_MEDIA =
+            ParcelUuid.fromString("00006AD0-0000-1000-8000-00805F9B34FB");
+
+        ParcelUuid ADV_AUDIO_HEARINGAID =
+            ParcelUuid.fromString("00006AD2-0000-1000-8000-00805F9B34FB");
+
+        ParcelUuid ADV_AUDIO_P_MEDIA =
+            ParcelUuid.fromString("00006AD1-0000-1000-8000-00805F9B34FB");
+
+        ParcelUuid ADV_AUDIO_P_VOICE =
+            ParcelUuid.fromString("00006AD4-0000-1000-8000-00805F9B34FB");
+
+        ParcelUuid ADV_AUDIO_T_VOICE =
+            ParcelUuid.fromString("00006AD5-0000-1000-8000-00805F9B34FB");
+
+        ParcelUuid ADV_AUDIO_G_MEDIA =
+            ParcelUuid.fromString("00006AD3-0000-1000-8000-00805F9B34FB");
+
         debugLog("processInitProfilePriorities() - device " + device);
         HidHostService hidService = mFactory.getHidHostService();
         A2dpService a2dpService = mFactory.getA2dpService();
@@ -285,6 +333,7 @@ class PhonePolicy {
         HeadsetService headsetService = mFactory.getHeadsetService();
         PanService panService = mFactory.getPanService();
         HearingAidService hearingAidService = mFactory.getHearingAidService();
+
         BluetoothDevice peerTwsDevice = null;
         if (mAdapterService.isTwsPlusDevice(device)) {
             peerTwsDevice = mAdapterService.getTwsPlusPeerDevice(device);
@@ -316,7 +365,10 @@ class PhonePolicy {
         }
 
         if ((a2dpService != null) && (ArrayUtils.contains(uuids, BluetoothUuid.A2DP_SINK)
-                || ArrayUtils.contains(uuids, BluetoothUuid.ADV_AUDIO_DIST)) && (
+                || ArrayUtils.contains(uuids, BluetoothUuid.ADV_AUDIO_DIST)
+                || ArrayUtils.contains(uuids, ADV_AUDIO_T_MEDIA)
+                || ArrayUtils.contains(uuids, ADV_AUDIO_HEARINGAID)
+                || ArrayUtils.contains(uuids, ADV_AUDIO_P_MEDIA)) && (
                 a2dpService.getConnectionPolicy(device)
                         == BluetoothProfile.CONNECTION_POLICY_UNKNOWN)) {
             debugLog("setting peer device to connection policy on for a2dp" + device);
@@ -352,6 +404,33 @@ class PhonePolicy {
             mAdapterService.getDatabase().setProfileConnectionPolicy(device,
                     BluetoothProfile.HEARING_AID, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
         }
+
+
+        ///*_REF
+        initBCReferences();
+        if (mBCService != null && mBCId != null && ArrayUtils.contains(uuids,
+                ParcelUuid.fromString(mBCId)) &&
+                mBCGetConnPolicy != null && mBCSetConnPolicy != null) {
+            int connPolicy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+            try {
+               connPolicy = (int) mBCGetConnPolicy.invoke(mBCService, device);
+            } catch(IllegalAccessException e) {
+               Log.e(TAG, "BC:connPolicy IllegalAccessException");
+            } catch (InvocationTargetException e) {
+               Log.e(TAG, "BC:connPolicy InvocationTargetException");
+            }
+            debugLog("setting BC connection policy for device " + device);
+            if (connPolicy == BluetoothProfile.CONNECTION_POLICY_UNKNOWN) {
+                try {
+                  mBCSetConnPolicy.invoke(mBCService, device,BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+                } catch(IllegalAccessException e) {
+                   Log.e(TAG, "BC:Connect IllegalAccessException");
+                } catch (InvocationTargetException e) {
+                  Log.e(TAG, "BC:Connect InvocationTargetException");
+                }
+            }
+        }
+        //_REF*/
     }
 
     private void processProfileStateChanged(BluetoothDevice device, int profileId, int nextState,
@@ -410,7 +489,31 @@ class PhonePolicy {
      */
     private void processActiveDeviceChanged(BluetoothDevice device, int profileId) {
         debugLog("processActiveDeviceChanged, device=" + device + ", profile=" + profileId);
-
+        if (mAdapterService != null && mBroadcastService == null) {
+            mBroadcastService = mAdapterService.getBroadcastService();
+            mBroadcastGetAddr = mAdapterService.getBroadcastAddress();
+            mBroadcastIsActive = mAdapterService.getBroadcastActive();
+        }
+        if (mBroadcastService != null && mBroadcastGetAddr != null &&
+            mBroadcastIsActive != null && broadcastBDA == null) {
+            boolean is_broadcast_active = false;
+            try {
+                is_broadcast_active = (boolean) mBroadcastIsActive.invoke(mBroadcastService);
+            } catch(IllegalAccessException | InvocationTargetException e) {
+                Log.e(TAG, "Broadcast:IsActive Illegal Exception");
+            }
+            try {
+                broadcastBDA = (String) mBroadcastGetAddr.invoke(mBroadcastService);
+            } catch(IllegalAccessException | InvocationTargetException e) {
+                Log.e(TAG, "Broadcast:GetAddr Illegal Exception");
+            }
+        }
+        if (device != null && broadcastBDA != null) {
+            if (device.getAddress().equals(broadcastBDA)) {
+                Log.d(TAG," Update from broadcast, bail out");
+                return;
+            }
+        }
         if (device != null) {
             mDatabaseManager.setConnection(device, profileId == BluetoothProfile.A2DP);
 
@@ -508,6 +611,7 @@ class PhonePolicy {
                                                 mostRecentlyActiveHfpDevice);
             debugLog("autoConnect: mostRecentlyConnectedA2dpSrcDevice: " +
                                                 mostRecentlyConnectedA2dpSrcDevice);
+            autoConnectBC();
             //Initiate auto-connection for latest connected a2dp source device.
             if (mostRecentlyConnectedA2dpSrcDevice != null) {
                debugLog("autoConnect: attempting auto connection for recently"+
@@ -561,7 +665,12 @@ class PhonePolicy {
         int a2dpConnectionPolicy = a2dpService.getConnectionPolicy(device);
         if (a2dpConnectionPolicy == BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
             debugLog("autoConnectA2dp: connecting A2DP with " + device);
-            a2dpService.connect(device);
+            if(ApmConst.getLeAudioEnabled()) {
+                MediaAudio mMediaAudio = MediaAudio.get();
+                mMediaAudio.autoConnect(device);
+            } else {
+                a2dpService.connect(device);
+            }
         } else {
             debugLog("autoConnectA2dp: skipped auto-connect A2DP with device " + device
                     + " a2dpConnectionPolicy " + a2dpConnectionPolicy);
@@ -600,6 +709,42 @@ class PhonePolicy {
         }
 
     }
+    ///*_REF
+    private void autoConnectBC() {
+        BluetoothDevice bondedDevices[] =  mAdapterService.getBondedDevices();
+        if (bondedDevices == null) {
+            errorLog("autoConnectBC, bondedDevices are null");
+            return;
+        }
+        if (mBCGetConnPolicy == null ||  mBCConnect == null ) {
+            Log.e(TAG, "BC reference are null");
+            return;
+        }
+        for (BluetoothDevice device : bondedDevices) {
+            int connPolicy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+            try {
+                connPolicy = (int) mBCGetConnPolicy.invoke(mBCService, device);
+            } catch(IllegalAccessException e) {
+                Log.e(TAG, "BC:connPolicy IllegalAccessException");
+            } catch (InvocationTargetException e) {
+                Log.e(TAG, "BC:connPolicy InvocationTargetException");
+            }
+            debugLog("autoConnectBC, attempt auto-connect with device " + device
+                     + " connPolicy " + connPolicy);
+            if (connPolicy == BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
+                debugLog("autoConnectBC() - Connecting BC with " + device.toString());
+                try {
+                    mBCConnect.invoke(mBCService, device);
+                } catch(IllegalAccessException e) {
+                    Log.e(TAG, "autoConnectBC:connect IllegalAccessException");
+                } catch (InvocationTargetException e) {
+                   Log.e(TAG, "autoConnectBC:connect InvocationTargetException");
+                }
+            }
+        }
+
+    }
+    //_REF*/
 
     private boolean isConnectTimeoutDelayApplicable(BluetoothDevice device) {
         if (device == null) return false;

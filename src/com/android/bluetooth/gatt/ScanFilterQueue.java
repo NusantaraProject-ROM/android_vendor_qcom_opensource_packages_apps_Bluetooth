@@ -19,6 +19,7 @@ package com.android.bluetooth.gatt;
 import android.bluetooth.BluetoothUuid;
 import android.bluetooth.le.ScanFilter;
 import android.os.ParcelUuid;
+import android.util.Log;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -40,6 +41,7 @@ import java.util.UUID;
     public static final int TYPE_MANUFACTURER_DATA = 5;
     public static final int TYPE_SERVICE_DATA = 6;
     public static final int TYPE_TRANSPORT_DISCOVERY_DATA = 7;
+    public static final int TYPE_GROUP_AD_TYPE_FILTER = 8;
 
     // Max length is 31 - 3(flags) - 2 (one byte for length and one byte for type).
     private static final int MAX_LEN_PER_FIELD = 26;
@@ -61,6 +63,7 @@ import java.util.UUID;
         public int org_id;
         public int tds_flags;
         public int tds_flags_mask;
+        public boolean group_filter;
     }
 
     private Set<Entry> mEntries = new HashSet<Entry>();
@@ -157,6 +160,13 @@ import java.util.UUID;
         mEntries.add(entry);
     }
 
+    void addGroupFilterEntry(boolean groupFilterEnabled) {
+        Entry entry = new Entry();
+        entry.type = TYPE_GROUP_AD_TYPE_FILTER;
+        entry.group_filter = groupFilterEnabled;
+        mEntries.add(entry);
+    }
+
     Entry pop() {
         if (mEntries.isEmpty()) {
             return null;
@@ -245,6 +255,9 @@ import java.util.UUID;
         if (filter.getOrgId() >= 0) {
             addTransportDiscoveryData(filter.getOrgId(), filter.getTDSFlags(),
                 filter.getTDSFlagsMask(), filter.getWifiNANHash());
+        }
+        if (filter.getGroupFilteringValue()) {
+            addGroupFilterEntry(filter.getGroupFilteringValue());
         }
     }
 

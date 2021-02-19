@@ -25,8 +25,17 @@ import com.android.bluetooth.hid.HidDeviceService;
 import com.android.bluetooth.hid.HidHostService;
 import com.android.bluetooth.pan.PanService;
 
+import android.util.Log;
+
+import java.lang.reflect.Method;
+import java.lang.reflect.InvocationTargetException;
+
 // Factory class to create instances of static services. Useful in mocking the service objects.
 public class ServiceFactory {
+    private static final String TAG = "BluetoothServiceFactory";
+
+    Object mGroupService = null;
+
     public A2dpService getA2dpService() {
         return A2dpService.getA2dpService();
     }
@@ -58,4 +67,25 @@ public class ServiceFactory {
     public AvrcpTargetService getAvrcpTargetService() {
         return AvrcpTargetService.get();
     }
+
+    public Object getGroupService() {
+        if (mGroupService == null) {
+            Method mGetGroupService = null;
+            try {
+                Class<?> grpSvcCls =
+                        Class.forName("com.android.bluetooth.groupclient.GroupService");
+                if (grpSvcCls != null) {
+                    mGetGroupService = grpSvcCls.getMethod("getGroupService");
+                    if (mGetGroupService != null) {
+                        mGroupService = mGetGroupService.invoke(null);
+                    }
+                }
+            } catch (NoSuchMethodException|IllegalAccessException|
+                     InvocationTargetException|ClassNotFoundException e) {
+                 Log.e(TAG, "Exception in getGroupService: " + e);
+            }
+        }
+        return mGroupService;
+    }
+
 }

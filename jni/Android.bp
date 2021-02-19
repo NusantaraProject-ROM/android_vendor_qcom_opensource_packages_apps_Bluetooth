@@ -24,6 +24,8 @@ cc_library_shared {
     include_dirs: [
         "system/bt/types",
         "vendor/qcom/opensource/commonsys/bluetooth_ext/vhal/include",
+        "vendor/qcom/opensource/commonsys/system/bt/utils/include",
+        "vendor/qcom/proprietary/commonsys/bt/bt_adv_audio/packages/apps/Bluetooth/jni",
     ],
     shared_libs: [
         "libandroid_runtime",
@@ -39,6 +41,7 @@ cc_library_shared {
         "libbluetooth-types",
         "libcutils",
         "libbluetoothqti_jni",
+        "libbluetoothqti_jni_lea",
     ],
     cflags: [
         "-Wall",

@@ -17,9 +17,11 @@
 package com.android.bluetooth.btservice;
 
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.BluetoothCodecConfig;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.Resources;
+import android.media.AudioManager;
 import android.provider.Settings;
 import android.util.FeatureFlagUtils;
 import android.util.Log;
@@ -42,13 +44,30 @@ import com.android.bluetooth.opp.BluetoothOppService;
 import com.android.bluetooth.pan.PanService;
 import com.android.bluetooth.pbap.BluetoothPbapService;
 import com.android.bluetooth.pbapclient.PbapClientService;
+import com.android.bluetooth.ReflectionUtils;
 import com.android.bluetooth.sap.SapService;
+import com.android.bluetooth.apm.ApmConstIntf;
 import com.android.bluetooth.ba.BATService;
 
 import java.util.ArrayList;
-
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 public class Config {
     private static final String TAG = "AdapterServiceConfig";
+
+    protected static int adv_audio_feature_mask;
+    protected static final int ADV_AUDIO_UNICAST_FEAT_MASK = 0x01;
+    protected static final int ADV_AUDIO_BROADCAST_FEAT_MASK = 0x02;
+    private static Class mBCServiceClass = null;
+    static {
+        try {
+            mBCServiceClass = Class.forName("com.android.bluetooth.bc.BCService");
+        } catch (ClassNotFoundException ex) {
+            Log.e(TAG, "no BCService: exists");
+            mBCServiceClass = null;
+        }
+    }
 
     private static class ProfileConfig {
         Class mClass;
@@ -59,6 +78,35 @@ public class Config {
             mClass = theClass;
             mSupported = supportedFlag;
             mMask = mask;
+        }
+    }
+
+    private static Class mBroadcastClass = null;
+    static {
+        try {
+            mBroadcastClass = Class.forName("com.android.bluetooth.broadcast.BroadcastService");
+        } catch(ClassNotFoundException ex) {
+            Log.d(TAG,"BroadcastService class not found");
+            Log.w(TAG, ex);
+        }
+    }
+
+    private static Class mPCServiceClass = null;
+    static {
+        try {
+            mPCServiceClass = Class.forName("com.android.bluetooth.pc.PCService");
+        } catch (ClassNotFoundException ex) {
+            Log.e(TAG, "no PCService: exists");
+            mPCServiceClass = null;
+        }
+    }
+    private static Class mCcServiceClass = null;
+    static {
+        try {
+            mCcServiceClass = Class.forName("com.android.bluetooth.cc.CCService");
+        } catch (ClassNotFoundException ex) {
+            Log.e(TAG, "no CcService: exists");
+            mCcServiceClass = null;
         }
     }
 
@@ -103,8 +151,46 @@ public class Config {
                     com.android.internal.R.bool.config_hearing_aid_profile_supported,
                     (1 << BluetoothProfile.HEARING_AID)),
             new ProfileConfig(BATService.class, R.bool.profile_supported_ba,
-                    (1 << BATService.BA_TRANSMITTER))
+                    (1 << BATService.BA_TRANSMITTER)),
+            new ProfileConfig(ApmConstIntf.MusicPlayerControlService, R.bool.profile_supported_music_player_service,
+                    (1 << ApmConstIntf.MUSIC_PLAYER_CONTROL))
     };
+
+    /* List of Unicast Advance Audio Profiles */
+    private static ArrayList<ProfileConfig> unicastAdvAudioProfiles =
+            new ArrayList<ProfileConfig>(
+                Arrays.asList(
+
+            ));
+
+    /* List of Broadcast Advance Audio Profiles */
+    private static ArrayList<ProfileConfig> broadcastAdvAudioProfiles =
+            new ArrayList<ProfileConfig>(
+                Arrays.asList(
+                    new ProfileConfig(mBCServiceClass, R.bool.profile_supported_bac,
+                        (1 << BluetoothProfile.BC_PROFILE)),
+                    new ProfileConfig(mBroadcastClass,
+                         R.bool.profile_supported_broadcast,
+                        (1 << BluetoothProfile.BROADCAST)),
+                    new ProfileConfig(mPCServiceClass, R.bool.profile_supported_pc,
+                        (1 << BluetoothProfile.PC_PROFILE)),
+                    new ProfileConfig(mCcServiceClass, R.bool.profile_supported_cc_server,
+                        (1 << BluetoothProfile.CC_SERVER))
+            ));
+
+    /* List of Profiles common for Unicast and Broadcast advance audio features */
+    private static ArrayList<ProfileConfig> commonAdvAudioProfiles =
+            new ArrayList<ProfileConfig>(
+                Arrays.asList(
+                    new ProfileConfig(ReflectionUtils.getRequiredClass(
+                            "com.android.bluetooth.groupclient.GroupService"),
+                            R.bool.profile_supported_group_client,
+                            (1 << BluetoothProfile.GROUP_CLIENT)),
+                    new ProfileConfig(ApmConstIntf.CoordinatedAudioService, R.bool.profile_supported_ca,
+                            (1 << ApmConstIntf.COORDINATED_AUDIO_UNICAST)),
+                    new ProfileConfig(ApmConstIntf.StreamAudioService, R.bool.profile_supported_le_audio,
+                            (1 << ApmConstIntf.LE_AUDIO_UNICAST))
+            ));
 
     private static Class[] sSupportedProfiles = new Class[0];
 
@@ -116,6 +202,9 @@ public class Config {
         if (resources == null) {
             return;
         }
+
+        AdapterService.setAdvanceAudioSupport();
+        initAdvAudioConfig(ctx);
 
         ArrayList<Class> profiles = new ArrayList<>(PROFILE_SERVICES_AND_FLAGS.length);
         for (ProfileConfig config : PROFILE_SERVICES_AND_FLAGS) {
@@ -139,12 +228,118 @@ public class Config {
         sSupportedProfiles = profiles.toArray(new Class[profiles.size()]);
     }
 
+    static void initAdvAudioSupport(Context ctx) {
+        if (ctx == null) {
+            return;
+        }
+
+        Resources resources = ctx.getResources();
+        if (resources == null) {
+            return;
+        }
+
+        adv_audio_feature_mask = SystemProperties.getInt(
+                                    "persist.vendor.service.bt.adv_audio_mask", 0);
+        boolean isCCEnabled = SystemProperties.getBoolean(
+                                    "persist.vendor.service.bt.cc", false);
+
+        ArrayList<Class> profiles = new ArrayList<>();
+
+        /* Add unicast advance audio profiles */
+        if (((adv_audio_feature_mask & ADV_AUDIO_UNICAST_FEAT_MASK) != 0) ||
+            ((adv_audio_feature_mask & ADV_AUDIO_BROADCAST_FEAT_MASK) != 0)) {
+            for (ProfileConfig config : commonAdvAudioProfiles) {
+                boolean supported = resources.getBoolean(config.mSupported);
+                if (supported) {
+                    Log.d(TAG, "Adding " + config.mClass.getSimpleName());
+                    profiles.add(config.mClass);
+                }
+            }
+        }
+
+        /* Add unicast advance audio profiles */
+        if ((adv_audio_feature_mask & ADV_AUDIO_UNICAST_FEAT_MASK) != 0) {
+            for (ProfileConfig config : unicastAdvAudioProfiles) {
+                boolean supported = resources.getBoolean(config.mSupported);
+                if (supported && config.mClass != null) {
+                    Log.d(TAG, "Adding " + config.mClass.getSimpleName());
+                    profiles.add(config.mClass);
+                }
+            }
+        }
+
+        /* Add broadcast advance audio profiles */
+        if ((adv_audio_feature_mask & ADV_AUDIO_BROADCAST_FEAT_MASK) != 0) {
+            for (ProfileConfig config : broadcastAdvAudioProfiles) {
+                boolean supported = resources.getBoolean(config.mSupported);
+                if (supported && config.mClass != null) {
+                    if (config.mClass.getSimpleName().equals("CCService") &&
+                        isCCEnabled == false) {
+                        Log.d(TAG," isCCEnabled = " + isCCEnabled);
+                        continue;
+                    }
+                    Log.d(TAG, "Adding " + config.mClass.getSimpleName());
+                    profiles.add(config.mClass);
+                }
+            }
+        }
+
+        // Copy advance audio profiles to sSupportedProfiles
+        List<Class> allProfiles = new ArrayList<Class>();
+        Collections.addAll(allProfiles, sSupportedProfiles);
+        allProfiles.addAll(profiles);
+        sSupportedProfiles = allProfiles.toArray(new Class[allProfiles.size()]);
+    }
+
+    protected static void initAdvAudioConfig (Context ctx) {
+        if (!isLC3CodecSupported(ctx)) {
+            Log.w(TAG, "LC3 Codec is not supported.");
+            adv_audio_feature_mask = SystemProperties.getInt(
+                                    "persist.vendor.service.bt.adv_audio_mask", 0);
+            adv_audio_feature_mask &= ~ADV_AUDIO_UNICAST_FEAT_MASK;
+            SystemProperties.set("persist.vendor.service.bt.adv_audio_mask",
+                String.valueOf(adv_audio_feature_mask));
+        }
+    }
+
+    protected static boolean isLC3CodecSupported(Context ctx) {
+      boolean isLC3Supported = false;
+      AudioManager mAudioManager = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+      List<BluetoothCodecConfig> mmSupportedCodecs =
+              mAudioManager.getHwOffloadEncodingFormatsSupportedForA2DP();
+
+      for (BluetoothCodecConfig codecConfig: mmSupportedCodecs) {
+          if (codecConfig.getCodecType() == BluetoothCodecConfig.SOURCE_CODEC_TYPE_LC3) {
+              isLC3Supported = true;
+              Log.d(TAG, " LC3 codec supported : " + codecConfig);
+              break;
+          }
+      }
+
+      return isLC3Supported;
+    }
+
     static Class[] getSupportedProfiles() {
         return sSupportedProfiles;
     }
 
     private static long getProfileMask(Class profile) {
         for (ProfileConfig config : PROFILE_SERVICES_AND_FLAGS) {
+            if (config.mClass == profile) {
+                return config.mMask;
+            }
+        }
+        for (ProfileConfig config : commonAdvAudioProfiles) {
+            if (config.mClass == profile) {
+                return config.mMask;
+            }
+        }
+        for (ProfileConfig config : unicastAdvAudioProfiles) {
+            if (config.mClass == profile) {
+                return config.mMask;
+            }
+        }
+        for (ProfileConfig config : broadcastAdvAudioProfiles) {
             if (config.mClass == profile) {
                 return config.mMask;
             }
@@ -181,7 +376,7 @@ public class Config {
             return false;
 
         boolean isBAEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bca", false);
-
+        boolean isBCEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bc", true);
         // Split A2dp will be enabled by default
         boolean isSplitA2dpEnabled = true;
         AdapterService adapterService = AdapterService.getAdapterService();
@@ -198,6 +393,11 @@ public class Config {
                           + " isSplitEnabled " + isSplitA2dpEnabled);
             return isBAEnabled && isSplitA2dpEnabled;
         }
+        if(serviceName.equals("BCService")) {
+            Log.d(TAG," isBCEnabled = " + isBCEnabled);
+            return isBCEnabled;
+        }
+
         // always return true for other profiles
         return true;
     }

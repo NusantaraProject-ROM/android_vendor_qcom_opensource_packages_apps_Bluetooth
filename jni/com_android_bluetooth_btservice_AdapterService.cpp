@@ -20,6 +20,10 @@
 #include "bluetooth_socket_manager.h"
 #include "com_android_bluetooth.h"
 #include "hardware/bt_sock.h"
+#include "bt_features.h"
+#ifdef ADV_AUDIO_FEATURE
+#include "com_android_bluetooth_ext.h"
+#endif
 #include "permission_helpers.h"
 #include "utils/Log.h"
 #include "utils/misc.h"
@@ -1475,5 +1479,12 @@ jint JNI_OnLoad(JavaVM *jvm, void *reserved) {
     return JNI_ERR;
   }
 
+#ifdef ADV_AUDIO_FEATURE
+  status = android::register_com_android_bluetooth_adv_audio_profiles(e);
+  if (status < 0) {
+    ALOGE("jni advance audio profile registration failure: %d", status);
+    return JNI_ERR;
+  }
+#endif
   return JNI_VERSION_1_6;
 }

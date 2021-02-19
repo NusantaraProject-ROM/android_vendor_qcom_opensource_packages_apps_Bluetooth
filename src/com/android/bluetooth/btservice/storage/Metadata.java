@@ -112,6 +112,9 @@ class Metadata {
             case BluetoothProfile.HEARING_AID:
                 profileConnectionPolicies.hearing_aid_connection_policy = connectionPolicy;
                 break;
+            case BluetoothProfile.BC_PROFILE:
+                profileConnectionPolicies.bc_profile_priority = connectionPolicy;
+                break;
             default:
                 throw new IllegalArgumentException("invalid profile " + profile);
         }
@@ -143,6 +146,8 @@ class Metadata {
                 return profileConnectionPolicies.sap_connection_policy;
             case BluetoothProfile.HEARING_AID:
                 return profileConnectionPolicies.hearing_aid_connection_policy;
+            case BluetoothProfile.BC_PROFILE:
+                return profileConnectionPolicies.bc_profile_priority;
         }
         return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
     }

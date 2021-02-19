@@ -341,6 +341,7 @@ class PeriodicScanManager {
         Map.Entry<IBinder, SyncInfo> entry = findSync(sync_handle);
         if (entry == null) {
             Log.d(TAG,"transferSync: callback not registered");
+            return;
         }
         //check for duplicate transfers
         mSyncTransfers.put(entry.getKey(), new SyncTransferInfo(bda.getAddress(), entry.getValue().callback));

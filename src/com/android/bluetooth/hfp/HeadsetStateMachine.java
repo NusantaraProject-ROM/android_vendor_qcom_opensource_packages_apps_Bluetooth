@@ -46,6 +46,8 @@ import com.android.bluetooth.BluetoothStatsLog;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.InteropUtil;
 import com.android.bluetooth.btservice.ProfileService;
+import com.android.bluetooth.apm.ApmConstIntf;
+import com.android.bluetooth.apm.DeviceProfileMapIntf;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
@@ -428,19 +430,35 @@ public class HeadsetStateMachine extends StateMachine {
         // Should not be called from enter() method
         void broadcastConnectionState(BluetoothDevice device, int fromState, int toState) {
             stateLogD("broadcastConnectionState " + device + ": " + fromState + "->" + toState);
+            if(mHeadsetService == null) {
+                Log.e(TAG, "HeadsetService is null");
+                return;
+            }
+            if(ApmConstIntf.getLeAudioEnabled()) {
+                mHeadsetService.updateConnState(device, toState);
+            }
             mHeadsetService.onConnectionStateChangedFromStateMachine(device, fromState, toState);
-            Intent intent = new Intent(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
-            intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, fromState);
-            intent.putExtra(BluetoothProfile.EXTRA_STATE, toState);
-            intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
-            intent.addFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
-            mHeadsetService.sendBroadcastAsUser(intent, UserHandle.ALL,
+            if(!ApmConstIntf.getLeAudioEnabled()) {
+                Intent intent = new Intent(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
+                intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, fromState);
+                intent.putExtra(BluetoothProfile.EXTRA_STATE, toState);
+                intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+                intent.addFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
+                mHeadsetService.sendBroadcastAsUser(intent, UserHandle.ALL,
                     HeadsetService.BLUETOOTH_PERM);
+            }
         }
 
         // Should not be called from enter() method
         void broadcastAudioState(BluetoothDevice device, int fromState, int toState) {
             stateLogD("broadcastAudioState: " + device + ": " + fromState + "->" + toState);
+            if(mHeadsetService == null) {
+                Log.e(TAG, "HeadsetService is null");
+                return;
+            }
+            if(ApmConstIntf.getLeAudioEnabled()) {
+                mHeadsetService.updateAudioState(device, toState);
+            }
             BluetoothStatsLog.write(BluetoothStatsLog.BLUETOOTH_SCO_CONNECTION_STATE_CHANGED,
                     mAdapterService.obfuscateAddress(device),
                     getConnectionStateFromAudioState(toState),
@@ -448,12 +466,14 @@ public class HeadsetStateMachine extends StateMachine {
                             ? BluetoothHfpProtoEnums.SCO_CODEC_MSBC
                             : BluetoothHfpProtoEnums.SCO_CODEC_CVSD);
             mHeadsetService.onAudioStateChangedFromStateMachine(device, fromState, toState);
-            Intent intent = new Intent(BluetoothHeadset.ACTION_AUDIO_STATE_CHANGED);
-            intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, fromState);
-            intent.putExtra(BluetoothProfile.EXTRA_STATE, toState);
-            intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
-            mHeadsetService.sendBroadcastAsUser(intent, UserHandle.ALL,
-                    HeadsetService.BLUETOOTH_PERM);
+            if(!ApmConstIntf.getLeAudioEnabled()) {
+                Intent intent = new Intent(BluetoothHeadset.ACTION_AUDIO_STATE_CHANGED);
+                intent.putExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, fromState);
+                intent.putExtra(BluetoothProfile.EXTRA_STATE, toState);
+                intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+                mHeadsetService.sendBroadcastAsUser(intent, UserHandle.ALL,
+                        HeadsetService.BLUETOOTH_PERM);
+            }
         }
 
         /**
@@ -594,6 +614,13 @@ public class HeadsetStateMachine extends StateMachine {
             mStateMachineCallState.mType = 0;
 
             broadcastStateTransitions();
+            DeviceProfileMapIntf dpm = DeviceProfileMapIntf.getDeviceProfileMapInstance();
+            dpm.profileConnectionUpdate(mDevice, ApmConstIntf.AudioFeatures.CALL_AUDIO,
+                             ApmConstIntf.AudioProfiles.HFP, false);
+            dpm.profileConnectionUpdate(mDevice, ApmConstIntf.AudioFeatures.CALL_CONTROL,
+                             ApmConstIntf.AudioProfiles.HFP, false);
+            dpm.profileConnectionUpdate(mDevice, ApmConstIntf.AudioFeatures.CALL_VOLUME_CONTROL,
+                             ApmConstIntf.AudioProfiles.HFP, false);
             // Remove the state machine for unbonded devices
             if (mPrevState != null
                     && mAdapterService.getBondState(mDevice) == BluetoothDevice.BOND_NONE) {
@@ -1358,6 +1385,13 @@ public class HeadsetStateMachine extends StateMachine {
                 removeDeferredMessages(CONNECT);
             }
             broadcastStateTransitions();
+            DeviceProfileMapIntf dpm = DeviceProfileMapIntf.getDeviceProfileMapInstance();
+            dpm.profileConnectionUpdate(mDevice, ApmConstIntf.AudioFeatures.CALL_AUDIO,
+                             ApmConstIntf.AudioProfiles.HFP, true);
+            dpm.profileConnectionUpdate(mDevice, ApmConstIntf.AudioFeatures.CALL_CONTROL,
+                             ApmConstIntf.AudioProfiles.HFP, true);
+            dpm.profileConnectionUpdate(mDevice, ApmConstIntf.AudioFeatures.CALL_VOLUME_CONTROL,
+                             ApmConstIntf.AudioProfiles.HFP, true);
             if ((mPrevState == mAudioOn) || (mPrevState == mAudioDisconnecting)||
                  (mPrevState == mAudioConnecting)) {
                 if (!(mSystemInterface.isInCall() || mSystemInterface.isRinging())) {
