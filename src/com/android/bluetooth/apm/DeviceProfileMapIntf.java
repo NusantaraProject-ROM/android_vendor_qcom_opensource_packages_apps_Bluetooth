@@ -76,7 +76,7 @@ public class DeviceProfileMapIntf {
 
     public int getAllSupportedProfile(BluetoothDevice device) {
         if(DeviceProfileMap == null)
-            return ApmConst.AudioProfiles.NONE;
+            return ApmConstIntf.AudioProfiles.NONE;
 
         Class[] arg = new Class[1];
         arg[0] = BluetoothDevice.class;
@@ -93,12 +93,12 @@ public class DeviceProfileMapIntf {
             Log.i(TAG, "Exception" + e);
         }
 
-        return ApmConst.AudioProfiles.NONE;
+        return ApmConstIntf.AudioProfiles.NONE;
     }
 
     public int getProfile(BluetoothDevice device, int mAudioFeature) {
         if(DeviceProfileMap == null)
-            return ApmConst.AudioProfiles.NONE;
+            return ApmConstIntf.AudioProfiles.NONE;
 
         Class[] arg = new Class[2];
         arg[0] = BluetoothDevice.class;
@@ -116,7 +116,7 @@ public class DeviceProfileMapIntf {
             Log.i(TAG, "Exception" + e);
         }
 
-        return ApmConst.AudioProfiles.NONE;
+        return ApmConstIntf.AudioProfiles.NONE;
     }
 
     public void profileDescoveryUpdate (BluetoothDevice device, int mAudioProfile) {

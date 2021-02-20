@@ -67,9 +67,11 @@ public class ApmConstIntf {
         }
 
         try {
-            LE_AUDIO_UNICAST = (Integer)StreamAudioService.getDeclaredField("LE_AUDIO_UNICAST").get(null);
-            COORDINATED_AUDIO_UNICAST = (Integer)StreamAudioService.getDeclaredField("COORDINATED_AUDIO_UNICAST").get(null);
-            CoordinatedAudioServiceName = (String)StreamAudioService.getDeclaredField("CoordinatedAudioServiceName").get(null);
+            if(StreamAudioService != null) {
+              LE_AUDIO_UNICAST = (Integer)StreamAudioService.getDeclaredField("LE_AUDIO_UNICAST").get(null);
+              COORDINATED_AUDIO_UNICAST = (Integer)StreamAudioService.getDeclaredField("COORDINATED_AUDIO_UNICAST").get(null);
+              CoordinatedAudioServiceName = (String)StreamAudioService.getDeclaredField("CoordinatedAudioServiceName").get(null);
+            }
         } catch (NoSuchFieldException ex) {
             Log.w(TAG, ex);
         } catch (IllegalAccessException ex) {
@@ -77,7 +79,9 @@ public class ApmConstIntf {
         }
 
         try {
-            CoordinatedAudioService = Class.forName(CoordinatedAudioServiceName);
+            if (CoordinatedAudioServiceName != null) {
+              CoordinatedAudioService = Class.forName(CoordinatedAudioServiceName);
+            }
         } catch(ClassNotFoundException ex) {
             Log.w(TAG, ex);
         }
@@ -88,9 +92,10 @@ public class ApmConstIntf {
             Log.w(TAG, ex);
         }
         try {
-            
-            MusicPlayerControlServiceName = (String)MediaPlayerControlService.getDeclaredField("MusicPlayerControlServiceName").get(null);
-            MUSIC_PLAYER_CONTROL = (Integer)MediaPlayerControlService.getDeclaredField("MUSIC_PLAYER_CONTROL").get(null);
+            if (MediaPlayerControlService != null) {
+              MusicPlayerControlServiceName = (String)MediaPlayerControlService.getDeclaredField("MusicPlayerControlServiceName").get(null);
+              MUSIC_PLAYER_CONTROL = (Integer)MediaPlayerControlService.getDeclaredField("MUSIC_PLAYER_CONTROL").get(null);
+            }
         } catch(IllegalAccessException ex) {
             Log.w(TAG, ex);
         } catch (NoSuchFieldException ex) {
@@ -98,7 +103,9 @@ public class ApmConstIntf {
         }
 
         try {
-            MusicPlayerControlService = Class.forName(MusicPlayerControlServiceName);
+            if (MusicPlayerControlServiceName != null) {
+              MusicPlayerControlService = Class.forName(MusicPlayerControlServiceName);
+            }
         } catch(ClassNotFoundException ex) {
             Log.w(TAG, ex);
         }
