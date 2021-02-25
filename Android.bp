@@ -17,7 +17,6 @@ android_app {
     srcs: [
         "src/**/*.java",
         ":vendor_qcom_opensource_commonsys_bluetooth_ext_packages_apps_bluetooth_ext",
-        ":bluetooth-apps-lea-srcs",
         ":statslog-bluetooth-java-gen",
     ],
     platform_apis: true,
