@@ -612,7 +612,8 @@ public class ScanManager {
             mAlarmManager = (AlarmManager) mService.getSystemService(Context.ALARM_SERVICE);
             Intent batchIntent = new Intent(ACTION_REFRESH_BATCHED_SCAN, null);
             batchIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-            mBatchScanIntervalIntent = PendingIntent.getBroadcast(mService, 0, batchIntent, 0);
+            mBatchScanIntervalIntent = PendingIntent.getBroadcast(mService, 0, batchIntent,
+                    PendingIntent.FLAG_IMMUTABLE);
             IntentFilter filter = new IntentFilter();
             filter.addAction(ACTION_REFRESH_BATCHED_SCAN);
             mBatchAlarmReceiver = new BroadcastReceiver() {

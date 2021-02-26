@@ -1226,6 +1226,7 @@ static void registerScannerNative(JNIEnv* env, jobject object,
 
   Uuid uuid = from_java_uuid(app_uuid_msb, app_uuid_lsb);
   sGattIf->scanner->RegisterScanner(
+      uuid,
       base::Bind(&btgattc_register_scanner_cb, uuid));
 }
 

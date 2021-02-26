@@ -61,6 +61,7 @@ import android.app.AlarmManager;
 import android.app.AppOpsManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothActivityEnergyInfo;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothAdapter.ActiveDeviceUse;
@@ -69,6 +70,7 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothProtoEnums;
 import android.bluetooth.BluetoothUuid;
+import android.bluetooth.BufferConstraints;
 import android.bluetooth.IBluetooth;
 import android.bluetooth.IBluetoothCallback;
 import android.bluetooth.IBluetoothConnectionCallback;
@@ -2183,6 +2185,11 @@ public class AdapterService extends Service {
         }
 
         @Override
+        public boolean isBroadcastActive() {
+            return false;
+        }
+
+        @Override
         public boolean factoryReset() {
             AdapterService service = getService();
             if (service == null) {
@@ -3987,7 +3994,8 @@ public class AdapterService extends Service {
 
             Intent intent = new Intent(ACTION_ALARM_WAKEUP);
             mPendingAlarm =
-                    PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_ONE_SHOT);
+                    PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_ONE_SHOT
+                            | PendingIntent.FLAG_IMMUTABLE);
             mAlarmManager.setExact(type, wakeupTime, mPendingAlarm);
             return true;
         }
@@ -4355,7 +4363,40 @@ public class AdapterService extends Service {
             debugLog(e.toString());
         }
         return false;
-   }
+    }
+
+    /**
+     * Get dynamic audio buffer size supported type
+     *
+     * @return support <p>Possible values are
+     * {@link BluetoothA2dp#DYNAMIC_BUFFER_SUPPORT_NONE},
+     * {@link BluetoothA2dp#DYNAMIC_BUFFER_SUPPORT_A2DP_OFFLOAD},
+     * {@link BluetoothA2dp#DYNAMIC_BUFFER_SUPPORT_A2DP_SOFTWARE_ENCODING}.
+     */
+    public int getDynamicBufferSupport() {
+        return mAdapterProperties.getDynamicBufferSupport();
+    }
+
+    /**
+     * Get dynamic audio buffer size
+     *
+     * @return BufferConstraints
+     */
+    public BufferConstraints getBufferConstraints() {
+        return mAdapterProperties.getBufferConstraints();
+    }
+
+    /**
+     * Set dynamic audio buffer size
+     *
+     * @param codec Audio codec
+     * @param value buffer millis
+     * @return true if the settings is successful, false otherwise
+     */
+    public boolean setBufferMillis(int codec, int value) {
+        return mAdapterProperties.setBufferMillis(codec, value);
+    }
+
 
     static native void classInitNative();
 
@@ -4443,6 +4484,18 @@ public class AdapterService extends Service {
     private native void interopDatabaseAddNative(int feature, byte[] address, int length);
 
     private native byte[] obfuscateAddressNative(byte[] address);
+
+    native boolean setBufferMillisNative(int codec, int value);
+
+    private native int getMetricIdNative(byte[] address);
+
+    /*package*/ native int connectSocketNative(
+            byte[] address, int type, byte[] uuid, int port, int flag, int callingUid);
+
+    /*package*/ native int createSocketChannelNative(
+            int type, String serviceName, byte[] uuid, int port, int flag, int callingUid);
+
+    /*package*/ native void requestMaximumTxDataLengthNative(byte[] address);
 
     // Returns if this is a mock object. This is currently used in testing so that we may not call
     // System.exit() while finalizing the object. Otherwise GC of mock objects unfortunately ends up
