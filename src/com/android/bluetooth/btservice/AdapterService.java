@@ -639,14 +639,14 @@ public class AdapterService extends Service {
         mAdapterStateMachine =  AdapterState.make(this);
         mJniCallbacks = new JniCallbacks(this, mAdapterProperties);
         mVendorSocket = new VendorSocket(this);
-        mBluetoothKeystoreService = new BluetoothKeystoreService(isNiapMode());
+        mBluetoothKeystoreService = new BluetoothKeystoreService(isCommonCriteriaMode());
         mBluetoothKeystoreService.start();
         int configCompareResult = mBluetoothKeystoreService.getCompareResult();
 
         // Android TV doesn't show consent dialogs for just works and encryption only le pairing
         boolean isAtvDevice = getApplicationContext().getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_LEANBACK_ONLY);
-        initNative(isGuest(), isNiapMode(), configCompareResult, isAtvDevice, getInitFlags());
+        initNative(isGuest(), isCommonCriteriaMode(), configCompareResult, isAtvDevice, getInitFlags());
         mNativeAvailable = true;
         mCallbacks = new RemoteCallbackList<IBluetoothCallback>();
         mAppOps = getSystemService(AppOpsManager.class);
@@ -5361,7 +5361,7 @@ public class AdapterService extends Service {
         return UserManager.get(this).isGuestUser();
     }
 
-    private boolean isNiapMode() {
+    private boolean isCommonCriteriaMode() {
         return ((DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE))
                 .isCommonCriteriaModeEnabled(null);
     }
@@ -5503,7 +5503,7 @@ public class AdapterService extends Service {
 
     static native void classInitNative();
 
-    native boolean initNative(boolean startRestricted, boolean isNiapMode,
+    native boolean initNative(boolean startRestricted, boolean isCommonCriteriaMode,
             int configCompareResult, boolean isAtvDevice,
             String[] initFlags);
 

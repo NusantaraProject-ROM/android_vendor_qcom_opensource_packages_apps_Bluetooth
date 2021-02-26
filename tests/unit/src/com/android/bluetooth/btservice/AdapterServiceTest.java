@@ -104,7 +104,7 @@ public class AdapterServiceTest {
         }
         Assert.assertNotNull(Looper.myLooper());
         AdapterService adapterService = new AdapterService();
-        adapterService.initNative(false /* is_restricted */, false /* is_niap_mode */,
+        adapterService.initNative(false /* is_restricted */, false /* is_common_criteria_mod */,
                  0 /* config_compare_result */, false,
                  new String[0]);
         adapterService.cleanupNative();
