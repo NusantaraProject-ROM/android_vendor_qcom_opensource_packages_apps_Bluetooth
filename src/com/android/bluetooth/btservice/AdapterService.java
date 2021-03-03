@@ -2012,7 +2012,8 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean createBond(BluetoothDevice device, int transport, OobData oobData) {
+        public boolean createBond(BluetoothDevice device, int transport, OobData oobData,
+                String callingPackage) {
             if (!Utils.checkCallerAllowManagedProfiles(mService)) {
                 Log.w(TAG, "createBond() - Not allowed for non-active user");
                 return false;
@@ -2114,6 +2115,11 @@ public class AdapterService extends Service {
                 return 0;
             }
             return service.getConnectionState(device);
+        }
+
+        @Override
+        public boolean canBondWithoutDialog(BluetoothDevice device) {
+            return false;
         }
 
         @Override
