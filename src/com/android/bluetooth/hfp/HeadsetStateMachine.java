@@ -214,6 +214,7 @@ public class HeadsetStateMachine extends StateMachine {
     private boolean mPendingScoForVR = false;
     private boolean mIsCallIndDelay = false;
     private boolean mIsBlacklistedDevice = false;
+    private boolean mIsBlacklistedForSCOAfterSLC = false;
     private int retryConnectCount = 0;
 
     private static boolean mIsAvailable = false;
@@ -375,6 +376,11 @@ public class HeadsetStateMachine extends StateMachine {
             ProfileService.println(sb, "    " + line);
         }
         scanner.close();
+    }
+
+    public boolean getIfDeviceBlacklistedForSCOAfterSLC() {
+        Log.d(TAG, "getIfDeviceBlacklistedForSCOAfterSLC, returning " + mIsBlacklistedForSCOAfterSLC);
+        return  mIsBlacklistedForSCOAfterSLC;
     }
 
     /**
@@ -1373,6 +1379,8 @@ public class HeadsetStateMachine extends StateMachine {
                 sendMessageDelayed(QUERY_PHONE_STATE_AT_SLC, QUERY_PHONE_STATE_CHANGED_DELAYED);
                 // Checking for the Blacklisted device Addresses
                 mIsBlacklistedDevice = isConnectedDeviceBlacklistedforIncomingCall();
+                // Checking for the Blacklisted device Addresses
+                mIsBlacklistedForSCOAfterSLC = isSCONeededImmediatelyAfterSLC();
                 if (mSystemInterface.isInCall() || mSystemInterface.isRinging()) {
                    stateLogW("Connected: enter: suspending A2DP for Call since SLC connected");
                    // suspend A2DP since call is there
@@ -2963,6 +2971,14 @@ public class HeadsetStateMachine extends StateMachine {
     boolean isDeviceBlacklistedForSendingCallIndsBackToBack() {
         boolean matched = InteropUtil.interopMatchAddrOrName(
             InteropUtil.InteropFeature.INTEROP_HFP_SEND_CALL_INDICATORS_BACK_TO_BACK,
+            mDevice.getAddress());
+
+        return matched;
+    }
+
+    boolean isSCONeededImmediatelyAfterSLC() {
+        boolean matched = InteropUtil.interopMatchAddrOrName(
+            InteropUtil.InteropFeature.INTEROP_SETUP_SCO_WITH_NO_DELAY_AFTER_SLC_DURING_CALL,
             mDevice.getAddress());
 
         return matched;
