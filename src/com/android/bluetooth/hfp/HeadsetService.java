@@ -1702,6 +1702,9 @@ public class HeadsetService extends ProfileService {
                 return true;
             }
 
+            if (stateMachine.getIfDeviceBlacklistedForSCOAfterSLC() == true)
+                connDelay = 0;
+
             Log.i(TAG, "connectAudio: connect audio after " + connDelay + " ms");
             stateMachine.sendMessageDelayed(HeadsetStateMachine.CONNECT_AUDIO, device, connDelay);
         }
