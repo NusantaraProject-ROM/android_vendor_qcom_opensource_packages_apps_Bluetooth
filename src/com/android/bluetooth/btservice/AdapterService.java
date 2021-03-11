@@ -52,7 +52,10 @@
 package com.android.bluetooth.btservice;
 
 import static com.android.bluetooth.Utils.enforceBluetoothPrivilegedPermission;
+import static com.android.bluetooth.Utils.enforceCdmAssociation;
 import static com.android.bluetooth.Utils.hasBluetoothPrivilegedPermission;
+import static com.android.bluetooth.Utils.hasBluetoothPrivilegedPermission;
+import static com.android.bluetooth.Utils.isPackageNameAccurate;
 
 
 import android.app.ActivityManager;
@@ -78,6 +81,7 @@ import android.bluetooth.IBluetoothOobDataCallback;
 import android.bluetooth.IBluetoothSocketManager;
 import android.bluetooth.OobData;
 import android.bluetooth.UidTraffic;
+import android.companion.CompanionDeviceManager;
 import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -283,7 +287,7 @@ public class AdapterService extends Service {
     private String mWakeLockName;
     private UserManager mUserManager;
     private static BluetoothAdapter mAdapter;
-
+    private CompanionDeviceManager mCompanionDeviceManager;
     private ProfileObserver mProfileObserver;
     private PhonePolicy mPhonePolicy;
     private ActiveDeviceManager mActiveDeviceManager;
@@ -647,7 +651,7 @@ public class AdapterService extends Service {
         mUserManager = (UserManager) getSystemService(Context.USER_SERVICE);
         mBatteryStats = IBatteryStats.Stub.asInterface(
                 ServiceManager.getService(BatteryStats.SERVICE_NAME));
-
+        mCompanionDeviceManager = getSystemService(CompanionDeviceManager.class);
         mBluetoothKeystoreService.initJni();
 
         mSdpManager = SdpManager.init(this);
@@ -2303,14 +2307,17 @@ public class AdapterService extends Service {
             }
 
             AdapterService service = getService();
-            if (service == null) {
-                return false;
-            }
+            if (service == null || !callerIsSystemOrActiveUser(TAG, "setRemoteAlias")
+                    || name == null || name.isEmpty()) {
+                 return false;
+             }
 
             if (!hasBluetoothPrivilegedPermission(service)) {
                 if (!Utils.checkConnectPermissionForPreflight(service)) {
                     return false;
                 }
+                enforceCdmAssociation(service.mCompanionDeviceManager, service, callingPackage,
+                        Binder.getCallingUid(), device);
             }
             return service.setRemoteAlias(device, name);
         }
