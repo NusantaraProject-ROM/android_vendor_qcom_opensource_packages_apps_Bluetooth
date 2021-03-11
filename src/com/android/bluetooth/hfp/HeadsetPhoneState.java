@@ -28,6 +28,10 @@ import android.telephony.SignalStrength;
 import android.telephony.SubscriptionManager;
 import android.telephony.SubscriptionManager.OnSubscriptionsChangedListener;
 import android.telephony.TelephonyManager;
+import android.telephony.SubscriptionInfo;
+import com.android.bluetooth.apm.ApmConstIntf;
+import com.android.bluetooth.apm.CallAudioIntf;
+import com.android.bluetooth.apm.CallControlIntf;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -88,6 +92,7 @@ public class HeadsetPhoneState {
     private final HashMap<BluetoothDevice, Integer> mDeviceEventMap = new HashMap<>();
     private PhoneStateListener mPhoneStateListener;
     private final OnSubscriptionsChangedListener mOnSubscriptionsChangedListener;
+    private final String CC_DUMMY_DEVICE_ADDR = " CC:CC:CC:CC:CC:CC";
 
     HeadsetPhoneState(HeadsetService headsetService) {
         Objects.requireNonNull(headsetService, "headsetService is null");
@@ -177,6 +182,22 @@ public class HeadsetPhoneState {
             if (prevEvents != updatedEvents) {
                 stopListenForPhoneState();
                 startListenForPhoneState();
+            }
+            if (events != PhoneStateListener.LISTEN_NONE &&
+                device.getAddress().equals(CC_DUMMY_DEVICE_ADDR)) {
+                Log.d(TAG, "pushing initial events to CC");
+                //push these events on registeration
+                if (ApmConstIntf.getLeAudioEnabled()) {
+                    CallControlIntf mCallControl = CallControlIntf.get();
+                    int networkType = mTelephonyManager.getNetworkType();
+                    Log.d(TAG, "Adv Audio enabled: updateBearerTech:" + networkType);
+                    mCallControl.updateBearerTechnology(networkType);
+                    SubscriptionInfo subInfo = mSubscriptionManager.getDefaultVoiceSubscriptionInfo();
+                    if (subInfo != null) {
+                        Log.d(TAG, "Adv Audio enabled: updateBearerName " + subInfo.getDisplayName().toString());
+                        mCallControl.updateBearerName(subInfo.getDisplayName().toString());
+                    }
+                }
             }
         }
     }
@@ -400,6 +421,17 @@ public class HeadsetPhoneState {
             synchronized (mDeviceEventMap) {
                 stopListenForPhoneState();
                 startListenForPhoneState();
+                if (ApmConstIntf.getLeAudioEnabled()) {
+                   int networkType = mTelephonyManager.getNetworkType();
+                   CallControlIntf mCallControl = CallControlIntf.get();
+                   Log.d(TAG, "onSubscriptionsChanged: Adv Audio enabled: updateBearerTech:" + networkType);
+                   mCallControl.updateBearerTechnology(networkType);
+                   SubscriptionInfo subInfo = mSubscriptionManager.getDefaultVoiceSubscriptionInfo();
+                   if (subInfo != null) {
+                       Log.d(TAG, "onSubscriptionsChanged: Adv Audio enabled: updateBearerName" + subInfo.getDisplayName().toString());
+                       mCallControl.updateBearerName(subInfo.getDisplayName().toString());
+                   }
+                }
             }
         }
     }
