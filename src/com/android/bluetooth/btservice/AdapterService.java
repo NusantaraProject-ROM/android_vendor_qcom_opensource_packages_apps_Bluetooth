@@ -115,6 +115,10 @@ import com.android.bluetooth.BluetoothStatsLog;
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.a2dp.A2dpService;
 import com.android.bluetooth.a2dpsink.A2dpSinkService;
+import com.android.bluetooth.apm.ApmConstIntf;
+import com.android.bluetooth.apm.ActiveDeviceManagerServiceIntf;
+import com.android.bluetooth.apm.MediaAudioIntf;
+import com.android.bluetooth.apm.CallAudioIntf;
 import com.android.bluetooth.btservice.RemoteDevices.DeviceProperties;
 import com.android.bluetooth.btservice.bluetoothkeystore.BluetoothKeystoreService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
@@ -130,6 +134,7 @@ import com.android.bluetooth.mapclient.MapClientService;
 import com.android.bluetooth.pan.PanService;
 import com.android.bluetooth.pbap.BluetoothPbapService;
 import com.android.bluetooth.pbapclient.PbapClientService;
+import com.android.bluetooth.ReflectionUtils;
 import com.android.bluetooth.sap.SapService;
 import com.android.bluetooth.sdp.SdpManager;
 import com.android.bluetooth.ba.BATService;
@@ -137,10 +142,14 @@ import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.app.IBatteryStats;
 import com.android.internal.util.ArrayUtils;
+import android.media.MediaMetadata;
+
+import java.lang.reflect.*;
 
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.NetworkInfo;
+import android.os.ParcelUuid;
 import android.net.wifi.SoftApConfiguration;
 
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -155,6 +164,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 public class AdapterService extends Service {
     private static final String TAG = "BluetoothAdapterService";
@@ -208,10 +218,16 @@ public class AdapterService extends Service {
 
     private static final int CONTROLLER_ENERGY_UPDATE_TIMEOUT_MILLIS = 30;
     private static final int DELAY_A2DP_SLEEP_MILLIS = 100;
+    private static final int GROUP_ID_START = 1;
+    private static final int GROUP_ID_END = 15;
     private static final int TYPE_BREDR = 100;
+    private static final int TYPE_PRIVATE_ADDRESS = 101;
+    private static final int INVALID_GROUP_ID = 16;
+
+
+    private static final UUID EMPTY_UUID = UUID.fromString("00000000-0000-0000-0000-000000000000");
 
     private final ArrayList<DiscoveringPackage> mDiscoveringPackages = new ArrayList<>();
-
     static {
         System.loadLibrary("bluetooth_qti_jni");
         classInitNative();
@@ -290,8 +306,28 @@ public class AdapterService extends Service {
     private BluetoothPbapService mPbapService;
     private PbapClientService mPbapClientService;
     private HearingAidService mHearingAidService;
+    private Object mGroupService;
     private SapService mSapService;
 
+    ///*_REF
+    Object mBCService = null;
+    Method mBCGetService = null;
+    Method mBCGetConnPolicy = null;
+    Method mBCSetConnPolicy = null;
+    Method mBCConnect = null;
+    Method mBCDisconnect = null;
+    Method mBCGetConnState = null;
+    String mBCId = null;
+    String mBSId = null;
+    Object mBroadcastService = null;
+    Method mBroadcastGetService = null;
+    Method mBroadcastIsActive = null;
+    Method mBroadcastIsStreaming = null;
+    Method mBroadcastNotifyState = null;
+    Method mBroadcastGetAddr = null;
+    Method mBroadcastDevice = null;
+    Method mBroadcastMeta = null;
+    //_REF*/
     /**
      * Register a {@link ProfileService} with AdapterService.
      *
@@ -824,6 +860,7 @@ public class AdapterService extends Service {
 
     void startProfileServices() {
         debugLog("startCoreServices()");
+        Config.initAdvAudioSupport(getApplicationContext());
         Class[] supportedProfileServices = Config.getSupportedProfiles();
         if (supportedProfileServices.length == 1 && GattService.class.getSimpleName()
                 .equals(supportedProfileServices[0].getSimpleName())) {
@@ -1062,6 +1099,7 @@ public class AdapterService extends Service {
             if (GattService.class.getSimpleName().equals(service.getSimpleName())) {
                 continue;
             }
+            Log.e(TAG, "Calling setProfileServiceState for: " + service.getSimpleName());
             setProfileServiceState(service, state);
         }
     }
@@ -1078,23 +1116,48 @@ public class AdapterService extends Service {
      */
     private boolean isSupported(ParcelUuid[] localDeviceUuids, ParcelUuid[] remoteDeviceUuids,
             int profile, BluetoothDevice device) {
+        ParcelUuid ADV_AUDIO_T_MEDIA =
+            ParcelUuid.fromString("00006AD0-0000-1000-8000-00805F9B34FB");
+
+        ParcelUuid ADV_AUDIO_HEARINGAID =
+            ParcelUuid.fromString("00006AD2-0000-1000-8000-00805F9B34FB");
+
+        ParcelUuid ADV_AUDIO_P_MEDIA =
+            ParcelUuid.fromString("00006AD1-0000-1000-8000-00805F9B34FB");
+
+        ParcelUuid ADV_AUDIO_P_VOICE =
+            ParcelUuid.fromString("00006AD4-0000-1000-8000-00805F9B34FB");
+
+        ParcelUuid ADV_AUDIO_T_VOICE =
+            ParcelUuid.fromString("00006AD5-0000-1000-8000-00805F9B34FB");
+
+        ParcelUuid ADV_AUDIO_G_MEDIA =
+            ParcelUuid.fromString("00006AD3-0000-1000-8000-00805F9B34FB");
+
         if (remoteDeviceUuids == null || remoteDeviceUuids.length == 0) {
             Log.e(TAG, "isSupported: Remote Device Uuids Empty");
         }
 
         if (profile == BluetoothProfile.HEADSET) {
-            return (ArrayUtils.contains(localDeviceUuids, BluetoothUuid.HSP_AG)
+            return ((ArrayUtils.contains(localDeviceUuids, BluetoothUuid.HSP_AG)
                     && ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.HSP))
                     || (ArrayUtils.contains(localDeviceUuids, BluetoothUuid.HFP_AG)
-                    && ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.HFP));
+                    && ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.HFP))
+                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_HEARINGAID)
+                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_T_VOICE)
+                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_P_VOICE));
         }
         if (profile == BluetoothProfile.HEADSET_CLIENT) {
-            return ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.HFP_AG)
-                    && ArrayUtils.contains(localDeviceUuids, BluetoothUuid.HFP);
+          return (ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.HFP_AG)
+                && ArrayUtils.contains(localDeviceUuids, BluetoothUuid.HFP));
         }
         if (profile == BluetoothProfile.A2DP) {
             return ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.ADV_AUDIO_DIST)
-                    || ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.A2DP_SINK);
+                    || ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.A2DP_SINK)
+                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_T_MEDIA)
+                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_HEARINGAID)
+                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_G_MEDIA)
+                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_P_MEDIA);
         }
         if (profile == BluetoothProfile.A2DP_SINK) {
             return ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.ADV_AUDIO_DIST)
@@ -1133,6 +1196,9 @@ public class AdapterService extends Service {
         if (profile == BluetoothProfile.SAP) {
             return ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.SAP);
         }
+        if (profile == BluetoothProfile.BC_PROFILE) {
+            return mBCId != null && ArrayUtils.contains(remoteDeviceUuids, ParcelUuid.fromString (mBCId));
+        }
 
         Log.e(TAG, "isSupported: Unexpected profile passed in to function: " + profile);
         return false;
@@ -1145,8 +1211,14 @@ public class AdapterService extends Service {
      * @return true if any profile is enabled, false otherwise
      */
     private boolean isAnyProfileEnabled(BluetoothDevice device) {
-
-        if (mA2dpService != null && mA2dpService.getConnectionPolicy(device)
+        boolean isLeAudioEnabled = ApmConstIntf.getLeAudioEnabled();
+        if(isLeAudioEnabled) {
+            MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
+            if(mMediaAudio != null && mMediaAudio.getConnectionPolicy(device)
+                        > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+                return true;
+            }
+        } else if (mA2dpService != null && mA2dpService.getConnectionPolicy(device)
                 > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
             return true;
         }
@@ -1154,7 +1226,13 @@ public class AdapterService extends Service {
                 > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
             return true;
         }
-        if (mHeadsetService != null && mHeadsetService.getConnectionPolicy(device)
+        if(isLeAudioEnabled) {
+            CallAudioIntf mCallAudio = CallAudioIntf.get();
+            if(mCallAudio != null && mCallAudio.getConnectionPolicy(device)
+                        > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+                return true;
+            }
+        } else if (mHeadsetService != null && mHeadsetService.getConnectionPolicy(device)
                 > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
             return true;
         }
@@ -1182,6 +1260,20 @@ public class AdapterService extends Service {
                 > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
             return true;
         }
+        ///*_REF
+        if (mBCService != null && mBCGetConnPolicy != null) {
+            int connPolicy = 0;
+            try {
+                connPolicy = (int) mBCGetConnPolicy.invoke(mBCService, device);
+            } catch (IllegalAccessException ex) {
+                Log.e(TAG, "mBCGetConnPolicy >> IllegalAccessException");
+            } catch (InvocationTargetException e) {
+                   Log.e(TAG, "BC:Connect InvocationTargetException");
+            }
+            if (connPolicy > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN)
+                return true;
+        }
+        //_REF*/
 
         return false;
     }
@@ -1197,7 +1289,16 @@ public class AdapterService extends Service {
         ParcelUuid[] remoteDeviceUuids = getRemoteUuids(device);
         ParcelUuid[] localDeviceUuids = getUuids();
 
-        if (mHeadsetService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
+        boolean isLeAudioEnabled = ApmConstIntf.getLeAudioEnabled();
+        if(isLeAudioEnabled) {
+            CallAudioIntf mCallAudio = CallAudioIntf.get();
+            if(mCallAudio != null && isSupported(localDeviceUuids, remoteDeviceUuids,
+                BluetoothProfile.HEADSET, device) && mCallAudio.getConnectionPolicy(device)
+                > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+                Log.e(TAG, "isLeAudioEnabled  call audio connect " + isLeAudioEnabled);
+                mCallAudio.connect(device);
+            }
+        } else if (mHeadsetService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
                 BluetoothProfile.HEADSET, device) && mHeadsetService.getConnectionPolicy(device)
                 > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
             Log.i(TAG, "connectEnabledProfiles: Connecting Headset Profile");
@@ -1211,7 +1312,15 @@ public class AdapterService extends Service {
             Log.e(TAG, "connectEnabledProfiles thread was interrupted");
             Thread.currentThread().interrupt();
         }
-        if (mA2dpService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
+
+        if(isLeAudioEnabled) {
+            MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
+            if(mMediaAudio != null && isSupported(localDeviceUuids, remoteDeviceUuids,
+                BluetoothProfile.A2DP, device) && mMediaAudio.getConnectionPolicy(device)
+                > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+                mMediaAudio.connect(device);
+            }
+        } else if (mA2dpService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
                 BluetoothProfile.A2DP, device) && mA2dpService.getConnectionPolicy(device)
                 > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
             Log.i(TAG, "connectEnabledProfiles: Connecting A2dp");
@@ -1263,7 +1372,34 @@ public class AdapterService extends Service {
             Log.i(TAG, "connectEnabledProfiles: Connecting Hearing Aid Profile");
             mHearingAidService.connect(device);
         }
-
+        ///*_REF
+        if (mBCService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
+                BluetoothProfile.BC_PROFILE, device) && mBCGetConnPolicy != null) {
+                int connPolicy = BluetoothProfile.CONNECTION_POLICY_FORBIDDEN;
+                try {
+                   connPolicy = (int) mBCGetConnPolicy.invoke(mBCService, device);
+                } catch(IllegalAccessException e) {
+                   Log.e(TAG, "BC:connPolicy IllegalAccessException");
+                } catch (InvocationTargetException e) {
+                   Log.e(TAG, "BC:connPolicy InvocationTargetException");
+                }
+                if (connPolicy
+                > BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
+                    Log.i(TAG, "connectEnabledProfiles: Connecting BC Profile");
+                    if (mBCConnect != null) {
+                        try {
+                          mBCConnect.invoke(mBCService, device);
+                        } catch(IllegalAccessException e) {
+                          Log.e(TAG, "BC:Connect IllegalAccessException");
+                        } catch (InvocationTargetException e) {
+                          Log.e(TAG, "BC:Connect InvocationTargetException");
+                        }
+                    } else {
+                       Log.e(TAG, "no bc connect handle");
+                    }
+                 }
+        }
+        //_REF*/
         return true;
     }
 
@@ -1299,13 +1435,197 @@ public class AdapterService extends Service {
         mPbapService = BluetoothPbapService.getBluetoothPbapService();
         mPbapClientService = PbapClientService.getPbapClientService();
         mHearingAidService = HearingAidService.getHearingAidService();
+        mGroupService = new ServiceFactory().getGroupService();
         mSapService = SapService.getSapService();
+        if (isAdvBroadcastAudioFeatEnabled()) {
+        ///*_REF
+            Class<?> bcClass = null;
+            try {
+                bcClass = Class.forName("com.android.bluetooth.bc.BCService");
+            } catch (ClassNotFoundException ex) {
+                Log.e(TAG, "no BC: exists");
+                bcClass = null;
+            }
+            if (bcClass != null) {
+                Log.d(TAG, "Able to get BC class handle");
+                try {
+                    mBCGetService =  bcClass.getMethod("getBCService", null);
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no BC:getBCService method exists");
+                    return;
+                }
+                if (mBCGetService != null) {
+                    try {
+                       mBCService = mBCGetService.invoke(null, null);
+                    } catch(IllegalAccessException e) {
+                       Log.e(TAG, "BC:Connect IllegalAccessException");
+                    } catch (InvocationTargetException e) {
+                       Log.e(TAG, "BC:Connect InvocationTargetException");
+                    }
+                }
+
+                try {
+                    mBCGetConnPolicy =  bcClass.getMethod("getConnectionPolicy", BluetoothDevice.class);
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no BC:getConnectionPolicy method exists");
+                }
+
+                try {
+                    mBCGetConnState =    bcClass.getMethod("getConnectionState", BluetoothDevice.class);
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no BC:getConnectionState method exists");
+                    //break;
+                }
+
+                try {
+                    mBCSetConnPolicy =  bcClass.getMethod("setConnectionPolicy", new Class[] {BluetoothDevice.class, int.class});
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no BC:setConnectionPolicy method exists");
+                    //break;
+                }
+
+                try {
+                    mBCConnect =    bcClass.getMethod("connect", BluetoothDevice.class);
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no BC:connect method exists");
+                    //break;
+                }
+                try {
+                    mBCDisconnect =  bcClass.getMethod("disconnect", BluetoothDevice.class);
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no BC:disconnect method exists");
+                    //break;
+                }
+                try {
+                    mBCId = (String)bcClass.getDeclaredField("BC_ID").get(null);
+                } catch (NoSuchFieldException ex) {
+                    Log.w(TAG, ex);
+                } catch (IllegalAccessException ex) {
+                    Log.w(TAG, ex);
+                }
+                try {
+                    mBSId = (String)bcClass.getDeclaredField("BS_ID").get(null);
+                } catch (NoSuchFieldException ex) {
+                    Log.w(TAG, ex);
+                } catch (IllegalAccessException ex) {
+                    Log.w(TAG, ex);
+                }
+            }
+            //_REF*/
+        }
+        if (isAdvBroadcastAudioFeatEnabled()) {
+        //_REF*/
+            Class<?> broadcastClass = null;
+            try {
+                broadcastClass = Class.forName("com.android.bluetooth.broadcast.BroadcastService");
+            } catch (ClassNotFoundException ex) {
+                Log.e(TAG, "no Broadcast: exists");
+                broadcastClass = null;
+            }
+            if (broadcastClass != null) {
+                try {
+                    mBroadcastGetService = broadcastClass.getMethod("getBroadcastService", null);
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no BroadcastService method exists");
+                    return;
+                }
+                if (mBroadcastGetService != null) {
+                    try {
+                        mBroadcastService = mBroadcastGetService.invoke(null, null);
+                    } catch(IllegalAccessException e) {
+                        Log.e(TAG, "BroadcastService IllegalAccessException");
+                    } catch (InvocationTargetException e) {
+                        Log.e(TAG, "BroadcastService InvocationTargetException");
+                    }
+                }
+                try {
+                    mBroadcastIsActive = broadcastClass.getMethod("isBroadcastActive");
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no Broadcast:IsActive method exists");
+                }
+                try {
+                    mBroadcastIsStreaming = broadcastClass.getMethod("isBroadcastStreaming");
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no Broadcast:IsActive method exists");
+                }
+                try {
+                    mBroadcastNotifyState = broadcastClass.getMethod("notifyBroadcastEnabled", boolean.class);
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no Broadcast:NotifyState method exists");
+                }
+                try {
+                    mBroadcastGetAddr = broadcastClass.getMethod("getBroadcastAddress");
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no Broadcast:GetAddr method exists");
+                }
+                try {
+                    mBroadcastDevice = broadcastClass.getMethod("getBroadcastDevice");
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no Broadcast:GetDevice method exists");
+                }
+                try {
+                    mBroadcastMeta = broadcastClass.getMethod("updateMetadataFromAvrcp", MediaMetadata.class);
+                } catch (NoSuchMethodException e) {
+                    Log.e(TAG, "no Broadcast:UpdateMetadata method exists");
+                }
+                mActiveDeviceManager.init_broadcast_ref();
+            }
+        }
     }
+
+    ///*_REF
+    public Object getBCService() {
+        return mBCService;
+    }
+    public Method getBCGetConnPolicy() {
+        return mBCGetConnPolicy;
+    }
+    public Method getBCSetConnPolicy() {
+        return mBCSetConnPolicy;
+    }
+    public Method getBCConnect() {
+        return mBCConnect;
+    }
+    public String getBCId() {
+        return mBCId;
+    }
+
+    public String getBSId() {
+        return mBSId;
+    }
+    //_REF*/
 
     private boolean isAvailable() {
         return !mCleaningUp;
     }
 
+    public Object getBroadcastService() {
+        return mBroadcastService;
+    }
+
+    public Method getBroadcastActive() {
+        return mBroadcastIsActive;
+    }
+
+    public Method getBroadcastStreaming() {
+        return mBroadcastIsStreaming;
+    }
+
+    public Method getBroadcastNotifyState() {
+        return mBroadcastNotifyState;
+    }
+
+    public Method getBroadcastAddress() {
+        return mBroadcastGetAddr;
+    }
+
+    public Method getBroadcastDevice() {
+        return mBroadcastDevice;
+    }
+
+    public Method getBroadcastMeta() {
+        return mBroadcastMeta;
+    }
     /**
      * Handlers for incoming service calls
      */
@@ -2186,9 +2506,12 @@ public class AdapterService extends Service {
 
         @Override
         public boolean isBroadcastActive() {
-            return false;
+            AdapterService service = getService();
+            if (service == null) {
+                return false;
+            }
+            return service.isBroadcastActive();
         }
-
         @Override
         public boolean factoryReset() {
             AdapterService service = getService();
@@ -2452,9 +2775,6 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public int getDeviceType(BluetoothDevice device) { return TYPE_BREDR; }
-
-        @Override
         public void dump(FileDescriptor fd, String[] args) {
             PrintWriter writer = new PrintWriter(new FileOutputStream(fd));
             AdapterService service = getService();
@@ -2464,6 +2784,19 @@ public class AdapterService extends Service {
             service.dump(fd, writer, args);
             writer.close();
         }
+
+        @Override
+        public int getDeviceType(BluetoothDevice device) {
+
+            if (!Utils.checkCaller()) {
+                Log.w(TAG,"(): getDeviceType: not allowed for non-active user");
+                return -1;
+            }
+            AdapterService service = getService();
+            if (service == null) return -1;
+            return service.getDeviceType(device);
+        }
+
     }
 
     ;
@@ -2759,6 +3092,7 @@ public class AdapterService extends Service {
         synchronized (mDiscoveringPackages) {
             mDiscoveringPackages.add(new DiscoveringPackage(callingPackage, permission));
         }
+
         return startDiscoveryNative();
     }
 
@@ -2936,6 +3270,23 @@ public class AdapterService extends Service {
         if (device.isTwsPlusDevice()) {
             mActiveDeviceManager.notify_active_device_unbonding(device);
         }
+        BluetoothDevice mappingDevice
+            = mRemoteDevices.getDevice(deviceProp.getMappingAddr());
+        if (mappingDevice != null) {
+            DeviceProperties deviceMapProp
+                = mRemoteDevices.getDeviceProperties(mappingDevice);
+            if (deviceMapProp != null) {
+                Log.e(TAG," getAdvAudio ADDR " + deviceMapProp.getValidBDAddr());
+                deviceMapProp.setDefaultBDAddrValidType();
+                Log.e(TAG," getAdvAudio ADDR " + deviceMapProp.getValidBDAddr());
+            } else {
+                Log.e(TAG,"  getAdvAudio ADDR NULL ");
+                deviceProp.setDefaultBDAddrValidType();
+            }
+        } else {
+            Log.e(TAG,"  getAdvAudio device is NULL ");
+            deviceProp.setDefaultBDAddrValidType();
+        }
         Message msg = mBondStateMachine.obtainMessage(BondStateMachine.REMOVE_BOND);
         msg.obj = device;
         mBondStateMachine.sendMessage(msg);
@@ -3008,6 +3359,8 @@ public class AdapterService extends Service {
 
         boolean setA2dp = false;
         boolean setHeadset = false;
+        boolean isLeAudioEnabled = ApmConstIntf.getLeAudioEnabled();
+        ActiveDeviceManagerServiceIntf activeDeviceManager = ActiveDeviceManagerServiceIntf.get();
 
         // Determine for which profiles we want to set device as our active device
         switch(profiles) {
@@ -3026,7 +3379,12 @@ public class AdapterService extends Service {
         }
 
         if (setA2dp && mA2dpService != null) {
-            mA2dpService.setActiveDevice(device);
+            if(isLeAudioEnabled) {
+                activeDeviceManager.setActiveDevice(device, 
+                        ApmConstIntf.AudioFeatures.MEDIA_AUDIO, true);
+            } else {
+                mA2dpService.setActiveDevice(device);
+            }
         }
 
         // Always sets as active device for hearing aid profile
@@ -3035,6 +3393,12 @@ public class AdapterService extends Service {
         }
 
         if (setHeadset && mHeadsetService != null) {
+            if(isLeAudioEnabled) {
+                activeDeviceManager.setActiveDevice(device, 
+                        ApmConstIntf.AudioFeatures.CALL_AUDIO, true);
+            } else {
+                mHeadsetService.setActiveDevice(device);
+            }
             mHeadsetService.setActiveDevice(device);
         }
 
@@ -3053,6 +3417,7 @@ public class AdapterService extends Service {
             Log.e(TAG, "connectAllEnabledProfiles: Not all profile services running");
             return false;
         }
+        boolean isLeAudioEnabled = ApmConstIntf.getLeAudioEnabled();
 
         // Checks if any profiles are enabled and if so, only connect enabled profiles
         if (isAnyProfileEnabled(device)) {
@@ -3064,7 +3429,16 @@ public class AdapterService extends Service {
         ParcelUuid[] localDeviceUuids = getUuids();
 
         // All profile toggles disabled, so connects all supported profiles
-        if (mA2dpService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
+        if(isLeAudioEnabled) {
+    /*Check for isSupported here for LE devices*/
+            MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
+            if(mMediaAudio != null && isSupported(localDeviceUuids, remoteDeviceUuids,
+                        BluetoothProfile.A2DP, device)) {
+                mMediaAudio.setConnectionPolicy(device,
+                    BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+                numProfilesConnected++;
+            }
+        } else if (mA2dpService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
                 BluetoothProfile.A2DP, device)) {
             Log.i(TAG, "connectAllEnabledProfiles: Connecting A2dp");
             // Set connection policy also connects the profile with CONNECTION_POLICY_ALLOWED
@@ -3078,7 +3452,15 @@ public class AdapterService extends Service {
                     BluetoothProfile.CONNECTION_POLICY_ALLOWED);
             numProfilesConnected++;
         }
-        if (mHeadsetService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
+        if(isLeAudioEnabled) {
+            CallAudioIntf mCallAudio = CallAudioIntf.get();
+            if(mCallAudio != null && isSupported(localDeviceUuids, remoteDeviceUuids,
+                        BluetoothProfile.HEADSET, device)) {
+                mCallAudio.setConnectionPolicy(device,
+                    BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+                numProfilesConnected++;
+            }
+        } else if (mHeadsetService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
                 BluetoothProfile.HEADSET, device)) {
             Log.i(TAG, "connectAllEnabledProfiles: Connecting Headset Profile");
             mHeadsetService.setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
@@ -3124,6 +3506,20 @@ public class AdapterService extends Service {
                     BluetoothProfile.CONNECTION_POLICY_ALLOWED);
             numProfilesConnected++;
         }
+        ///*_REF
+        if (mBCService != null && isSupported(localDeviceUuids, remoteDeviceUuids,
+                BluetoothProfile.BC_PROFILE, device)) {
+            Log.i(TAG, "connectAllEnabledProfiles: Connecting BC Profile");
+            try {
+                  mBCSetConnPolicy.invoke(mBCService, device,BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+            } catch(IllegalAccessException e) {
+                   Log.e(TAG, "BC:setConnPolicy IllegalAccessException");
+            } catch (InvocationTargetException e) {
+                  Log.e(TAG, "BC:setConnPolicy InvocationTargetException");
+            }
+            numProfilesConnected++;
+        }
+        //_REF*/
 
         Log.i(TAG, "connectAllEnabledProfiles: Number of Profiles Connected: "
                 + numProfilesConnected);
@@ -3143,7 +3539,12 @@ public class AdapterService extends Service {
             Log.e(TAG, "disconnectAllEnabledProfiles: Not all profile services bound");
             return false;
         }
-        if (mA2dpService != null && mA2dpService.getConnectionState(device)
+        boolean isLeAudioEnabled = ApmConstIntf.getLeAudioEnabled();
+        if(isLeAudioEnabled) {
+            MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
+            if(mMediaAudio != null)
+                mMediaAudio.disconnect(device, true);
+        } else if (mA2dpService != null && mA2dpService.getConnectionState(device)
                 == BluetoothProfile.STATE_CONNECTED) {
             Log.i(TAG, "disconnectAllEnabledProfiles: Disconnecting A2dp");
             mA2dpService.disconnect(device);
@@ -3153,7 +3554,11 @@ public class AdapterService extends Service {
             Log.i(TAG, "disconnectAllEnabledProfiles: Disconnecting A2dp Sink");
             mA2dpSinkService.disconnect(device);
         }
-        if (mHeadsetService != null && mHeadsetService.getConnectionState(device)
+        if(isLeAudioEnabled) {
+            CallAudioIntf mCallAudio = CallAudioIntf.get();
+            if(mCallAudio != null)
+                mCallAudio.disconnect(device);
+        } else if (mHeadsetService != null && mHeadsetService.getConnectionState(device)
                 == BluetoothProfile.STATE_CONNECTED) {
             Log.i(TAG,
                     "disconnectAllEnabledProfiles: Disconnecting Headset Profile");
@@ -3204,6 +3609,32 @@ public class AdapterService extends Service {
             Log.i(TAG, "disconnectAllEnabledProfiles: Disconnecting Hearing Aid Profile");
             mHearingAidService.disconnect(device);
         }
+        ///*_REF
+        if (mBCService != null &&  mBCGetConnState != null) {
+                int connState = BluetoothProfile.STATE_DISCONNECTED;
+                try {
+                   connState = (int) mBCGetConnState.invoke(mBCService, device);
+                } catch(IllegalAccessException e) {
+                   Log.e(TAG, "BC:Connstate IllegalAccessException");
+                } catch (InvocationTargetException e) {
+                   Log.e(TAG, "BC:Connstate InvocationTargetException");
+                }
+            if (connState == BluetoothProfile.STATE_CONNECTED) {
+              Log.i(TAG, "disconnectAllEnabledProfiles: Disconnecting BC Profile");
+              if (mBCDisconnect != null) {
+                try {
+                   mBCDisconnect.invoke(mBCService, device);
+                } catch(IllegalAccessException e) {
+                   Log.e(TAG, "BC:disconnect IllegalAccessException");
+                } catch (InvocationTargetException e) {
+                   Log.e(TAG, "BC:disonnect InvocationTargetException");
+                }
+              } else {
+                Log.e(TAG, "no BC disconnect Handle");
+              }
+            }
+        }
+        //_REF*/
 
         return true;
     }
@@ -3216,10 +3647,39 @@ public class AdapterService extends Service {
      */
     public String getRemoteName(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (mBroadcastService != null && mBroadcastGetAddr != null
+            && mBroadcastIsActive != null) {
+            String Address = null;
+            boolean isactive = false;
+            try {
+                Address = (String)mBroadcastGetAddr.invoke(mBroadcastService);
+            } catch(IllegalAccessException e) {
+                Log.e(TAG, "Broadcast:GetAddr IllegalAccessException");
+            } catch (InvocationTargetException e) {
+                Log.e(TAG, "Broadcast:GetAddr InvocationTargetException");
+            }
+            try {
+                isactive = (boolean)mBroadcastIsActive.invoke(mBroadcastService);
+            } catch(IllegalAccessException e) {
+                Log.e(TAG, "Broadcast:IsActive IllegalAccessException");
+            } catch (InvocationTargetException e) {
+                Log.e(TAG, "Broadcast:IsActive InvocationTargetException");
+            }
+            if (device.getAddress().equals(Address) && isactive) {
+                Log.d(TAG," Request Name for Broadcast device ");
+                return "Broadcast_Source";
+            }
+        }
         if (device.getAddress().equals(BATService.mBAAddress)) {
             Log.d(TAG," Request Name for BA device ");
             return "Broadcast_Audio";
         }
+
+        if (device.getAddress().contains("9E:8B:00:00:00")) {
+            Log.d(TAG," Request Name for Group");
+            return "BT-Audio-Group";
+        }
+
         if (mRemoteDevices == null) {
             return null;
         }
@@ -3567,6 +4027,21 @@ public class AdapterService extends Service {
         return mAdapterProperties.isA2dpOffloadEnabled();
     }
 
+    public boolean isBroadcastActive() {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (mBroadcastService != null && mBroadcastIsActive != null) {
+            boolean is_active = false;
+            try {
+                is_active = (boolean)mBroadcastIsActive.invoke(mBroadcastService);
+            } catch(IllegalAccessException e) {
+                Log.e(TAG, "Broadcast:IsActive IllegalAccessException");
+            } catch (InvocationTargetException e) {
+                Log.e(TAG, "Broadcast:IsActive InvocationTargetException");
+            }
+            return is_active;
+        }
+        return false;
+    }
     /**
      * Check whether Wipower Fastboot enabled.
      *
@@ -3873,6 +4348,14 @@ public class AdapterService extends Service {
         return mAdapterProperties.isAddonFeaturesCmdSupported();
     }
 
+    public boolean isAdvUnicastAudioFeatEnabled() {
+        return (Config.adv_audio_feature_mask & Config.ADV_AUDIO_UNICAST_FEAT_MASK) != 0;
+    }
+
+    public boolean isAdvBroadcastAudioFeatEnabled() {
+        return (Config.adv_audio_feature_mask & Config.ADV_AUDIO_BROADCAST_FEAT_MASK) != 0;
+    }
+
     private BluetoothActivityEnergyInfo reportActivityInfo() {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED, "Need BLUETOOTH permission");
         if (mAdapterProperties.getState() != BluetoothAdapter.STATE_ON
@@ -4159,6 +4642,9 @@ public class AdapterService extends Service {
         }
     }
 
+    public ActiveDeviceManager getActiveDeviceManager() {
+        return mActiveDeviceManager;
+    } 
     private int getIdleCurrentMa() {
         return getResources().getInteger(R.integer.config_bluetooth_idle_cur_ma);
     }
@@ -4398,6 +4884,35 @@ public class AdapterService extends Service {
     }
 
 
+    boolean isSdpCompleted(BluetoothDevice device) {
+        DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
+        boolean sdpCompleted = deviceProp.isSdpCompleted();
+        debugLog("sdpCompleted  "  + sdpCompleted);
+        return sdpCompleted;
+    }
+
+    private int getDeviceType(BluetoothDevice device){
+        enforceBluetoothPrivilegedPermission(this);
+        int type = TYPE_BREDR;
+        if (mGroupService == null ) {
+            type = TYPE_BREDR;
+        } else if (isIgnoreDevice(device)) {
+            type  = TYPE_PRIVATE_ADDRESS;
+        } else if (isGroupDevice(device)) {
+            ArrayList<Object> args = new ArrayList<Object>(
+                    Arrays.asList(device, new ParcelUuid(EMPTY_UUID)));
+            type = (Integer)(new ReflectionUtils().invokeMethod(
+                    mGroupService, "getRemoteDeviceGroupId", args));
+            if (type > GROUP_ID_END ) {
+                Log.e(TAG, "getDeviceType set id invalid " + type);
+            }
+        } else if (!isSdpCompleted(device)) {
+            type = -1;
+        }
+        debugLog("getDeviceType device" + device + " name " + device.getName() + " type " + type);
+        return type;
+    }
+
     static native void classInitNative();
 
     native boolean initNative(boolean startRestricted, boolean isNiapMode,
@@ -4505,5 +5020,170 @@ public class AdapterService extends Service {
     // production this has no effect.
     public boolean isMock() {
         return false;
+    }
+
+    public void processGroupMember(int groupId, BluetoothDevice device) {
+      Log.i(TAG," Processing Group Member " + device +
+          " BondState " + device.getBondState());
+      DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
+      if (deviceProp == null) {
+        byte[] addrByte = Utils.getByteAddress(device);
+        deviceProp = mRemoteDevices.addDeviceProperties(addrByte);
+      }
+      if (deviceProp != null) {
+          int tempBluetoothClass = BluetoothClass.Service.GROUP |
+            deviceProp.getBluetoothClass();
+          deviceProp.setBluetoothClass(tempBluetoothClass);
+          deviceProp.setBondingInitiatedLocally(true);
+          Log.i(TAG," Processing Group Member " + device +
+              " tempBluetoothClass " + tempBluetoothClass);
+      }
+      if (device.getBondState() == BluetoothDevice.BOND_NONE) {
+          Message msg =
+            mBondStateMachine.obtainMessage(BondStateMachine.ADD_DEVICE_BOND_QUEUE);
+          msg.obj = device;
+          msg.arg1 = groupId;
+
+          mBondStateMachine.sendMessage(msg);
+      }
+    }
+
+    public boolean isGroupDevice(BluetoothDevice device) {
+        DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
+        boolean status = false;
+
+        if (deviceProp == null) return false;
+        int groupSupport = deviceProp.getBluetoothClass()
+                            & BluetoothClass.Service.GROUP;
+
+        Log.i(TAG," Group SUPPORT VALUE " +groupSupport + " device " +device);
+        if (groupSupport == BluetoothClass.Service.GROUP) {
+            if (mGroupService == null) return false;
+            // Add check for valid groupId- TODO replace null with uuid
+            ArrayList<Object> args = new ArrayList<Object>(
+                    Arrays.asList(device, new ParcelUuid(EMPTY_UUID)));
+            int groupId = (Integer)(new ReflectionUtils().invokeMethod(
+                    mGroupService, "getRemoteDeviceGroupId", args));
+            Log.i(TAG," group id  " + groupId + " device " + device);
+            if (groupId != INVALID_GROUP_ID) {
+                status = true;
+            }
+            if (deviceProp.getValidBDAddr() == 0) {
+                Log.i(TAG," ITS PRIVATE ADDR  " + deviceProp.getValidBDAddr()
+                        + " device " +device);
+                status = false;
+            }
+        }
+        Log.i(TAG," isGroupDevice " + status + "  device name " + device.getName()
+                + " addr " + device.getAddress());
+        return status;
+    }
+
+    public int getGroupId(BluetoothDevice device) {
+        if (mGroupService == null) return INVALID_GROUP_ID;
+        ArrayList<Object> args = new ArrayList<Object>(
+                Arrays.asList(device, new ParcelUuid(EMPTY_UUID)));
+        int groupId = (Integer)(new ReflectionUtils().invokeMethod(
+                mGroupService, "getRemoteDeviceGroupId", args));
+        Log.i(TAG," Group ID " + groupId);
+        return groupId;
+    }
+
+    public boolean isIgnoreDevice(BluetoothDevice device) {
+        DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
+        boolean status = false;
+        if (deviceProp == null) return false;
+
+        if (deviceProp.getValidBDAddr() == 0) {
+                status = true;
+        }
+        Log.i(TAG," isIgnoreDevice " +status +" device name "+device.getName()+" addr "+device.getAddress());
+
+        return status;
+    }
+
+    public BluetoothDevice getIdentityAddress(BluetoothDevice device) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
+        if (deviceProp == null) return null;
+
+        Log.e(TAG," getIdentityAddress " + deviceProp.getMappingAddr());
+        BluetoothDevice mappingDevice
+            = mRemoteDevices.getDevice(deviceProp.getMappingAddr());
+
+        Log.e(TAG," getIdentityAddress Device " + mappingDevice);
+        return mappingDevice;
+    }
+
+    public boolean isAdvAudioDevice(BluetoothDevice device) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
+        boolean status = false;
+        if (deviceProp == null) return false;
+
+        Log.i(TAG," isAdvAudioDevice " + device + " getBluetoothClass "
+            + deviceProp.getBluetoothClass());
+
+        int leAudioSupport = (deviceProp.getBluetoothClass())
+                               & (BluetoothClass.Service.GROUP);
+
+        if ((leAudioSupport == BluetoothClass.Service.GROUP)
+            && (deviceProp.getValidBDAddr() != 0)) {
+            status = true;
+        }
+        Log.i(TAG," isAdvAudioDevice " +status);
+        return status;
+    }
+
+    public boolean isGroupExclAccessSupport(BluetoothDevice device) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
+        ParcelUuid[] uuids = deviceProp.getUuids();
+        boolean status = false;
+        ParcelUuid GROUP_EXCL_ACCESS_SUPPORT =
+            ParcelUuid.fromString("00006AD8-0000-1000-8000-00805F9B34FB");
+
+        if (ArrayUtils.contains(uuids,GROUP_EXCL_ACCESS_SUPPORT)) {
+            status = true;
+        }
+        Log.i(TAG,"isGroupExclusiveAccess supported  " +status);
+        return status;
+    }
+
+    public int getTransportForUuid(BluetoothDevice device,
+        ParcelUuid uuid) {
+        DeviceProperties deviceProp
+            = mRemoteDevices.getDeviceProperties(device);
+        if (deviceProp != null) {
+            return deviceProp.getUuidTransport(uuid);
+        }
+        return 0;
+    }
+
+    public void registerUuidSrvcDisc(ParcelUuid reg_uuid) {
+        UUID uuid = reg_uuid.getUuid();
+        Log.i(TAG," Registering UUID  " +uuid);
+
+        mVendor.registerUuidSrvcDisc(uuid);
+    }
+
+    public static void setAdvanceAudioSupport() {
+        Log.d(TAG, "setAdvanceAudioSupport");
+        Method mSetAdvanceAudioSupport = null;
+
+        try {
+            Class<?> grpSvcCls = Class.forName(
+                    "com.android.bluetooth.groupclient.GroupService");
+            if (grpSvcCls != null) {
+                mSetAdvanceAudioSupport = grpSvcCls.getMethod(
+                    "setAdvanceAudioSupport");
+                if (mSetAdvanceAudioSupport != null) {
+                    mSetAdvanceAudioSupport.invoke(null);
+                }
+            }
+        } catch (NoSuchMethodException|IllegalAccessException|
+                 InvocationTargetException|ClassNotFoundException e) {
+             Log.e(TAG, "Exception setAdvanceAudioSupport: " + e);
+        }
     }
 }

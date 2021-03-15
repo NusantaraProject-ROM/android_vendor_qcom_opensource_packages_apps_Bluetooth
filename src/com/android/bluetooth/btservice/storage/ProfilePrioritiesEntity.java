@@ -35,6 +35,7 @@ class ProfilePrioritiesEntity {
     public int sap_connection_policy;
     public int hearing_aid_connection_policy;
     public int map_client_connection_policy;
+    public int bc_profile_priority;
 
     ProfilePrioritiesEntity() {
         a2dp_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
@@ -49,6 +50,7 @@ class ProfilePrioritiesEntity {
         sap_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
         hearing_aid_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
         map_client_connection_policy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+        bc_profile_priority = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
     }
 
     public String toString() {

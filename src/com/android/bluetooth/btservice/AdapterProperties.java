@@ -854,6 +854,24 @@ class AdapterProperties {
         }
     }
 
+    void updateSdpProgress(BluetoothDevice device, boolean isCompleted) {
+        if (device == null) {
+            Log.w(TAG, "updateSdpProgress, device is null");
+            return;
+        }
+        try {
+            byte[] addrByte = Utils.getByteAddress(device);
+            DeviceProperties prop = mRemoteDevices.getDeviceProperties(device);
+            if (prop == null) {
+                prop = mRemoteDevices.addDeviceProperties(addrByte);
+            }
+            prop.setSdpProgress(isCompleted);
+            debugLog("updateSdpProgress device " + device + " isCompleted " + isCompleted);
+        } catch (Exception ee) {
+            Log.w(TAG, "updateSdpProgress: Exception ", ee);
+        }
+    }
+
      /**
      * @return the mWhitelistedPlayers
      */

@@ -1101,11 +1101,33 @@ public class GattService extends ProfileService {
                 scanRecordData = advData;
             }
 
-            ScanResult result =
-                    new ScanResult(device, eventType, primaryPhy, secondaryPhy, advertisingSid,
+            ScanResult result = null;
+            ScanRecord record = ScanRecord.parseFromBytes(scanRecordData);
+            Map<ParcelUuid, byte[]> listOfUuids = record.getServiceData();
+            boolean isPrevClient = false;
+            String BS_ID = null;
+            AdapterService adapterService = AdapterService.getAdapterService();
+            if (adapterService != null) {
+                BS_ID = adapterService.getBSId();
+            }
+            if (listOfUuids != null && BS_ID != null) {
+                 isPrevClient = listOfUuids.containsKey(ParcelUuid.fromString(BS_ID));
+            }
+
+            if (client.allowAddressTypeInResults && isPrevClient) {
+                Log.d(TAG, "populate AddressType for previleged client");
+                result =
+                    new ScanResult(device, addressType, eventType, primaryPhy, secondaryPhy, advertisingSid,
                             txPower, rssi, periodicAdvInt,
-                            ScanRecord.parseFromBytes(scanRecordData),
+                            record,
                             SystemClock.elapsedRealtimeNanos());
+            } else {
+                result = new ScanResult(device, eventType, primaryPhy, secondaryPhy, advertisingSid,
+                            txPower, rssi, periodicAdvInt,
+                            record,
+                            SystemClock.elapsedRealtimeNanos());
+            }
+
             boolean hasPermission = hasScanResultPermission(client);
             if (!hasPermission) {
                 for (String associatedDevice : client.associatedDevices) {
@@ -2161,6 +2183,13 @@ public class GattService extends ProfileService {
             scanClient.hasLocationPermission = Utils.checkCallerHasCoarseOrFineLocation(this,
                     mAppOps, callingPackage, callingFeatureId, scanClient.userHandle);
         }
+
+        if (callingPackage != null &&
+                callingPackage.equals("com.android.bluetooth")) {
+            Log.d(TAG, "allowAddressTypeInResults only for Bluetooth apk");
+            scanClient.allowAddressTypeInResults  = true;
+        }
+
         scanClient.hasNetworkSettingsPermission =
                 Utils.checkCallerHasNetworkSettingsPermission(this);
         scanClient.hasNetworkSetupWizardPermission =

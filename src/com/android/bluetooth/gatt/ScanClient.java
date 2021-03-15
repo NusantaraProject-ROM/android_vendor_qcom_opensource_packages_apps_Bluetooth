@@ -48,6 +48,7 @@ import java.util.UUID;
     public boolean hasNetworkSettingsPermission;
     public boolean hasNetworkSetupWizardPermission;
     public List<String> associatedDevices;
+    public boolean allowAddressTypeInResults;
 
     public AppScanStats stats = null;
 

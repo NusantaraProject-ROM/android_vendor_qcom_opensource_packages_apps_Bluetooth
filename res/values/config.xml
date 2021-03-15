@@ -14,12 +14,14 @@
 -->
 <resources>
     <bool name="profile_supported_a2dp">true</bool>
+    <bool name="profile_supported_ca">true</bool>
     <bool name="profile_supported_a2dp_sink">false</bool>
     <bool name="profile_supported_hs_hfp">true</bool>
     <bool name="profile_supported_hfpclient">false</bool>
     <bool name="profile_supported_hfp_incallservice">true</bool>
     <bool name="profile_supported_hid_host">true</bool>
     <bool name="profile_supported_opp">true</bool>
+    <bool name="profile_supported_pc">true</bool>
     <bool name="profile_supported_pan">true</bool>
     <bool name="profile_supported_pbap">true</bool>
     <bool name="profile_supported_gatt">true</bool>
@@ -28,11 +30,17 @@
     <bool name="profile_supported_map">true</bool>
     <bool name="profile_supported_avrcp_target">true</bool>
     <bool name="profile_supported_avrcp_controller">true</bool>
+    <bool name="profile_supported_bac">true</bool>
     <bool name="profile_supported_sap">true</bool>
     <bool name="profile_supported_pbapclient">false</bool>
     <bool name="profile_supported_mapmce">false</bool>
+    <bool name="profile_supported_broadcast">true</bool>
     <bool name="profile_supported_hid_device">true</bool>
+    <bool name="profile_supported_le_audio">true</bool>
     <bool name="profile_supported_ba">false</bool>
+    <bool name="profile_supported_group_client">true</bool>
+    <bool name="profile_supported_music_player_service">false</bool>
+    <bool name="profile_supported_cc_server">true</bool>
 
     <!-- If true, we will require location to be enabled on the device to
          fire Bluetooth LE scan result callbacks in addition to having one

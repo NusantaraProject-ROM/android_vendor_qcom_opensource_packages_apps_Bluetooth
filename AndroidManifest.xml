@@ -84,7 +84,6 @@
     <uses-permission android:name="android.permission.MANAGE_COMPANION_DEVICES"/>
 
     <uses-sdk android:minSdkVersion="14"/>
-
     <!-- For PBAP Owner Vcard Info -->
     <uses-permission android:name="android.permission.READ_PROFILE"/>
     <application
@@ -321,11 +320,29 @@
         </service>
         <service
             android:process="@string/process"
+            android:name = ".broadcast.BroadcastService"
+            android:exported="true"
+            android:enabled="@bool/profile_supported_broadcast">
+            <intent-filter>
+                <action android:name="android.bluetooth.IBluetoothBroadcast" />
+            </intent-filter>
+        </service>
+        <service
+            android:process="@string/process"
             android:name = ".a2dp.A2dpService"
             android:exported="true"
             android:enabled="@bool/profile_supported_a2dp">
             <intent-filter>
                 <action android:name="android.bluetooth.IBluetoothA2dp" />
+            </intent-filter>
+        </service>
+        <service
+            android:process="@string/process"
+            android:name = ".acm.AcmService"
+            android:exported="true"
+            android:enabled="@bool/profile_supported_ca">
+            <intent-filter>
+                <action android:name="android.bluetooth.IBluetoothAcm" />
             </intent-filter>
         </service>
         <service
@@ -363,6 +380,15 @@
             android:enabled="@bool/profile_supported_avrcp_controller">
             <intent-filter>
                 <action android:name="android.bluetooth.IBluetoothAvrcpController" />
+            </intent-filter>
+        </service>
+        <service
+            android:process="@string/process"
+            android:name = ".apm.StreamAudioService"
+            android:exported="true"
+            android:enabled="@bool/profile_supported_le_audio">
+            <intent-filter>
+                <action android:name="android.bluetooth.IBluetoothVcp" />
             </intent-filter>
         </service>
         <service
@@ -423,6 +449,11 @@
         </service>
         <service
             android:process="@string/process"
+            android:name = ".pc.PCService"
+            android:exported="true">
+        </service>
+        <service
+            android:process="@string/process"
             android:name = ".pbapclient.PbapClientService"
             android:exported="true"
             android:enabled="@bool/profile_supported_pbapclient">
@@ -432,10 +463,31 @@
         </service>
         <service
             android:process="@string/process"
+            android:name = ".bc.BCService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.bluetooth.IBluetoothSyncHelper" />
+            </intent-filter>
+        </service>
+        <service
+            android:process="@string/process"
+            android:name = ".cc.CCService"
+            android:exported="true">
+        </service>
+        <service
+            android:process="@string/process"
             android:name = ".hearingaid.HearingAidService"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.bluetooth.IBluetoothHearingAid" />
+            </intent-filter>
+        </service>
+        <service
+            android:process="@string/process"
+            android:name = ".groupclient.GroupService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.bluetooth.IBluetoothDeviceGroup" />
             </intent-filter>
         </service>
         <!-- Authenticator for PBAP account. -->
