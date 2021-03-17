@@ -3615,6 +3615,11 @@ public class AdapterService extends Service {
             Log.i(TAG, "disconnectAllEnabledProfiles: Disconnecting Hearing Aid Profile");
             mHearingAidService.disconnect(device);
         }
+        if (mSapService != null && mSapService.getConnectionState(device)
+                == BluetoothProfile.STATE_CONNECTED) {
+            Log.i(TAG, "disconnectAllEnabledProfiles: Disconnecting Sap Profile");
+            mSapService.disconnect(device);
+        }
         ///*_REF
         if (mBCService != null &&  mBCGetConnState != null) {
                 int connState = BluetoothProfile.STATE_DISCONNECTED;
