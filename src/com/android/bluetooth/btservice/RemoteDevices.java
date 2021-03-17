@@ -944,7 +944,7 @@ final class RemoteDevices {
         }
     }
 
-    void aclStateChangeCallback(int status, byte[] address, int newState) {
+    void aclStateChangeCallback(int status, byte[] address, int newState, int hciReason) {
         BluetoothDevice device = getDevice(address);
 
         if (device == null) {
@@ -1005,7 +1005,8 @@ final class RemoteDevices {
                         if (connectionState == BluetoothAdapter.STATE_CONNECTED) {
                             callback.onDeviceConnected(device);
                         } else {
-                            callback.onDeviceDisconnected(device);
+                            callback.onDeviceDisconnected(device,
+                                AdapterService.hciToAndroidDisconnectReason(hciReason));
                         }
                     } catch (RemoteException ex) {
                         Log.e(TAG, "RemoteException in calling IBluetoothConnectionCallback");
