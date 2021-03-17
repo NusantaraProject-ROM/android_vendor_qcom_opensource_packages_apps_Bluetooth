@@ -505,7 +505,7 @@ public class MediaPlayerList {
         d("sendMediaKeyEvent: key=" + key + " pushed=" + pushed);
         int action = pushed ? KeyEvent.ACTION_DOWN : KeyEvent.ACTION_UP;
         KeyEvent event = new KeyEvent(action, AvrcpPassthrough.toKeyCode(key));
-        mMediaSessionManager.dispatchMediaKeyEvent(event);
+        mMediaSessionManager.dispatchMediaKeyEvent(event, /*needWakeLock=*/false);
     }
 
     private void sendFolderUpdate(boolean availablePlayers, boolean addressedPlayers,

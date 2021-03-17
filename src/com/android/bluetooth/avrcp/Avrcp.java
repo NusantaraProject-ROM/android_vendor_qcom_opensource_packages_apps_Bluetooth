@@ -3141,7 +3141,7 @@ public final class Avrcp {
             mLastPassthroughcmd = code;
         }
 
-        mMediaSessionManager.dispatchMediaKeyEvent(event);
+        mMediaSessionManager.dispatchMediaKeyEvent(event, /*needWakeLock=*/false);
         addKeyPending(event);
     }
 
