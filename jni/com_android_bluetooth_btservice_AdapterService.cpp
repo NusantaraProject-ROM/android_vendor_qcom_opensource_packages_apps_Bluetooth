@@ -700,7 +700,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 }
 
 static bool initNative(JNIEnv* env, jobject obj, jboolean isGuest,
-                       jboolean isSingleUserMode, int configCompareResult,
+                       jboolean isNiapMode, int configCompareResult,
                        jboolean isAtvDevice ) {
   ALOGV("%s", __func__);
 
@@ -717,7 +717,7 @@ static bool initNative(JNIEnv* env, jobject obj, jboolean isGuest,
 
   int ret = sBluetoothInterface->init(&sBluetoothCallbacks,
                                       isGuest == JNI_TRUE ? 1 : 0,
-                                      isSingleUserMode == JNI_TRUE ? 1 : 0,
+                                      isNiapMode == JNI_TRUE ? 1 : 0,
                                       configCompareResult,
                                       isAtvDevice == JNI_TRUE ? 1 : 0);
   if (ret != BT_STATUS_SUCCESS && ret != BT_STATUS_DONE) {
