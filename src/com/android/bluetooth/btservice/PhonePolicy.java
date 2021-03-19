@@ -120,6 +120,8 @@ class PhonePolicy {
     Method mBCDisconnect = null;
     Method mBCGetConnState = null;
     String mBCId = null;
+    private static final String BC_ACTION_CONNECTION_STATE_CHANGED =
+        "android.bluetooth.bc.profile.action.CONNECTION_STATE_CHANGED";
     //_REF*/
     Object mBroadcastService = null;
     Method mBroadcastGetAddr = null;
@@ -188,6 +190,12 @@ class PhonePolicy {
                     break;
                 case BluetoothDevice.ACTION_ACL_CONNECTED:
                     mHandler.obtainMessage(MESSAGE_DEVICE_CONNECTED, intent).sendToTarget();
+                    break;
+                case BC_ACTION_CONNECTION_STATE_CHANGED:
+                    mHandler.obtainMessage(MESSAGE_PROFILE_CONNECTION_STATE_CHANGED,
+                            BluetoothProfile.BC_PROFILE,-1, // No-op argument
+                            intent).sendToTarget();
+                    break;
                 default:
                     Log.e(TAG, "Received unexpected intent, action=" + action);
                     break;
@@ -289,6 +297,7 @@ class PhonePolicy {
         filter.addAction(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
         filter.addAction(BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED);
         filter.addAction(BluetoothHearingAid.ACTION_ACTIVE_DEVICE_CHANGED);
+        filter.addAction(BC_ACTION_CONNECTION_STATE_CHANGED);
         mAdapterService.registerReceiver(mReceiver, filter);
     }
 
@@ -478,6 +487,11 @@ class PhonePolicy {
                 }
                 handleAllProfilesDisconnected(device);
             }
+        }
+
+        if (profileId == BluetoothProfile.BC_PROFILE &&
+                (nextState == BluetoothProfile.STATE_CONNECTED || nextState ==BluetoothProfile.STATE_DISCONNECTED)) {
+            mDatabaseManager.setConnectionStateForBc(device, nextState);
         }
     }
 
@@ -721,6 +735,10 @@ class PhonePolicy {
             return;
         }
         for (BluetoothDevice device : bondedDevices) {
+            if (mDatabaseManager.wasBCConnectedDevice(device) == false) {
+                Log.d(TAG, "not a BC connected device earlier, Ignoring");
+                continue;
+            }
             int connPolicy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
             try {
                 connPolicy = (int) mBCGetConnPolicy.invoke(mBCService, device);
