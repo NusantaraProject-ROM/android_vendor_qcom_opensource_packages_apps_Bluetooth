@@ -339,7 +339,6 @@ public class ScanManager {
                 return;
             }
 
-            boolean isFiltered = (client.filters != null) && !client.filters.isEmpty();
             if (DBG) {
                 Log.d(TAG, "handling starting scan");
             }
@@ -354,7 +353,7 @@ public class ScanManager {
                 return;
             }
 
-            if (!mScanNative.isOpportunisticScanClient(client) && !isScreenOn() && !isFiltered) {
+            if (requiresScreenOn(client) && !isScreenOn()) {
                 Log.w(TAG, "Cannot start unfiltered scan in screen-off. This scan will be resumed "
                         + "later: " + client.scannerId);
                 mSuspendedScanClients.add(client);
@@ -365,7 +364,7 @@ public class ScanManager {
             }
 
             final boolean locationEnabled = mLocationManager.isLocationEnabled();
-            if (!locationEnabled && !isFiltered) {
+            if (requiresLocationOn(client) && !locationEnabled) {
                 Log.i(TAG, "Cannot start unfiltered scan in location-off. This scan will be"
                         + " resumed when location is on: " + client.scannerId);
                 mSuspendedScanClients.add(client);
@@ -408,6 +407,16 @@ public class ScanManager {
                     }
                 }
             }
+        }
+
+        private boolean requiresScreenOn(ScanClient client) {
+            boolean isFiltered = (client.filters != null) && !client.filters.isEmpty();
+            return !mScanNative.isOpportunisticScanClient(client) && !isFiltered;
+        }
+
+        private boolean requiresLocationOn(ScanClient client) {
+            boolean isFiltered = (client.filters != null) && !client.filters.isEmpty();
+            return !client.hasDisavowedLocation && !isFiltered;
         }
 
         void handleStopScan(ScanClient client) {
@@ -490,8 +499,8 @@ public class ScanManager {
 
         void handleSuspendScans() {
             for (ScanClient client : mRegularScanClients) {
-                if (!mScanNative.isOpportunisticScanClient(client) && (client.filters == null
-                        || client.filters.isEmpty())) {
+                if ((requiresScreenOn(client) && !isScreenOn())
+                        || (requiresLocationOn(client) && !mLocationManager.isLocationEnabled())) {
                     /*Suspend unfiltered scans*/
                     if (client.stats != null) {
                         client.stats.recordScanSuspend(client.scannerId);
@@ -516,10 +525,13 @@ public class ScanManager {
 
         void handleResumeScans() {
             for (ScanClient client : mSuspendedScanClients) {
-                if (client.stats != null) {
-                    client.stats.recordScanResume(client.scannerId);
+                if ((!requiresScreenOn(client) || isScreenOn())
+                        && (!requiresLocationOn(client) || mLocationManager.isLocationEnabled())) {
+                    if (client.stats != null) {
+                        client.stats.recordScanResume(client.scannerId);
+                    }
+                    handleStartScan(client);
                 }
-                handleStartScan(client);
             }
             mSuspendedScanClients.clear();
         }
@@ -1575,7 +1587,7 @@ public class ScanManager {
                     String action = intent.getAction();
                     if (LocationManager.MODE_CHANGED_ACTION.equals(action)) {
                         final boolean locationEnabled = mLocationManager.isLocationEnabled();
-                        if (locationEnabled && isScreenOn()) {
+                        if (locationEnabled) {
                             sendMessage(MSG_RESUME_SCANS, null);
                         } else {
                             sendMessage(MSG_SUSPEND_SCANS, null);
