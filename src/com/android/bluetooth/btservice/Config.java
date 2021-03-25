@@ -65,6 +65,7 @@ public class Config {
     private static Class mBroadcastClass = null;
     private static Class mPCServiceClass = null;
     private static Class mCcServiceClass = null;
+    private static Class mMcpServiceClass = null;
     private static Class mGroupServiceClass = null;
 
     static {
@@ -78,6 +79,8 @@ public class Config {
                 "com.android.bluetooth.cc.CCService");
         mGroupServiceClass = ReflectionUtils.getRequiredClass(
                 "com.android.bluetooth.groupclient.GroupService");
+        mGroupServiceClass = ReflectionUtils.getRequiredClass(
+                "com.android.bluetooth.mcp.McpService");
     }
 
     private static class ProfileConfig {
@@ -157,7 +160,9 @@ public class Config {
                     new ProfileConfig(mPCServiceClass, R.bool.profile_supported_pc,
                         (1 << BluetoothProfile.PC_PROFILE)),
                     new ProfileConfig(mCcServiceClass, R.bool.profile_supported_cc_server,
-                        (1 << BluetoothProfile.CC_SERVER))
+                        (1 << BluetoothProfile.CC_SERVER)),
+                    new ProfileConfig(mMcpServiceClass, R.bool.profile_supported_music_player_service,
+                        (1 << 30))
             ));
 
     /* List of Profiles common for Unicast and Broadcast advance audio features */

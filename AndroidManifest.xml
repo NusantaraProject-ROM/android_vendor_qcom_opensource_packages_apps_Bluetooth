@@ -340,6 +340,14 @@
         </service>
         <service
             android:process="@string/process"
+            android:name = ".mcp.McpService"
+            android:enabled="@bool/profile_supported_music_player_service">
+            <intent-filter>
+                <action android:name="android.bluetooth.IBluetoothMcp" />
+            </intent-filter>
+        </service>
+        <service
+            android:process="@string/process"
             android:name = ".acm.AcmService"
             android:exported="true"
             android:enabled="@bool/profile_supported_ca">
