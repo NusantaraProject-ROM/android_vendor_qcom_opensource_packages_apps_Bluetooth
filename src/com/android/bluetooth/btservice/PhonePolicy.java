@@ -326,6 +326,9 @@ class PhonePolicy {
         ParcelUuid ADV_AUDIO_G_MEDIA =
             ParcelUuid.fromString("00006AD3-0000-1000-8000-00805F9B34FB");
 
+        ParcelUuid ADV_AUDIO_W_MEDIA =
+            ParcelUuid.fromString("2587db3c-ce70-4fc9-935f-777ab4188fd7");
+
         debugLog("processInitProfilePriorities() - device " + device);
         HidHostService hidService = mFactory.getHidHostService();
         A2dpService a2dpService = mFactory.getA2dpService();
@@ -367,6 +370,7 @@ class PhonePolicy {
         if ((a2dpService != null) && (ArrayUtils.contains(uuids, BluetoothUuid.A2DP_SINK)
                 || ArrayUtils.contains(uuids, BluetoothUuid.ADV_AUDIO_DIST)
                 || ArrayUtils.contains(uuids, ADV_AUDIO_T_MEDIA)
+                || ArrayUtils.contains(uuids, ADV_AUDIO_W_MEDIA)
                 || ArrayUtils.contains(uuids, ADV_AUDIO_HEARINGAID)
                 || ArrayUtils.contains(uuids, ADV_AUDIO_P_MEDIA)) && (
                 a2dpService.getConnectionPolicy(device)
