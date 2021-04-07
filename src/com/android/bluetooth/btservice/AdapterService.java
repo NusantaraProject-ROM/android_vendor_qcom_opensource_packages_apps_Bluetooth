@@ -1134,6 +1134,9 @@ public class AdapterService extends Service {
         ParcelUuid ADV_AUDIO_G_MEDIA =
             ParcelUuid.fromString("00006AD3-0000-1000-8000-00805F9B34FB");
 
+        ParcelUuid ADV_AUDIO_W_MEDIA =
+            ParcelUuid.fromString("2587db3c-ce70-4fc9-935f-777ab4188fd7");
+
         if (remoteDeviceUuids == null || remoteDeviceUuids.length == 0) {
             Log.e(TAG, "isSupported: Remote Device Uuids Empty");
         }
@@ -1157,6 +1160,7 @@ public class AdapterService extends Service {
                     || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_T_MEDIA)
                     || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_HEARINGAID)
                     || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_G_MEDIA)
+                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_W_MEDIA)
                     || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_P_MEDIA);
         }
         if (profile == BluetoothProfile.A2DP_SINK) {
@@ -5244,8 +5248,10 @@ public class AdapterService extends Service {
     public boolean isGroupExclAccessSupport(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
-        ParcelUuid[] uuids = deviceProp.getUuids();
         boolean status = false;
+        if (deviceProp == null) return false;
+
+        ParcelUuid[] uuids = deviceProp.getUuids();
         ParcelUuid GROUP_EXCL_ACCESS_SUPPORT =
             ParcelUuid.fromString("00006AD8-0000-1000-8000-00805F9B34FB");
 
@@ -5291,5 +5297,20 @@ public class AdapterService extends Service {
                  InvocationTargetException|ClassNotFoundException e) {
              Log.e(TAG, "Exception setAdvanceAudioSupport: " + e);
         }
+    }
+
+    public boolean isUuidSupportedByRemote(BluetoothDevice device, ParcelUuid uuid) {
+        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
+        boolean status = false;
+        if (deviceProp == null) return false;
+
+        ParcelUuid[] remUuids = deviceProp.getUuids();
+
+        if (ArrayUtils.contains(remUuids, uuid)) {
+            status = true;
+        }
+        Log.i(TAG,"isUuidSupportedByRemote " +status);
+        return status;
     }
 }
