@@ -85,14 +85,9 @@ public class CallControlIntf {
             Method init = CallControl.getDeclaredMethod("init", arg);
             Boolean ret = (Boolean)init.invoke(mCallControlObj, context);
             return ret;
-        } catch(IllegalAccessException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(NoSuchMethodException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(InvocationTargetException e) {
-            Log.i(TAG, "Exception" + e);
+        } catch(IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+            Log.i(TAG, "init Exception" + e);
         }
-
         return false;
     }
 
@@ -100,6 +95,7 @@ public class CallControlIntf {
             int type, String name, boolean isVirtualCall) {
         if(CallControl == null)
             return;
+        Log.i(TAG, "phoneStateChanged");
 
         Class[] arg = new Class[7];
         arg[0] = Integer.class;
@@ -113,12 +109,8 @@ public class CallControlIntf {
         try {
             Method phoneStateChanged = CallControl.getDeclaredMethod("phoneStateChanged", arg);
             phoneStateChanged.invoke(mCallControlObj, numActive, numHeld, callState, number, type, name, isVirtualCall);
-        } catch(IllegalAccessException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(NoSuchMethodException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(InvocationTargetException e) {
-            Log.i(TAG, "Exception" + e);
+        } catch(IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+            Log.i(TAG, "phoneStateChanged Exception" + e);
         }
     }
 
@@ -126,6 +118,7 @@ public class CallControlIntf {
                 String number, int type) {
        if(CallControl == null)
             return;
+       Log.i(TAG, "clccResponse");
 
         Class[] arg = new Class[7];
         arg[0] = Integer.class;
@@ -139,18 +132,15 @@ public class CallControlIntf {
         try {
             Method clccResponse = CallControl.getDeclaredMethod("clccResponse", arg);
             clccResponse.invoke(mCallControlObj, index, direction, status, mode, mpty, number, type);
-        } catch(IllegalAccessException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(NoSuchMethodException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(InvocationTargetException e) {
-            Log.i(TAG, "Exception" + e);
+        } catch(IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+            Log.i(TAG, "clccResponse Exception" + e);
         }
     }
 
     public void updateBearerName(String operatorStr) {
         if(CallControl == null)
             return;
+        Log.i(TAG, "updateBearerName");
 
         Class[] arg = new Class[1];
         arg[0] = String.class;
@@ -158,18 +148,15 @@ public class CallControlIntf {
         try {
             Method updateBearerName = CallControl.getDeclaredMethod("updateBearerName", arg);
             updateBearerName.invoke(mCallControlObj, operatorStr);
-        } catch(IllegalAccessException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(NoSuchMethodException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(InvocationTargetException e) {
-            Log.i(TAG, "Exception" + e);
+        } catch(IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+            Log.i(TAG, "updateBearerName Exception" + e);
         }
     }
 
     public void updateBearerTechnology(int bearer_tech) {
         if(CallControl == null)
             return;
+        Log.i(TAG, "updateBearerTechnology");
 
         Class[] arg = new Class[1];
         arg[0] = Integer.class;
@@ -177,18 +164,32 @@ public class CallControlIntf {
         try {
             Method updateBearerTechnology = CallControl.getDeclaredMethod("updateBearerTechnology", arg);
             updateBearerTechnology.invoke(mCallControlObj, bearer_tech);
-        } catch(IllegalAccessException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(NoSuchMethodException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(InvocationTargetException e) {
-            Log.i(TAG, "Exception" + e);
+        } catch(IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+            Log.i(TAG, "updateBearerTechnology Exception" + e);
         }
     }
 
+    public void updateOriginateResult(BluetoothDevice device, int event, int res) {
+        if(CallControl == null)
+            return;
+        Log.i(TAG, "updateOriginateResult");
+
+        Class[] arg = new Class[3];
+        arg[0] = BluetoothDevice.class;
+        arg[1] = Integer.class;
+        arg[2] = Integer.class;
+
+        try {
+            Method originateResult = CallControl.getDeclaredMethod("updateOriginateResult", arg);
+            originateResult.invoke(mCallControlObj, device, event, res);
+        } catch(IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+            Log.i(TAG, "updateOriginateResult: Exception" + e);
+        }
+    }
     public void updateSignalStatus(int signal) {
         if(CallControl == null)
             return;
+        Log.i(TAG, "updateSignalStatus");
 
         Class[] arg = new Class[1];
         arg[0] = Integer.class;
@@ -196,18 +197,15 @@ public class CallControlIntf {
         try {
             Method updateSignalStatus = CallControl.getDeclaredMethod("updateSignalStatus", arg);
             updateSignalStatus.invoke(mCallControlObj, signal);
-        } catch(IllegalAccessException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(NoSuchMethodException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(InvocationTargetException e) {
-            Log.i(TAG, "Exception" + e);
+        } catch(IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+            Log.i(TAG, "updateSignalStatus Exception" + e);
         }
     }
 
     public void answerCall (BluetoothDevice device) {
         if(CallControl == null)
             return;
+        Log.i(TAG, "answerCall");
 
         Class[] arg = new Class[1];
         arg[0] = BluetoothDevice.class;
@@ -215,18 +213,15 @@ public class CallControlIntf {
         try {
             Method answerCall = CallControl.getDeclaredMethod("answerCall", arg);
             answerCall.invoke(mCallControlObj, device);
-        } catch(IllegalAccessException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(NoSuchMethodException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(InvocationTargetException e) {
-            Log.i(TAG, "Exception" + e);
+        } catch(IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+            Log.i(TAG, "answerCall Exception" + e);
         }
     }
 
     public void hangupCall (BluetoothDevice device) {
         if(CallControl == null)
             return;
+        Log.i(TAG, "hangupCall");
 
         Class[] arg = new Class[1];
         arg[0] = BluetoothDevice.class;
@@ -234,18 +229,15 @@ public class CallControlIntf {
         try {
             Method hangupCall = CallControl.getDeclaredMethod("hangupCall", arg);
             hangupCall.invoke(mCallControlObj, device);
-        } catch(IllegalAccessException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(NoSuchMethodException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(InvocationTargetException e) {
-            Log.i(TAG, "Exception" + e);
+        } catch(IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+            Log.i(TAG, "hangupCall Exception" + e);
         }
     }
 
     public boolean processChld (BluetoothDevice device, int chld) {
         if(CallControl == null)
             return false;
+        Log.i(TAG, "processChld");
 
         Class[] arg = new Class[2];
         arg[0] = BluetoothDevice.class;
@@ -255,12 +247,8 @@ public class CallControlIntf {
             Method processChld = CallControl.getDeclaredMethod("processChld", arg);
             Boolean ret = (boolean)processChld.invoke(mCallControlObj, device, chld);
             return ret;
-        } catch(IllegalAccessException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(NoSuchMethodException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(InvocationTargetException e) {
-            Log.i(TAG, "Exception" + e);
+        } catch(IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+            Log.i(TAG, "processChld Exception" + e);
         }
         return false;
     }
@@ -268,6 +256,7 @@ public class CallControlIntf {
     public void dial (BluetoothDevice device, String dialNumber) {
         if(CallControl == null)
             return;
+        Log.i(TAG, "dial");
 
         Class[] arg = new Class[2];
         arg[0] = BluetoothDevice.class;
@@ -276,12 +265,8 @@ public class CallControlIntf {
         try {
             Method dial = CallControl.getDeclaredMethod("dial", arg);
             dial.invoke(mCallControlObj, device, dialNumber);
-        } catch(IllegalAccessException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(NoSuchMethodException e) {
-            Log.i(TAG, "Exception" + e);
-        } catch(InvocationTargetException e) {
-            Log.i(TAG, "Exception" + e);
-        }
+        } catch(IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+            Log.i(TAG, "dial Exception" + e);
+         }
     }
 }

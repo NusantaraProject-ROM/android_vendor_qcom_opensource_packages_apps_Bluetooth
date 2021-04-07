@@ -57,16 +57,27 @@ public class Config {
     private static final String TAG = "AdapterServiceConfig";
 
     protected static int adv_audio_feature_mask;
-    protected static final int ADV_AUDIO_UNICAST_FEAT_MASK = 0x01;
-    protected static final int ADV_AUDIO_BROADCAST_FEAT_MASK = 0x02;
+    public static final int ADV_AUDIO_UNICAST_FEAT_MASK = 0x01;
+    public static final int ADV_AUDIO_BCA_FEAT_MASK = 0x02;
+    public static final int ADV_AUDIO_BCS_FEAT_MASK = 0x04;
+
     private static Class mBCServiceClass = null;
+    private static Class mBroadcastClass = null;
+    private static Class mPCServiceClass = null;
+    private static Class mCcServiceClass = null;
+    private static Class mGroupServiceClass = null;
+
     static {
-        try {
-            mBCServiceClass = Class.forName("com.android.bluetooth.bc.BCService");
-        } catch (ClassNotFoundException ex) {
-            Log.e(TAG, "no BCService: exists");
-            mBCServiceClass = null;
-        }
+        mBCServiceClass = ReflectionUtils.getRequiredClass(
+                "com.android.bluetooth.bc.BCService");
+        mBroadcastClass = ReflectionUtils.getRequiredClass(
+                "com.android.bluetooth.broadcast.BroadcastService");
+        mPCServiceClass = ReflectionUtils.getRequiredClass(
+                "com.android.bluetooth.pc.PCService");
+        mCcServiceClass = ReflectionUtils.getRequiredClass(
+                "com.android.bluetooth.cc.CCService");
+        mGroupServiceClass = ReflectionUtils.getRequiredClass(
+                "com.android.bluetooth.groupclient.GroupService");
     }
 
     private static class ProfileConfig {
@@ -78,35 +89,6 @@ public class Config {
             mClass = theClass;
             mSupported = supportedFlag;
             mMask = mask;
-        }
-    }
-
-    private static Class mBroadcastClass = null;
-    static {
-        try {
-            mBroadcastClass = Class.forName("com.android.bluetooth.broadcast.BroadcastService");
-        } catch(ClassNotFoundException ex) {
-            Log.d(TAG,"BroadcastService class not found");
-            Log.w(TAG, ex);
-        }
-    }
-
-    private static Class mPCServiceClass = null;
-    static {
-        try {
-            mPCServiceClass = Class.forName("com.android.bluetooth.pc.PCService");
-        } catch (ClassNotFoundException ex) {
-            Log.e(TAG, "no PCService: exists");
-            mPCServiceClass = null;
-        }
-    }
-    private static Class mCcServiceClass = null;
-    static {
-        try {
-            mCcServiceClass = Class.forName("com.android.bluetooth.cc.CCService");
-        } catch (ClassNotFoundException ex) {
-            Log.e(TAG, "no CcService: exists");
-            mCcServiceClass = null;
         }
     }
 
@@ -182,13 +164,14 @@ public class Config {
     private static ArrayList<ProfileConfig> commonAdvAudioProfiles =
             new ArrayList<ProfileConfig>(
                 Arrays.asList(
-                    new ProfileConfig(ReflectionUtils.getRequiredClass(
-                            "com.android.bluetooth.groupclient.GroupService"),
+                    new ProfileConfig(mGroupServiceClass,
                             R.bool.profile_supported_group_client,
                             (1 << BluetoothProfile.GROUP_CLIENT)),
-                    new ProfileConfig(ApmConstIntf.CoordinatedAudioService, R.bool.profile_supported_ca,
+                    new ProfileConfig(ApmConstIntf.CoordinatedAudioService,
+                            R.bool.profile_supported_ca,
                             (1 << ApmConstIntf.COORDINATED_AUDIO_UNICAST)),
-                    new ProfileConfig(ApmConstIntf.StreamAudioService, R.bool.profile_supported_le_audio,
+                    new ProfileConfig(ApmConstIntf.StreamAudioService,
+                            R.bool.profile_supported_le_audio,
                             (1 << ApmConstIntf.LE_AUDIO_UNICAST))
             ));
 
@@ -243,14 +226,23 @@ public class Config {
         boolean isCCEnabled = SystemProperties.getBoolean(
                                     "persist.vendor.service.bt.cc", false);
 
+        Log.d(TAG, "adv_audio_feature_mask = " + adv_audio_feature_mask);
         ArrayList<Class> profiles = new ArrayList<>();
 
-        /* Add unicast advance audio profiles */
+        /* Add common advance audio profiles */
         if (((adv_audio_feature_mask & ADV_AUDIO_UNICAST_FEAT_MASK) != 0) ||
-            ((adv_audio_feature_mask & ADV_AUDIO_BROADCAST_FEAT_MASK) != 0)) {
+            ((adv_audio_feature_mask & ADV_AUDIO_BCA_FEAT_MASK ) != 0) ||
+            ((adv_audio_feature_mask & ADV_AUDIO_BCS_FEAT_MASK ) != 0)) {
             for (ProfileConfig config : commonAdvAudioProfiles) {
+                if (config.mClass == null) continue;
                 boolean supported = resources.getBoolean(config.mSupported);
                 if (supported) {
+                    if ((config.mClass == mGroupServiceClass ||
+                            config.mClass == ApmConstIntf.CoordinatedAudioService) &&
+                        (((adv_audio_feature_mask & ADV_AUDIO_UNICAST_FEAT_MASK) == 0) &&
+                         ((adv_audio_feature_mask & ADV_AUDIO_BCA_FEAT_MASK) == 0))) {
+                        continue;
+                    }
                     Log.d(TAG, "Adding " + config.mClass.getSimpleName());
                     profiles.add(config.mClass);
                 }
@@ -260,6 +252,7 @@ public class Config {
         /* Add unicast advance audio profiles */
         if ((adv_audio_feature_mask & ADV_AUDIO_UNICAST_FEAT_MASK) != 0) {
             for (ProfileConfig config : unicastAdvAudioProfiles) {
+                if (config.mClass == null) continue;
                 boolean supported = resources.getBoolean(config.mSupported);
                 if (supported && config.mClass != null) {
                     Log.d(TAG, "Adding " + config.mClass.getSimpleName());
@@ -269,13 +262,22 @@ public class Config {
         }
 
         /* Add broadcast advance audio profiles */
-        if ((adv_audio_feature_mask & ADV_AUDIO_BROADCAST_FEAT_MASK) != 0) {
+        if ((adv_audio_feature_mask & ADV_AUDIO_BCA_FEAT_MASK) != 0 ||
+            (adv_audio_feature_mask & ADV_AUDIO_BCS_FEAT_MASK) != 0) {
             for (ProfileConfig config : broadcastAdvAudioProfiles) {
+                if (config.mClass == null) continue;
                 boolean supported = resources.getBoolean(config.mSupported);
                 if (supported && config.mClass != null) {
                     if (config.mClass.getSimpleName().equals("CCService") &&
                         isCCEnabled == false) {
                         Log.d(TAG," isCCEnabled = " + isCCEnabled);
+                        continue;
+                    } else if ((config.mClass == mBroadcastClass) &&
+                           (adv_audio_feature_mask & ADV_AUDIO_BCS_FEAT_MASK) == 0) {
+                        continue;
+                    } else if ((config.mClass == mBCServiceClass ||
+                                config.mClass == mPCServiceClass) &&
+                            ((adv_audio_feature_mask & ADV_AUDIO_BCA_FEAT_MASK) == 0)) {
                         continue;
                     }
                     Log.d(TAG, "Adding " + config.mClass.getSimpleName());
@@ -292,11 +294,13 @@ public class Config {
     }
 
     protected static void initAdvAudioConfig (Context ctx) {
+        adv_audio_feature_mask = SystemProperties.getInt(
+                                    "persist.vendor.service.bt.adv_audio_mask", 0);
+        Log.d(TAG, "initAdvAudioConfig: adv_audio_feature_mask = " + adv_audio_feature_mask);
         if (!isLC3CodecSupported(ctx)) {
             Log.w(TAG, "LC3 Codec is not supported.");
-            adv_audio_feature_mask = SystemProperties.getInt(
-                                    "persist.vendor.service.bt.adv_audio_mask", 0);
             adv_audio_feature_mask &= ~ADV_AUDIO_UNICAST_FEAT_MASK;
+            adv_audio_feature_mask &= ~ADV_AUDIO_BCS_FEAT_MASK;
             SystemProperties.set("persist.vendor.service.bt.adv_audio_mask",
                 String.valueOf(adv_audio_feature_mask));
         }

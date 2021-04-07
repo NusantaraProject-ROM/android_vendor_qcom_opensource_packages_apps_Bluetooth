@@ -451,6 +451,12 @@ static void energy_info_recv_callback(bt_activity_energy_info* p_energy_info,
       p_energy_info->idle_time, p_energy_info->energy_used, array.get());
 }
 
+static void link_quality_report_callback(
+    uint64_t timestamp, int report_id, int rssi, int snr,
+    int retransmission_count, int packets_not_receive_count,
+    int negative_acknowledgement_count) {
+}
+
 static bt_callbacks_t sBluetoothCallbacks = {
     sizeof(sBluetoothCallbacks), adapter_state_change_callback,
     adapter_properties_callback, remote_device_properties_callback,
@@ -458,7 +464,8 @@ static bt_callbacks_t sBluetoothCallbacks = {
     pin_request_callback,        ssp_request_callback,
     bond_state_changed_callback, acl_state_changed_callback,
     callback_thread_event,       dut_mode_recv_callback,
-    le_test_mode_recv_callback,  energy_info_recv_callback};
+    le_test_mode_recv_callback,  energy_info_recv_callback,
+    link_quality_report_callback};
 
 // The callback to call when the wake alarm fires.
 static alarm_cb sAlarmCallback;
