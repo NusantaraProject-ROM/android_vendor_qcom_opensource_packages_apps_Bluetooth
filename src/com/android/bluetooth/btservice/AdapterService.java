@@ -55,7 +55,6 @@ import static com.android.bluetooth.Utils.enforceBluetoothPrivilegedPermission;
 import static com.android.bluetooth.Utils.enforceBluetoothAdminPermission;
 import static com.android.bluetooth.Utils.enforceBluetoothPermission;
 
-import android.annotation.Nullable;
 import android.app.ActivityManager;
 import android.app.AlarmManager;
 import android.app.AppOpsManager;
@@ -78,6 +77,7 @@ import android.bluetooth.IBluetoothMetadataListener;
 import android.bluetooth.IBluetoothSocketManager;
 import android.bluetooth.OobData;
 import android.bluetooth.UidTraffic;
+import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -1911,7 +1911,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean startDiscovery(String callingPackage, String callingFeatureId) {
+        public boolean startDiscovery(AttributionSource attributionSource) {
             if (!Utils.checkCaller()) {
                 Log.w(TAG, "startDiscovery() - Not allowed for non-active user");
                 return false;
@@ -1921,7 +1921,7 @@ public class AdapterService extends Service {
             if (service == null) {
                 return false;
             }
-            return service.startDiscovery(callingPackage, callingFeatureId);
+            return service.startDiscovery(attributionSource);
         }
 
         @Override
@@ -3081,9 +3081,10 @@ public class AdapterService extends Service {
         }
     }
 
-    boolean startDiscovery(String callingPackage, @Nullable String callingFeatureId) {
+    boolean startDiscovery(AttributionSource attributionSource) {
         UserHandle callingUser = UserHandle.of(UserHandle.getCallingUserId());
         debugLog("startDiscovery");
+        String callingPackage = attributionSource.getPackageName();
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH ADMIN permission");
         mAppOps.checkPackage(Binder.getCallingUid(), callingPackage);
         boolean isQApp = Utils.isQApp(this, callingPackage);
@@ -3093,14 +3094,14 @@ public class AdapterService extends Service {
         } else if (Utils.checkCallerHasNetworkSetupWizardPermission(this)) {
             permission = android.Manifest.permission.NETWORK_SETUP_WIZARD;
         } else if (isQApp) {
-            if (!Utils.checkCallerHasFineLocation(this, mAppOps, callingPackage, callingFeatureId,
-                    callingUser)) {
+            if (!Utils.checkCallerHasFineLocation(this, mAppOps, callingPackage,
+                    attributionSource.getAttributionTag(), callingUser)) {
                 return false;
             }
             permission = android.Manifest.permission.ACCESS_FINE_LOCATION;
         } else {
-            if (!Utils.checkCallerHasCoarseLocation(this, mAppOps, callingPackage, callingFeatureId,
-                    callingUser)) {
+            if (!Utils.checkCallerHasCoarseLocation(this, mAppOps, callingPackage,
+                    attributionSource.getAttributionTag(), callingUser)) {
                 return false;
             }
             permission = android.Manifest.permission.ACCESS_COARSE_LOCATION;
