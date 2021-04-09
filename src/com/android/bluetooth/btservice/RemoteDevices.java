@@ -790,12 +790,19 @@ final class RemoteDevices {
                             debugLog("BT_PROPERTY_ADV_AUDIO_ACTION_UUID SiZE"
                                 + tmpUuidArr.length +
                                 " Device uuid size " + device.mUuids.length);
+                            if (!device.isBondingInitiatedLocally()) {
+                              device.setBondingInitiatedLocally(true);
+                            }
                             if ((sAdapterService.getState() == BluetoothAdapter.STATE_ON) &&
                                                             device.autoConnect ) {
                                 //TODO remove log
                                 debugLog("sendUuidIntent as Auto connect is set for Adv AUDIO");
                                 sAdapterService.deviceUuidUpdated(bdDevice);
-                                sendUuidIntent(bdDevice, device);
+                                if (!sAdapterService.isIgnoreDevice(bdDevice)) {
+                                  sendUuidIntent(bdDevice, device);
+                                } else {
+                                  debugLog("Ignoring action_UUID " +bdDevice.getAddress());
+                                }
                             }
                             device.mAdvAudioUpdateProp = true;
                             break;
