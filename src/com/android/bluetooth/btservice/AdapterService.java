@@ -2016,8 +2016,8 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean createBond(BluetoothDevice device, int transport, OobData oobData,
-                String callingPackage) {
+        public boolean createBond(BluetoothDevice device, int transport, OobData remoteP192Data,
+                OobData remoteP256Data, String callingPackage) {
             if (!Utils.checkCallerAllowManagedProfiles(mService)) {
                 Log.w(TAG, "createBond() - Not allowed for non-active user");
                 return false;
@@ -2225,7 +2225,8 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean setRemoteAlias(BluetoothDevice device, String name) {
+        public boolean setRemoteAlias(BluetoothDevice device, String name, String callingPackage) {
+            // TODO implement callingPackage as necessary
             if (!Utils.checkCaller()) {
                 Log.w(TAG, "setRemoteAlias() - Not allowed for non-active user");
                 return false;
