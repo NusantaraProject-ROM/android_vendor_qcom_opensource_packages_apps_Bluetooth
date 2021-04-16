@@ -74,6 +74,7 @@ import android.bluetooth.IBluetooth;
 import android.bluetooth.IBluetoothCallback;
 import android.bluetooth.IBluetoothConnectionCallback;
 import android.bluetooth.IBluetoothMetadataListener;
+import android.bluetooth.IBluetoothOobDataCallback;
 import android.bluetooth.IBluetoothSocketManager;
 import android.bluetooth.OobData;
 import android.bluetooth.UidTraffic;
@@ -2816,6 +2817,11 @@ public class AdapterService extends Service {
             AdapterService service = getService();
             if (service == null) return -1;
             return service.getDeviceType(device);
+        }
+
+        @Override
+        public void generateLocalOobData(int transport, IBluetoothOobDataCallback callback) {
+          // implement as necessary
         }
 
     }
