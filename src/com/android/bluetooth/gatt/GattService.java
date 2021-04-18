@@ -2063,7 +2063,9 @@ public class GattService extends ProfileService {
      *************************************************************************/
 
     List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+             return new ArrayList<>(0);
+        }
 
         Map<BluetoothDevice, Integer> deviceStates = new HashMap<BluetoothDevice, Integer>();
 
@@ -2106,7 +2108,9 @@ public class GattService extends ProfileService {
     }
 
     void registerScanner(IScannerCallback callback, WorkSource workSource) throws RemoteException {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkScanPermissionForPreflight(this)) {
+            return;
+        }
 
         UUID uuid = UUID.randomUUID();
         if (DBG) {
@@ -2130,7 +2134,10 @@ public class GattService extends ProfileService {
     }
 
     void unregisterScanner(int scannerId) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkScanPermissionForPreflight(this)) {
+            return;
+        }
+
 
         if (DBG) {
             Log.d(TAG, "unregisterScanner() - scannerId=" + scannerId);
@@ -2165,8 +2172,11 @@ public class GattService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "start scan with filters. callingPackage: " + callingPackage);
         }
-        UserHandle callingUser = UserHandle.of(UserHandle.getCallingUserId());
-        enforceAdminPermission();
+        if (!Utils.checkScanPermissionForDataDelivery(
+            this, callingPackage, callingFeatureId, "Starting GATT scan.")) {
+            return;
+        }
+
         if (needsPrivilegedPermissionForScan(settings)) {
             enforcePrivilegedPermission();
         }
@@ -2212,7 +2222,11 @@ public class GattService extends ProfileService {
             Log.d(TAG, "start scan with filters, for PendingIntent. callingPackage: "
                     + callingPackage);
         }
-        enforceAdminPermission();
+        if (!Utils.checkScanPermissionForDataDelivery(
+            this, callingPackage, callingFeatureId, "Starting GATT scan.")) {
+            return;
+        }
+
         if (needsPrivilegedPermissionForScan(settings)) {
             enforcePrivilegedPermission();
         }
@@ -2283,7 +2297,9 @@ public class GattService extends ProfileService {
     }
 
     void stopScan(ScanClient client) {
-        enforceAdminPermission();
+        if (!Utils.checkScanPermissionForPreflight(this)) {
+            return;
+        }
         int scanQueueSize =
                 mScanManager.getBatchScanQueue().size() + mScanManager.getRegularScanQueue().size();
         if (DBG) {
@@ -2301,7 +2317,10 @@ public class GattService extends ProfileService {
     }
 
     void stopScan(PendingIntent intent, String callingPackage) {
-        enforceAdminPermission();
+        if (!Utils.checkScanPermissionForPreflight(this)) {
+            return;
+        }
+
         PendingIntentInfo pii = new PendingIntentInfo();
         pii.intent = intent;
         ScannerMap.App app = mScannerMap.getByContextInfo(pii);
@@ -2378,23 +2397,35 @@ public class GattService extends ProfileService {
      *************************************************************************/
     void registerSync(ScanResult scanResult, int skip, int timeout,
             IPeriodicAdvertisingCallback callback) {
-        enforceAdminPermission();
+        if (!Utils.checkScanPermissionForPreflight(this)) {
+            return;
+        }
+
         mPeriodicScanManager.startSync(scanResult, skip, timeout, callback);
     }
 
     void unregisterSync(IPeriodicAdvertisingCallback callback) {
-        enforceAdminPermission();
+        if (!Utils.checkScanPermissionForPreflight(this)) {
+            return;
+        }
+
         mPeriodicScanManager.stopSync(callback);
     }
 
     void transferSync(BluetoothDevice bda, int service_data, int sync_handle) {
-        enforceAdminPermission();
+        if (!Utils.checkScanPermissionForPreflight(this)) {
+            return;
+        }
+
         mPeriodicScanManager.transferSync(bda, service_data, sync_handle);
     }
 
     void transferSetInfo(BluetoothDevice bda, int service_data,
                   int adv_handle, IPeriodicAdvertisingCallback callback) {
-        enforceAdminPermission();
+        if (!Utils.checkScanPermissionForPreflight(this)) {
+            return;
+        }
+
         mPeriodicScanManager.transferSetInfo(bda, service_data, adv_handle, callback);
     }
     /**************************************************************************
@@ -2404,13 +2435,19 @@ public class GattService extends ProfileService {
             AdvertiseData scanResponse, PeriodicAdvertisingParameters periodicParameters,
             AdvertiseData periodicData, int duration, int maxExtAdvEvents,
             IAdvertisingSetCallback callback) {
-        enforceAdminPermission();
+        if (!Utils.checkScanPermissionForPreflight(this)) {
+            return;
+        }
+
         mAdvertiseManager.startAdvertisingSet(parameters, advertiseData, scanResponse,
                 periodicParameters, periodicData, duration, maxExtAdvEvents, callback);
     }
 
     void stopAdvertisingSet(IAdvertisingSetCallback callback) {
-        enforceAdminPermission();
+        if (!Utils.checkScanPermissionForPreflight(this)) {
+            return;
+        }
+
         mAdvertiseManager.stopAdvertisingSet(callback);
     }
 
@@ -2420,38 +2457,59 @@ public class GattService extends ProfileService {
     }
 
     void enableAdvertisingSet(int advertiserId, boolean enable, int duration, int maxExtAdvEvents) {
-        enforceAdminPermission();
+        if (!Utils.checkScanPermissionForPreflight(this)) {
+            return;
+        }
+
         mAdvertiseManager.enableAdvertisingSet(advertiserId, enable, duration, maxExtAdvEvents);
     }
 
     void setAdvertisingData(int advertiserId, AdvertiseData data) {
-        enforceAdminPermission();
+        if (!Utils.checkScanPermissionForPreflight(this)) {
+            return;
+        }
+
         mAdvertiseManager.setAdvertisingData(advertiserId, data);
     }
 
     void setScanResponseData(int advertiserId, AdvertiseData data) {
-        enforceAdminPermission();
+        if (!Utils.checkScanPermissionForPreflight(this)) {
+            return;
+        }
+
         mAdvertiseManager.setScanResponseData(advertiserId, data);
     }
 
     void setAdvertisingParameters(int advertiserId, AdvertisingSetParameters parameters) {
-        enforceAdminPermission();
+        if (!Utils.checkScanPermissionForPreflight(this)) {
+            return;
+        }
+
         mAdvertiseManager.setAdvertisingParameters(advertiserId, parameters);
     }
 
     void setPeriodicAdvertisingParameters(int advertiserId,
             PeriodicAdvertisingParameters parameters) {
-        enforceAdminPermission();
+        if (!Utils.checkScanPermissionForPreflight(this)) {
+            return;
+        }
+
         mAdvertiseManager.setPeriodicAdvertisingParameters(advertiserId, parameters);
     }
 
     void setPeriodicAdvertisingData(int advertiserId, AdvertiseData data) {
-        enforceAdminPermission();
+        if (!Utils.checkScanPermissionForPreflight(this)) {
+            return;
+        }
+
         mAdvertiseManager.setPeriodicAdvertisingData(advertiserId, data);
     }
 
     void setPeriodicAdvertisingEnable(int advertiserId, boolean enable) {
-        enforceAdminPermission();
+        if (!Utils.checkScanPermissionForPreflight(this)) {
+            return;
+        }
+
         mAdvertiseManager.setPeriodicAdvertisingEnable(advertiserId, enable);
     }
 
@@ -2461,7 +2519,10 @@ public class GattService extends ProfileService {
 
     void registerClient(UUID uuid, IBluetoothGattCallback callback,
             boolean eattSupport) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
+
 
         if (DBG) {
             Log.d(TAG, "registerClient() - UUID=" + uuid);
@@ -2472,7 +2533,10 @@ public class GattService extends ProfileService {
     }
 
     void unregisterClient(int clientIf) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
+
 
         if (DBG) {
             Log.d(TAG, "unregisterClient() - clientIf=" + clientIf);
@@ -2483,7 +2547,10 @@ public class GattService extends ProfileService {
 
     void clientConnect(int clientIf, String address, boolean isDirect, int transport,
             boolean opportunistic, int phy) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
+
 
         if (DBG) {
             Log.d(TAG, "clientConnect() - address=" + address + ", isDirect=" + isDirect
@@ -2493,7 +2560,10 @@ public class GattService extends ProfileService {
     }
 
     void clientDisconnect(int clientIf, String address) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
+
 
         Integer connId = mClientMap.connIdByAddress(clientIf, address);
         if (DBG) {
@@ -2504,7 +2574,10 @@ public class GattService extends ProfileService {
     }
 
     void clientSetPreferredPhy(int clientIf, String address, int txPhy, int rxPhy, int phyOptions) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
+
 
         Integer connId = mClientMap.connIdByAddress(clientIf, address);
         if (connId == null) {
@@ -2521,7 +2594,10 @@ public class GattService extends ProfileService {
     }
 
     void clientReadPhy(int clientIf, String address) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
+
 
         Integer connId = mClientMap.connIdByAddress(clientIf, address);
         if (connId == null) {
@@ -2543,7 +2619,10 @@ public class GattService extends ProfileService {
     }
 
     synchronized List<ParcelUuid> getRegisteredServiceUuids() {
-        Utils.enforceAdminPermission(this);
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return new ArrayList<>(0);
+        }
+
         List<ParcelUuid> serviceUuids = new ArrayList<ParcelUuid>();
         for (HandleMap.Entry entry : mHandleMap.mEntries) {
             serviceUuids.add(new ParcelUuid(entry.uuid));
@@ -2552,7 +2631,10 @@ public class GattService extends ProfileService {
     }
 
     List<String> getConnectedDevices() {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return new ArrayList<>(0);
+        }
+
 
         Set<String> connectedDevAddress = new HashSet<String>();
         connectedDevAddress.addAll(mClientMap.getConnectedDevices());
@@ -2562,7 +2644,10 @@ public class GattService extends ProfileService {
     }
 
     void refreshDevice(int clientIf, String address) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
+
 
         if (DBG) {
             Log.d(TAG, "refreshDevice() - address=" + address);
@@ -2571,7 +2656,9 @@ public class GattService extends ProfileService {
     }
 
     void discoverServices(int clientIf, String address) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
 
         Integer connId = mClientMap.connIdByAddress(clientIf, address);
         if (DBG) {
@@ -2586,7 +2673,9 @@ public class GattService extends ProfileService {
     }
 
     void discoverServiceByUuid(int clientIf, String address, UUID uuid) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
 
         Integer connId = mClientMap.connIdByAddress(clientIf, address);
         if (connId != null) {
@@ -2598,7 +2687,9 @@ public class GattService extends ProfileService {
     }
 
     void readCharacteristic(int clientIf, String address, int handle, int authReq) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
 
         if (VDBG) {
             Log.d(TAG, "readCharacteristic() - address=" + address);
@@ -2620,7 +2711,9 @@ public class GattService extends ProfileService {
 
     void readUsingCharacteristicUuid(int clientIf, String address, UUID uuid, int startHandle,
             int endHandle, int authReq) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
 
         if (VDBG) {
             Log.d(TAG, "readUsingCharacteristicUuid() - address=" + address);
@@ -2643,7 +2736,10 @@ public class GattService extends ProfileService {
 
     void writeCharacteristic(int clientIf, String address, int handle, int writeType, int authReq,
             byte[] value) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
+
 
         if (VDBG) {
             Log.d(TAG, "writeCharacteristic() - address=" + address);
@@ -2668,7 +2764,10 @@ public class GattService extends ProfileService {
     }
 
     void readDescriptor(int clientIf, String address, int handle, int authReq) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
+
 
         if (VDBG) {
             Log.d(TAG, "readDescriptor() - address=" + address);
@@ -2691,7 +2790,10 @@ public class GattService extends ProfileService {
     ;
 
     void writeDescriptor(int clientIf, String address, int handle, int authReq, byte[] value) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
+
         if (VDBG) {
             Log.d(TAG, "writeDescriptor() - address=" + address);
         }
@@ -2711,7 +2813,9 @@ public class GattService extends ProfileService {
     }
 
     void beginReliableWrite(int clientIf, String address) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
 
         if (DBG) {
             Log.d(TAG, "beginReliableWrite() - address=" + address);
@@ -2720,7 +2824,9 @@ public class GattService extends ProfileService {
     }
 
     void endReliableWrite(int clientIf, String address, boolean execute) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
 
         if (DBG) {
             Log.d(TAG, "endReliableWrite() - address=" + address + " execute: " + execute);
@@ -2734,7 +2840,10 @@ public class GattService extends ProfileService {
     }
 
     void registerForNotification(int clientIf, String address, int handle, boolean enable) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
+
 
         if (DBG) {
             Log.d(TAG, "registerForNotification() - address=" + address + " enable: " + enable);
@@ -2755,7 +2864,10 @@ public class GattService extends ProfileService {
     }
 
     void readRemoteRssi(int clientIf, String address) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
+
 
         if (DBG) {
             Log.d(TAG, "readRemoteRssi() - address=" + address);
@@ -2764,7 +2876,10 @@ public class GattService extends ProfileService {
     }
 
     void configureMTU(int clientIf, String address, int mtu) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
+
 
         if (DBG) {
             Log.d(TAG, "configureMTU() - address=" + address + " mtu=" + mtu);
@@ -2778,7 +2893,10 @@ public class GattService extends ProfileService {
     }
 
     void connectionParameterUpdate(int clientIf, String address, int connectionPriority) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
+
 
         int minInterval;
         int maxInterval;
@@ -2824,7 +2942,9 @@ public class GattService extends ProfileService {
                             int maxInterval, int slaveLatency,
                             int supervisionTimeout, int minConnectionEventLen,
                             int maxConnectionEventLen) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
 
         if (DBG) {
             Log.d(TAG, "leConnectionUpdate() - address=" + address + ", intervals="
@@ -3138,7 +3258,10 @@ public class GattService extends ProfileService {
      *************************************************************************/
 
     void registerServer(UUID uuid, IBluetoothGattServerCallback callback, boolean eattSupport) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
+
 
         if (DBG) {
             Log.d(TAG, "registerServer() - UUID=" + uuid);
@@ -3149,7 +3272,10 @@ public class GattService extends ProfileService {
     }
 
     void unregisterServer(int serverIf) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
+
 
         if (DBG) {
             Log.d(TAG, "unregisterServer() - serverIf=" + serverIf);
@@ -3162,7 +3288,9 @@ public class GattService extends ProfileService {
     }
 
     void serverConnect(int serverIf, String address, boolean isDirect, int transport) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
 
         if (DBG) {
             Log.d(TAG, "serverConnect() - address=" + address);
@@ -3171,7 +3299,9 @@ public class GattService extends ProfileService {
     }
 
     void serverDisconnect(int serverIf, String address) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
 
         Integer connId = mServerMap.connIdByAddress(serverIf, address);
         if (DBG) {
@@ -3182,7 +3312,9 @@ public class GattService extends ProfileService {
     }
 
     void serverSetPreferredPhy(int serverIf, String address, int txPhy, int rxPhy, int phyOptions) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
 
         Integer connId = mServerMap.connIdByAddress(serverIf, address);
         if (connId == null) {
@@ -3199,7 +3331,9 @@ public class GattService extends ProfileService {
     }
 
     void serverReadPhy(int serverIf, String address) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
 
         Integer connId = mServerMap.connIdByAddress(serverIf, address);
         if (connId == null) {
@@ -3216,7 +3350,9 @@ public class GattService extends ProfileService {
     }
 
     void addService(int serverIf, BluetoothGattService service) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
 
         if (DBG) {
             Log.d(TAG, "addService() - uuid=" + service.getUuid());
@@ -3258,7 +3394,10 @@ public class GattService extends ProfileService {
     }
 
     void removeService(int serverIf, int handle) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
+
 
         if (DBG) {
             Log.d(TAG, "removeService() - handle=" + handle);
@@ -3268,7 +3407,10 @@ public class GattService extends ProfileService {
     }
 
     void clearServices(int serverIf) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
+
 
         if (DBG) {
             Log.d(TAG, "clearServices()");
@@ -3278,7 +3420,10 @@ public class GattService extends ProfileService {
 
     void sendResponse(int serverIf, String address, int requestId, int status, int offset,
             byte[] value) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
+
 
         if (VDBG) {
             Log.d(TAG, "sendResponse() - address=" + address + " serverIf: " + serverIf
@@ -3299,7 +3444,10 @@ public class GattService extends ProfileService {
     }
 
     void sendNotification(int serverIf, String address, int handle, boolean confirm, byte[] value) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return;
+        }
+
 
         if (VDBG) {
             Log.d(TAG, "sendNotification() - address = " + address + " handle = " + handle
@@ -3351,10 +3499,6 @@ public class GattService extends ProfileService {
             Log.d(TAG, "getDeviceType() - device=" + device + ", type=" + type);
         }
         return type;
-    }
-
-    private void enforceAdminPermission() {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
     }
 
     private boolean needsPrivilegedPermissionForScan(ScanSettings settings) {

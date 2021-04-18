@@ -16,14 +16,26 @@
 
 package com.android.bluetooth;
 
+import static android.Manifest.permission.BLUETOOTH_CONNECT;
+import static android.Manifest.permission.BLUETOOTH_SCAN;
+import static android.content.PermissionChecker.PERMISSION_HARD_DENIED;
+import static android.content.pm.PackageManager.GET_PERMISSIONS;
+import static android.content.pm.PackageManager.PERMISSION_GRANTED;
+
+import android.Manifest;
+
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.ActivityManager;
 import android.app.AppOpsManager;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.companion.Association;
+import android.companion.CompanionDeviceManager;
 import android.content.Context;
 import android.content.ContextWrapper;
+import android.content.PermissionChecker;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
 import android.location.LocationManager;
@@ -519,6 +531,18 @@ public final class Utils {
                 android.Manifest.permission.BLUETOOTH_ADMIN,
                 "Need BLUETOOTH ADMIN permission");
     }
+    
+    /**
+     * Checks whether the caller has the BLUETOOTH_PRIVILEGED permission
+     *
+     * @param context the Bluetooth AdapterService context
+     * @return {@code true} if the caller has the BLUETOOTH_PRIVILEGED permission, {@code false}
+     *         otherwise
+     */
+    public static boolean hasBluetoothPrivilegedPermission(Context context) {
+        return context.checkCallingOrSelfPermission(Manifest.permission.BLUETOOTH_PRIVILEGED)
+           == PackageManager.PERMISSION_GRANTED;
+    }
 
     public static void enforceBluetoothPrivilegedPermission(Context context) {
         context.enforceCallingOrSelfPermission(
@@ -535,4 +559,70 @@ public final class Utils {
                 || parser.getDepth() > outerDepth)) {
         }
     }
+
+    /**
+     * Returns true if the BLUETOOTH_CONNECT permission is granted for the calling app. Returns
+     * false if the result is a soft denial. Throws SecurityException if the result is a hard
+     * denial.
+     *
+     * <p>Should be used in situations where the app op should not be noted.
+     */
+    public static boolean checkConnectPermissionForPreflight(Context context) {
+       int permissionCheckResult = PermissionChecker.checkCallingOrSelfPermissionForPreflight(
+               context, BLUETOOTH_CONNECT);
+       if (permissionCheckResult == PERMISSION_HARD_DENIED) {
+           throw new SecurityException("Need BLUETOOTH_CONNECT permission");
+       }
+       return permissionCheckResult == PERMISSION_GRANTED;
+    }
+
+    /**
+     * Returns true if the BLUETOOTH_CONNECT permission is granted for the calling app. Returns
+     * false if the result is a soft denial. Throws SecurityException if the result is a hard
+     * denial.
+     *
+     * <p>Should be used in situations where data will be delivered and hence the app op should
+     * be noted.
+     */
+    public static boolean checkConnectPermissionForDataDelivery(
+            Context context, String callingPackage, String callingAttributionTag, String message) {
+        int permissionCheckResult = PermissionChecker.checkCallingOrSelfPermissionForDataDelivery(
+            context, BLUETOOTH_CONNECT, callingPackage, callingAttributionTag, message);
+        if (permissionCheckResult == PERMISSION_HARD_DENIED) {
+            throw new SecurityException("Need BLUETOOTH_CONNECT permission");
+        }
+        return permissionCheckResult == PERMISSION_GRANTED;
+    }
+
+    /**
+     * Returns true if the BLUETOOTH_SCAN permission is granted for the calling app. Returns false
+     * if the result is a soft denial. Throws SecurityException if the result is a hard denial.
+     *
+     * <p>Should be used in situations where the app op should not be noted.
+     */
+    public static boolean checkScanPermissionForPreflight(Context context) {
+        int permissionCheckResult = PermissionChecker.checkCallingOrSelfPermissionForPreflight(
+                context, BLUETOOTH_SCAN);
+        if (permissionCheckResult == PERMISSION_HARD_DENIED) {
+            throw new SecurityException("Need BLUETOOTH_SCAN permission");
+        }
+        return permissionCheckResult == PERMISSION_GRANTED;
+    }
+
+    /**
+     * Returns true if the BLUETOOTH_SCAN permission is granted for the calling app. Returns false
+     * if the result is a soft denial. Throws SecurityException if the result is a hard denial
+     *
+     * <p>Should be used in situations where data will be delivered and hence the app op should
+     * be noted.
+     */
+     public static boolean checkScanPermissionForDataDelivery(
+            Context context, String callingPackage, String callingAttributionTag, String message) {
+         int permissionCheckResult = PermissionChecker.checkCallingOrSelfPermissionForDataDelivery(
+                 context, BLUETOOTH_SCAN, callingPackage, callingAttributionTag, message);
+         if (permissionCheckResult == PERMISSION_HARD_DENIED) {
+            throw new SecurityException("Need BLUETOOTH_SCAN permission");
+         }
+         return permissionCheckResult == PERMISSION_GRANTED;
+     }
 }

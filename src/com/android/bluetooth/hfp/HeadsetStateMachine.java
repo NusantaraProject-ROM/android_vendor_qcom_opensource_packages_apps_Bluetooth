@@ -16,6 +16,8 @@
 
 package com.android.bluetooth.hfp;
 
+import static android.Manifest.permission.BLUETOOTH_CONNECT;
+
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothAssignedNumbers;
 import android.bluetooth.BluetoothDevice;
@@ -451,7 +453,7 @@ public class HeadsetStateMachine extends StateMachine {
                 intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
                 intent.addFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
                 mHeadsetService.sendBroadcastAsUser(intent, UserHandle.ALL,
-                    HeadsetService.BLUETOOTH_PERM);
+                    BLUETOOTH_CONNECT);
             }
         }
 
@@ -478,7 +480,7 @@ public class HeadsetStateMachine extends StateMachine {
                 intent.putExtra(BluetoothProfile.EXTRA_STATE, toState);
                 intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
                 mHeadsetService.sendBroadcastAsUser(intent, UserHandle.ALL,
-                        HeadsetService.BLUETOOTH_PERM);
+                        BLUETOOTH_CONNECT);
             }
         }
 
@@ -1944,7 +1946,7 @@ public class HeadsetStateMachine extends StateMachine {
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         intent.addCategory(BluetoothHeadset.VENDOR_SPECIFIC_HEADSET_EVENT_COMPANY_ID_CATEGORY + "."
                 + Integer.toString(companyId));
-        mHeadsetService.sendBroadcastAsUser(intent, UserHandle.ALL, HeadsetService.BLUETOOTH_PERM);
+        mHeadsetService.sendBroadcastAsUser(intent, UserHandle.ALL, BLUETOOTH_CONNECT);
     }
 
     private void setAudioParameters() {
@@ -2775,7 +2777,7 @@ public class HeadsetStateMachine extends StateMachine {
         intent.putExtra(BluetoothHeadset.EXTRA_HF_INDICATORS_IND_ID, indId);
         intent.putExtra(BluetoothHeadset.EXTRA_HF_INDICATORS_IND_VALUE, indValue);
 
-        mHeadsetService.sendBroadcast(intent, HeadsetService.BLUETOOTH_PERM);
+        mHeadsetService.sendBroadcast(intent, BLUETOOTH_CONNECT);
     }
 
     private void processAtBind(String atString, BluetoothDevice device) {
@@ -2824,7 +2826,7 @@ public class HeadsetStateMachine extends StateMachine {
                     batteryState);
         intent.putExtra(BluetoothHeadset.EXTRA_HF_TWSP_BATTERY_LEVEL,
                     batteryLevel);
-        mHeadsetService.sendBroadcast(intent, HeadsetService.BLUETOOTH_PERM);
+        mHeadsetService.sendBroadcast(intent, BLUETOOTH_CONNECT);
     }
 
     private void processTwsBatteryState(String atString, BluetoothDevice device) {
