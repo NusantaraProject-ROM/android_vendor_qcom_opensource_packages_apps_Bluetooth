@@ -725,6 +725,74 @@ public class DatabaseManager {
     }
 
     /**
+     * Sets was_previously_connected_to_bc to true/false based on the state
+     *
+     *
+     * @param device is the remote bluetooth device
+     * @param state BC profile connection state
+     */
+    public void setConnectionStateForBc(BluetoothDevice device, int state) {
+        synchronized (mMetadataCache) {
+        if (device == null) {
+            Log.e(TAG, "setConnectionStateForBc: device is null");
+            return;
+        }
+
+        String address = device.getAddress();
+
+        if (state == BluetoothProfile.STATE_CONNECTED) {
+            if (!mMetadataCache.containsKey(address)) {
+                Log.w(TAG, "setConnectionStateForBc: Creating new metadata entry for device: "
+                        + device);
+                createMetadataForBc(address);
+                return;
+            }
+        } else {
+            if (!mMetadataCache.containsKey(address)) {
+                   return;
+            }
+        }
+        Metadata metadata = mMetadataCache.get(address);
+        if (state == BluetoothProfile.STATE_CONNECTED) {
+            metadata.was_previously_connected_to_bc = true;
+        } else {
+            metadata.was_previously_connected_to_bc = false;
+        }
+        Log.w(TAG, "setConnectionStateForBc: Set" +
+                            metadata.was_previously_connected_to_bc +
+                                     " for device: " + device);
+        updateDatabase(metadata);
+         }
+    }
+
+    /**
+     * check if the BC profile connected earlier
+     *
+     * @return true if BC profile was connected to this device
+     *         false otherwise
+     */
+    public boolean wasBCConnectedDevice(BluetoothDevice device) {
+        boolean ret = false;
+        synchronized (mMetadataCache) {
+            if (device == null) {
+                Log.e(TAG, "setConnectionStateForBc: device is null");
+                return false;
+            }
+
+            String address = device.getAddress();
+
+            if (!mMetadataCache.containsKey(address)) {
+                   return false;
+            }
+            Metadata metadata = mMetadataCache.get(address);
+            if (metadata != null) {
+                ret = metadata.was_previously_connected_to_bc;
+            }
+        }
+        return ret;
+    }
+
+    /**
      * Remove a2dpActiveDevice from the current active device in the connection order table
      */
     private void resetActiveA2dpDevice() {
@@ -996,6 +1064,17 @@ public class DatabaseManager {
         else
            data = new Metadata(address);
         data.is_connected_a2dpsrc_device = true;
+        mMetadataCache.put(address, data);
+        updateDatabase(data);
+    }
+
+    void createMetadataForBc(String address) {
+        Metadata data;
+        if (mMetadataCache.containsKey(address))
+           data = mMetadataCache.get(address);
+        else
+           data = new Metadata(address);
+        data.was_previously_connected_to_bc = true;
         mMetadataCache.put(address, data);
         updateDatabase(data);
     }

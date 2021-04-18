@@ -790,12 +790,19 @@ final class RemoteDevices {
                             debugLog("BT_PROPERTY_ADV_AUDIO_ACTION_UUID SiZE"
                                 + tmpUuidArr.length +
                                 " Device uuid size " + device.mUuids.length);
+                            if (!device.isBondingInitiatedLocally()) {
+                              device.setBondingInitiatedLocally(true);
+                            }
                             if ((sAdapterService.getState() == BluetoothAdapter.STATE_ON) &&
                                                             device.autoConnect ) {
                                 //TODO remove log
                                 debugLog("sendUuidIntent as Auto connect is set for Adv AUDIO");
                                 sAdapterService.deviceUuidUpdated(bdDevice);
-                                sendUuidIntent(bdDevice, device);
+                                if (!sAdapterService.isIgnoreDevice(bdDevice)) {
+                                  sendUuidIntent(bdDevice, device);
+                                } else {
+                                  debugLog("Ignoring action_UUID " +bdDevice.getAddress());
+                                }
                             }
                             device.mAdvAudioUpdateProp = true;
                             break;
@@ -944,7 +951,7 @@ final class RemoteDevices {
         }
     }
 
-    void aclStateChangeCallback(int status, byte[] address, int newState) {
+    void aclStateChangeCallback(int status, byte[] address, int newState, int hciReason) {
         BluetoothDevice device = getDevice(address);
 
         if (device == null) {
@@ -1005,7 +1012,8 @@ final class RemoteDevices {
                         if (connectionState == BluetoothAdapter.STATE_CONNECTED) {
                             callback.onDeviceConnected(device);
                         } else {
-                            callback.onDeviceDisconnected(device);
+                            callback.onDeviceDisconnected(device,
+                                AdapterService.hciToAndroidDisconnectReason(hciReason));
                         }
                     } catch (RemoteException ex) {
                         Log.e(TAG, "RemoteException in calling IBluetoothConnectionCallback");

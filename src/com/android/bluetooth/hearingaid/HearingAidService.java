@@ -832,8 +832,13 @@ public class HearingAidService extends ProfileService {
             if(ApmConstIntf.getLeAudioEnabled()) {
                 ActiveDeviceManagerServiceIntf mActiveDeviceManager = 
                         ActiveDeviceManagerServiceIntf.get();
-                mActiveDeviceManager.setActiveDevice(null, ApmConstIntf.AudioFeatures.CALL_AUDIO, false);
-                mActiveDeviceManager.setActiveDevice(null, ApmConstIntf.AudioFeatures.MEDIA_AUDIO, false);
+                if (mActiveDeviceManager.getActiveProfile(ApmConstIntf.AudioFeatures.MEDIA_AUDIO) !=
+                    ApmConstIntf.AudioProfiles.HAP_BREDR) {
+                    setActiveDevice(null);
+                } else {
+                    mActiveDeviceManager.setActiveDevice(null, ApmConstIntf.AudioFeatures.CALL_AUDIO, false);
+                    mActiveDeviceManager.setActiveDevice(null, ApmConstIntf.AudioFeatures.MEDIA_AUDIO, false);
+                }
             } else {
                 setActiveDevice(null);
             }
@@ -949,10 +954,17 @@ public class HearingAidService extends ProfileService {
             if(ApmConstIntf.getLeAudioEnabled()) {
                 ActiveDeviceManagerServiceIntf mActiveDeviceManager = 
                         ActiveDeviceManagerServiceIntf.get();
+                if (device == null) {
+                    int profile =
+                        mActiveDeviceManager.getActiveProfile(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
+                    if (profile != ApmConstIntf.AudioProfiles.HAP_BREDR) {
+                        return service.setActiveDevice(device);
+                    }
+                }
                 mActiveDeviceManager.setActiveDevice(device, ApmConstIntf.AudioFeatures.CALL_AUDIO, true);
                 mActiveDeviceManager.setActiveDevice(device, ApmConstIntf.AudioFeatures.MEDIA_AUDIO, true);
             } else {
-            return service.setActiveDevice(device);
+                return service.setActiveDevice(device);
             }
             return true;
         }

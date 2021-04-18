@@ -120,6 +120,8 @@ class PhonePolicy {
     Method mBCDisconnect = null;
     Method mBCGetConnState = null;
     String mBCId = null;
+    private static final String BC_ACTION_CONNECTION_STATE_CHANGED =
+        "android.bluetooth.bc.profile.action.CONNECTION_STATE_CHANGED";
     //_REF*/
     Object mBroadcastService = null;
     Method mBroadcastGetAddr = null;
@@ -188,6 +190,12 @@ class PhonePolicy {
                     break;
                 case BluetoothDevice.ACTION_ACL_CONNECTED:
                     mHandler.obtainMessage(MESSAGE_DEVICE_CONNECTED, intent).sendToTarget();
+                    break;
+                case BC_ACTION_CONNECTION_STATE_CHANGED:
+                    mHandler.obtainMessage(MESSAGE_PROFILE_CONNECTION_STATE_CHANGED,
+                            BluetoothProfile.BC_PROFILE,-1, // No-op argument
+                            intent).sendToTarget();
+                    break;
                 default:
                     Log.e(TAG, "Received unexpected intent, action=" + action);
                     break;
@@ -289,6 +297,7 @@ class PhonePolicy {
         filter.addAction(BluetoothA2dp.ACTION_ACTIVE_DEVICE_CHANGED);
         filter.addAction(BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED);
         filter.addAction(BluetoothHearingAid.ACTION_ACTIVE_DEVICE_CHANGED);
+        filter.addAction(BC_ACTION_CONNECTION_STATE_CHANGED);
         mAdapterService.registerReceiver(mReceiver, filter);
     }
 
@@ -325,6 +334,9 @@ class PhonePolicy {
 
         ParcelUuid ADV_AUDIO_G_MEDIA =
             ParcelUuid.fromString("00006AD3-0000-1000-8000-00805F9B34FB");
+
+        ParcelUuid ADV_AUDIO_W_MEDIA =
+            ParcelUuid.fromString("2587db3c-ce70-4fc9-935f-777ab4188fd7");
 
         debugLog("processInitProfilePriorities() - device " + device);
         HidHostService hidService = mFactory.getHidHostService();
@@ -367,6 +379,7 @@ class PhonePolicy {
         if ((a2dpService != null) && (ArrayUtils.contains(uuids, BluetoothUuid.A2DP_SINK)
                 || ArrayUtils.contains(uuids, BluetoothUuid.ADV_AUDIO_DIST)
                 || ArrayUtils.contains(uuids, ADV_AUDIO_T_MEDIA)
+                || ArrayUtils.contains(uuids, ADV_AUDIO_W_MEDIA)
                 || ArrayUtils.contains(uuids, ADV_AUDIO_HEARINGAID)
                 || ArrayUtils.contains(uuids, ADV_AUDIO_P_MEDIA)) && (
                 a2dpService.getConnectionPolicy(device)
@@ -478,6 +491,11 @@ class PhonePolicy {
                 }
                 handleAllProfilesDisconnected(device);
             }
+        }
+
+        if (profileId == BluetoothProfile.BC_PROFILE &&
+                (nextState == BluetoothProfile.STATE_CONNECTED || nextState ==BluetoothProfile.STATE_DISCONNECTED)) {
+            mDatabaseManager.setConnectionStateForBc(device, nextState);
         }
     }
 
@@ -721,6 +739,10 @@ class PhonePolicy {
             return;
         }
         for (BluetoothDevice device : bondedDevices) {
+            if (mDatabaseManager.wasBCConnectedDevice(device) == false) {
+                Log.d(TAG, "not a BC connected device earlier, Ignoring");
+                continue;
+            }
             int connPolicy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
             try {
                 connPolicy = (int) mBCGetConnPolicy.invoke(mBCService, device);
