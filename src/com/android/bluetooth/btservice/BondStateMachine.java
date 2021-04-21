@@ -18,6 +18,8 @@
 
 package com.android.bluetooth.btservice;
 
+import static android.Manifest.permission.BLUETOOTH_CONNECT;
+
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
@@ -453,7 +455,7 @@ final class BondStateMachine extends StateMachine {
         intent.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         // Workaround for Android Auto until pre-accepting pairing requests is added.
         intent.addFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
-        mAdapterService.sendOrderedBroadcast(intent, AdapterService.BLUETOOTH_ADMIN_PERM);
+        mAdapterService.sendOrderedBroadcast(intent, BLUETOOTH_CONNECT);
         // Release wakelock to allow the LCD to go off after the PIN popup notification.
         mWakeLock.release();
     }
@@ -593,7 +595,7 @@ final class BondStateMachine extends StateMachine {
                 }
             }
         }
-        mAdapterService.sendBroadcastAsUser(intent, UserHandle.ALL, AdapterService.BLUETOOTH_PERM);
+        mAdapterService.sendBroadcastAsUser(intent, UserHandle.ALL, BLUETOOTH_CONNECT);
         infoLog("Bond State Change Intent:" + device + " " + state2str(oldState) + " => "
                 + state2str(newState));
 

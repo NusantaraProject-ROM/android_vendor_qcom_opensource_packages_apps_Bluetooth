@@ -478,7 +478,10 @@ public class HeadsetClientService extends ProfileService {
     }
 
     public boolean connect(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return false;
+        }
+
         if (DBG) {
             Log.d(TAG, "connect " + device);
         }
@@ -505,7 +508,10 @@ public class HeadsetClientService extends ProfileService {
      * @return true if hfp client profile successfully disconnected, false otherwise
      */
     public boolean disconnect(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return false;
+        }
+
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
@@ -523,7 +529,9 @@ public class HeadsetClientService extends ProfileService {
     }
 
     public synchronized List<BluetoothDevice> getConnectedDevices() {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return new ArrayList<>(0);
+        }
 
         ArrayList<BluetoothDevice> connectedDevices = new ArrayList<>();
         for (BluetoothDevice bd : mStateMachineMap.keySet()) {
@@ -536,7 +544,10 @@ public class HeadsetClientService extends ProfileService {
     }
 
     private synchronized List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return new ArrayList<>(0);
+        }
+
         List<BluetoothDevice> devices = new ArrayList<BluetoothDevice>();
         for (BluetoothDevice bd : mStateMachineMap.keySet()) {
             for (int state : states) {
@@ -559,7 +570,10 @@ public class HeadsetClientService extends ProfileService {
      * {@link BluetoothProfile#STATE_DISCONNECTING} if this profile is being disconnected
      */
     public synchronized int getConnectionState(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return BluetoothProfile.STATE_DISCONNECTED;
+        }
+
         HeadsetClientStateMachine sm = mStateMachineMap.get(device);
         if (sm != null) {
             return sm.getConnectionState(device);
@@ -583,7 +597,10 @@ public class HeadsetClientService extends ProfileService {
      * @return true if connectionPolicy is set, false on error
      */
     public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return false;
+        }
+
         if (DBG) {
             Log.d(TAG, "Saved connectionPolicy " + device + " = " + connectionPolicy);
         }
@@ -613,13 +630,19 @@ public class HeadsetClientService extends ProfileService {
      * @hide
      */
     public int getConnectionPolicy(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return 0;
+        }
+
         return mDatabaseManager
                 .getProfileConnectionPolicy(device, BluetoothProfile.HEADSET_CLIENT);
     }
 
     boolean startVoiceRecognition(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return false;
+        }
+
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
@@ -634,7 +657,10 @@ public class HeadsetClientService extends ProfileService {
     }
 
     boolean stopVoiceRecognition(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return false;
+        }
+
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
@@ -659,7 +685,10 @@ public class HeadsetClientService extends ProfileService {
     }
 
     boolean connectAudio(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return false;
+        }
+
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
@@ -677,7 +706,10 @@ public class HeadsetClientService extends ProfileService {
     }
 
     boolean disconnectAudio(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return false;
+        }
+
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
@@ -692,7 +724,10 @@ public class HeadsetClientService extends ProfileService {
     }
 
     boolean holdCall(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return false;
+        }
+
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
@@ -710,7 +745,10 @@ public class HeadsetClientService extends ProfileService {
     }
 
     boolean acceptCall(BluetoothDevice device, int flag) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return false;
+        }
+
         /* Phonecalls from a single device are supported, hang up any calls on the other phone */
         synchronized (this) {
             for (Map.Entry<BluetoothDevice, HeadsetClientStateMachine> entry : mStateMachineMap
@@ -748,7 +786,10 @@ public class HeadsetClientService extends ProfileService {
     }
 
     boolean rejectCall(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return false;
+        }
+
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
@@ -767,7 +808,10 @@ public class HeadsetClientService extends ProfileService {
     }
 
     boolean terminateCall(BluetoothDevice device, UUID uuid) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return false;
+        }
+
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
@@ -787,7 +831,10 @@ public class HeadsetClientService extends ProfileService {
     }
 
     boolean enterPrivateMode(BluetoothDevice device, int index) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return false;
+        }
+
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
@@ -807,7 +854,10 @@ public class HeadsetClientService extends ProfileService {
     }
 
     BluetoothHeadsetClientCall dial(BluetoothDevice device, String number) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return null;
+        }
+
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
@@ -831,7 +881,10 @@ public class HeadsetClientService extends ProfileService {
     }
 
     public boolean sendDTMF(BluetoothDevice device, byte code) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return false;
+        }
+
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
@@ -854,7 +907,10 @@ public class HeadsetClientService extends ProfileService {
     }
 
     public List<BluetoothHeadsetClientCall> getCurrentCalls(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return null;
+        }
+
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
@@ -869,7 +925,10 @@ public class HeadsetClientService extends ProfileService {
     }
 
     public boolean explicitCallTransfer(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return false;
+        }
+
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
@@ -888,7 +947,10 @@ public class HeadsetClientService extends ProfileService {
 
     /** Send vendor AT command. */
     public boolean sendVendorAtCommand(BluetoothDevice device, int vendorId, String atCommand) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return false;
+        }
+
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
@@ -907,7 +969,10 @@ public class HeadsetClientService extends ProfileService {
     }
 
     public Bundle getCurrentAgEvents(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return null;
+        }
+
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);
@@ -922,7 +987,10 @@ public class HeadsetClientService extends ProfileService {
     }
 
     public Bundle getCurrentAgFeatures(BluetoothDevice device) {
-        enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return null;
+        }
+
         HeadsetClientStateMachine sm = getStateMachine(device);
         if (sm == null) {
             Log.e(TAG, "Cannot allocate SM for device " + device);

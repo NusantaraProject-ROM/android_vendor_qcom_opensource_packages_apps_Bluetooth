@@ -14,6 +14,8 @@
 */
 package com.android.bluetooth.sdp;
 
+import static android.Manifest.permission.BLUETOOTH_CONNECT;
+
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.SdpMasRecord;
 import android.bluetooth.SdpMnsRecord;
@@ -470,7 +472,7 @@ public class SdpManager {
          * Keep in mind that the MAP client needs to use this as well,
          * hence to make it call-backs, the MAP client profile needs to be
          * part of the Bluetooth APK. */
-        sAdapterService.sendBroadcast(intent, AdapterService.BLUETOOTH_ADMIN_PERM);
+        sAdapterService.sendBroadcast(intent, BLUETOOTH_CONNECT);
 
         if (!moreResults) {
             //Remove the outstanding UUID request

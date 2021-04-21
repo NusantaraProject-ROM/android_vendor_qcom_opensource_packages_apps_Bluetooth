@@ -51,6 +51,9 @@
 
 package com.android.bluetooth.btservice;
 
+import static android.Manifest.permission.BLUETOOTH_CONNECT;
+import static android.Manifest.permission.BLUETOOTH_SCAN;
+
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothAssignedNumbers;
 import android.bluetooth.BluetoothClass;
@@ -381,7 +384,7 @@ final class RemoteDevices {
                 Intent intent = new Intent(BluetoothDevice.ACTION_ALIAS_CHANGED);
                 intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
                 intent.putExtra(BluetoothDevice.EXTRA_NAME, mAlias);
-                sAdapterService.sendBroadcast(intent, AdapterService.BLUETOOTH_PERM);
+                sAdapterService.sendBroadcast(intent, BLUETOOTH_CONNECT);
             }
         }
 
@@ -436,7 +439,7 @@ final class RemoteDevices {
                         intent.putExtra(EXTRA_TWS_PLUS_DEVICE1, mDevice);
                         intent.putExtra(EXTRA_TWS_PLUS_DEVICE2, device);
                         sAdapterService.sendBroadcast(intent,
-                                AdapterService.BLUETOOTH_ADMIN_PERM);
+                                BLUETOOTH_CONNECT);
                     }
                 }
             }
@@ -560,7 +563,7 @@ final class RemoteDevices {
         Intent intent = new Intent(BluetoothDevice.ACTION_UUID);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         intent.putExtra(BluetoothDevice.EXTRA_UUID, prop == null ? null : prop.mUuids);
-        sAdapterService.sendBroadcast(intent, AdapterService.BLUETOOTH_ADMIN_PERM);
+        sAdapterService.sendBroadcast(intent, BLUETOOTH_CONNECT);
 
         //Remove the outstanding UUID request
         if (sSdpTracker.contains(device)) {
@@ -647,7 +650,7 @@ final class RemoteDevices {
         intent.putExtra(BluetoothDevice.EXTRA_BATTERY_LEVEL, batteryLevel);
         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
         intent.addFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
-        sAdapterService.sendBroadcast(intent, AdapterService.BLUETOOTH_PERM);
+        sAdapterService.sendBroadcast(intent, BLUETOOTH_CONNECT);
     }
 
     private static boolean areUuidsEqual(ParcelUuid[] uuids1, ParcelUuid[] uuids2) {
@@ -709,7 +712,7 @@ final class RemoteDevices {
                             intent.putExtra(BluetoothDevice.EXTRA_NAME, device.mName);
                             intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
                             intent.setFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-                            sAdapterService.sendBroadcast(intent, sAdapterService.BLUETOOTH_PERM);
+                            sAdapterService.sendBroadcast(intent, BLUETOOTH_CONNECT);
                             debugLog("Remote Device name is: " + device.mName);
                             break;
                         case AbstractionLayer.BT_PROPERTY_REMOTE_FRIENDLY_NAME:
@@ -744,7 +747,7 @@ final class RemoteDevices {
                             intent.putExtra(BluetoothDevice.EXTRA_CLASS,
                                 new BluetoothClass(device.mBluetoothClass));
                             intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
-                            sAdapterService.sendBroadcast(intent, sAdapterService.BLUETOOTH_PERM);
+                            sAdapterService.sendBroadcast(intent, BLUETOOTH_CONNECT);
                             debugLog("Remote class is:" + device.mBluetoothClass);
                             break;
                         case AbstractionLayer.BT_PROPERTY_UUIDS:
@@ -944,9 +947,14 @@ final class RemoteDevices {
         synchronized (packages) {
             for (DiscoveringPackage pkg : packages) {
                 intent.setPackage(pkg.getPackageName());
-                sAdapterService.sendBroadcastMultiplePermissions(intent, new String[]{
-                        AdapterService.BLUETOOTH_PERM, pkg.getPermission()
-                });
+                String[] perms;
+                if (pkg.getPermission() == null) {
+                    perms = new String[] { BLUETOOTH_SCAN };
+                } else {
+                    perms = new String[] { BLUETOOTH_SCAN, pkg.getPermission() };
+                }
+
+                sAdapterService.sendBroadcastMultiplePermissions(intent, perms);
             }
         }
     }
@@ -1002,7 +1010,7 @@ final class RemoteDevices {
             intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT
                     | Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
             intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
-            sAdapterService.sendBroadcast(intent, sAdapterService.BLUETOOTH_PERM);
+            sAdapterService.sendBroadcast(intent, BLUETOOTH_CONNECT);
 
             synchronized (sAdapterService.getBluetoothConnectionCallbacks()) {
                 Set<IBluetoothConnectionCallback> bluetoothConnectionCallbacks =
