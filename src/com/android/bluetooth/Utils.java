@@ -273,6 +273,14 @@ public final class Utils {
         Utils.sForegroundUserId = uid;
     }
 
+    public static boolean callerIsSystemOrActiveUser(String tag, String method) {
+        if (!checkCaller()) {
+            Log.w(TAG, method + "() - Not allowed for non-active user and non-system user");
+          return false;
+        }
+        return true;
+    }
+
     public static boolean checkCaller() {
         int callingUser = UserHandle.getCallingUserId();
         int callingUid = Binder.getCallingUid();
@@ -600,18 +608,6 @@ public final class Utils {
                 "Need BLUETOOTH ADMIN permission");
     }
     
-    /**
-     * Checks whether the caller has the BLUETOOTH_PRIVILEGED permission
-     *
-     * @param context the Bluetooth AdapterService context
-     * @return {@code true} if the caller has the BLUETOOTH_PRIVILEGED permission, {@code false}
-     *         otherwise
-     */
-    public static boolean hasBluetoothPrivilegedPermission(Context context) {
-        return context.checkCallingOrSelfPermission(Manifest.permission.BLUETOOTH_PRIVILEGED)
-           == PackageManager.PERMISSION_GRANTED;
-    }
-
     public static void enforceBluetoothPrivilegedPermission(Context context) {
         context.enforceCallingOrSelfPermission(
                 android.Manifest.permission.BLUETOOTH_PRIVILEGED,

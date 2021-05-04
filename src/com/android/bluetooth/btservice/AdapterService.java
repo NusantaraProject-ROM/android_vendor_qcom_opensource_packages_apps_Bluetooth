@@ -51,6 +51,7 @@
 
 package com.android.bluetooth.btservice;
 
+import static com.android.bluetooth.Utils.callerIsSystemOrActiveUser;
 import static com.android.bluetooth.Utils.enforceBluetoothPrivilegedPermission;
 import static com.android.bluetooth.Utils.enforceCdmAssociation;
 import static com.android.bluetooth.Utils.hasBluetoothPrivilegedPermission;
@@ -2300,11 +2301,6 @@ public class AdapterService extends Service {
         @Override
         public boolean setRemoteAlias(BluetoothDevice device, String name, String callingPackage,
             AttributionSource attributionSource) {
-            // TODO implement callingPackage as necessary
-            if (!Utils.checkCaller()) {
-                Log.w(TAG, "setRemoteAlias() - Not allowed for non-active user");
-                return false;
-            }
 
             AdapterService service = getService();
             if (service == null || !callerIsSystemOrActiveUser(TAG, "setRemoteAlias")
@@ -3947,10 +3943,6 @@ public class AdapterService extends Service {
     }
 
     boolean setRemoteAlias(BluetoothDevice device, String name) {
-        if (!Utils.checkConnectPermissionForPreflight(this)) {
-            return false;
-        }
-
         DeviceProperties deviceProp = mRemoteDevices.getDeviceProperties(device);
         if (deviceProp == null) {
             return false;
