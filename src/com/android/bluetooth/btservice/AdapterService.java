@@ -3600,7 +3600,7 @@ public class AdapterService extends Service {
 
         if (setA2dp && mA2dpService != null) {
             if(isLeAudioEnabled) {
-                activeDeviceManager.setActiveDevice(device, 
+                activeDeviceManager.setActiveDevice(device,
                         ApmConstIntf.AudioFeatures.MEDIA_AUDIO, true);
             } else {
                 mA2dpService.setActiveDevice(device);
@@ -3614,7 +3614,7 @@ public class AdapterService extends Service {
 
         if (setHeadset && mHeadsetService != null) {
             if(isLeAudioEnabled) {
-                activeDeviceManager.setActiveDevice(device, 
+                activeDeviceManager.setActiveDevice(device,
                         ApmConstIntf.AudioFeatures.CALL_AUDIO, true);
             } else {
                 mHeadsetService.setActiveDevice(device);
@@ -4842,6 +4842,70 @@ public class AdapterService extends Service {
         return (Config.adv_audio_feature_mask & Config.ADV_AUDIO_BCS_FEAT_MASK) != 0;
     }
 
+
+    /**
+     * Check  Host Adv Audio Unicast feature support.
+     *
+     * @return true if Host Adv Audio Unicast feature supported
+     */
+    public boolean isHostAdvAudioUnicastFeatureSupported() {
+        return mAdapterProperties.isHostAdvAudioUnicastFeatureSupported();
+    }
+
+    /**
+     * Check  Host Adv Audio BCA feature support.
+     *
+     * @return true if Host Adv Audio BCA feature supported
+     */
+    public boolean isHostAdvAudioBCAFeatureSupported() {
+        return mAdapterProperties.isHostAdvAudioBCAFeatureSupported();
+    }
+
+    /**
+     * Check  Host Adv Audio BCS feature support.
+     *
+     * @return true if Host Adv Audio BCS feature supported
+     */
+    public boolean isHostAdvAudioBCSFeatureSupported() {
+        return mAdapterProperties.isHostAdvAudioBCSFeatureSupported();
+    }
+
+    /**
+     * Check  Host Adv Audio StereoRecording feature support.
+     *
+     * @return true if Host Adv Audio StereoRecording feature supported
+     */
+    public boolean isHostAdvAudioStereoRecordingFeatureSupported() {
+        return mAdapterProperties.isHostAdvAudioStereoRecordingFeatureSupported();
+    }
+
+    /**
+     * Check  Host Adv Audio LC3Q feature support.
+     *
+     * @return true if Host Adv Audio LC3Q feature supported
+     */
+    public boolean isHostAdvAudioLC3QFeatureSupported() {
+        return mAdapterProperties.isHostAdvAudioLC3QFeatureSupported();
+    }
+
+    /**
+     * Check  Host QHS feature support.
+     *
+     * @return true if Host QHS feature supported
+     */
+    public boolean isHostQHSFeatureSupported() {
+        return mAdapterProperties.isHostQHSFeatureSupported();
+    }
+
+    /**
+     * Check  Host AddonFeatures Support.
+     *
+     * @return true if Host AddonFeatures supported
+     */
+    public boolean isHostAddonFeaturesSupported() {
+        return mAdapterProperties.isHostAddonFeaturesSupported();
+    }
+
     private BluetoothActivityEnergyInfo reportActivityInfo() {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED, "Need BLUETOOTH permission");
         if (mAdapterProperties.getState() != BluetoothAdapter.STATE_ON
@@ -5138,7 +5202,7 @@ public class AdapterService extends Service {
 
     public ActiveDeviceManager getActiveDeviceManager() {
         return mActiveDeviceManager;
-    } 
+    }
     private int getIdleCurrentMa() {
         return getResources().getInteger(R.integer.config_bluetooth_idle_cur_ma);
     }
