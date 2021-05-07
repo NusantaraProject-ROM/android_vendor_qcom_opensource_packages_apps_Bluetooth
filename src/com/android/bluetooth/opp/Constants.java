@@ -185,6 +185,7 @@ public class Constants {
             "text/plain",
             "text/html",
             "text/xml",
+            "application/epub+zip",
             "application/zip",
             "application/vnd.ms-excel",
             "application/msword",
@@ -253,8 +254,8 @@ public class Constants {
     }
 
     private static boolean mimeTypeMatches(String mimeType, String matchAgainst) {
-        Pattern p =
-                Pattern.compile(matchAgainst.replaceAll("\\*", "\\.\\*"), Pattern.CASE_INSENSITIVE);
+        String matchRegex = matchAgainst.replaceAll("\\+", "\\\\+").replaceAll("\\*", ".*");
+        Pattern p = Pattern.compile(matchRegex, Pattern.CASE_INSENSITIVE);
         return p.matcher(mimeType).matches();
     }
 
