@@ -21,6 +21,7 @@ import android.bluetooth.BluetoothHeadsetClient;
 import android.bluetooth.BluetoothHeadsetClientCall;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.IBluetoothHeadsetClient;
+import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -218,7 +219,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public boolean connect(BluetoothDevice device) {
+        public boolean connect(BluetoothDevice device, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return false;
@@ -227,7 +228,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public boolean disconnect(BluetoothDevice device) {
+        public boolean disconnect(BluetoothDevice device, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return false;
@@ -236,7 +237,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public List<BluetoothDevice> getConnectedDevices() {
+        public List<BluetoothDevice> getConnectedDevices(AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return new ArrayList<BluetoothDevice>(0);
@@ -245,7 +246,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
+        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return new ArrayList<BluetoothDevice>(0);
@@ -254,7 +255,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public int getConnectionState(BluetoothDevice device) {
+        public int getConnectionState(BluetoothDevice device, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return BluetoothProfile.STATE_DISCONNECTED;
@@ -263,7 +264,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
+        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return false;
@@ -272,7 +273,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public int getConnectionPolicy(BluetoothDevice device) {
+        public int getConnectionPolicy(BluetoothDevice device, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
@@ -281,7 +282,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public boolean startVoiceRecognition(BluetoothDevice device) {
+        public boolean startVoiceRecognition(BluetoothDevice device, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return false;
@@ -290,7 +291,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public boolean stopVoiceRecognition(BluetoothDevice device) {
+        public boolean stopVoiceRecognition(BluetoothDevice device, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return false;
@@ -299,7 +300,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public int getAudioState(BluetoothDevice device) {
+        public int getAudioState(BluetoothDevice device, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return BluetoothHeadsetClient.STATE_AUDIO_DISCONNECTED;
@@ -308,18 +309,18 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public void setAudioRouteAllowed(BluetoothDevice device, boolean allowed) {
+        public void setAudioRouteAllowed(BluetoothDevice device, boolean allowed, AttributionSource source) {
             Log.e(TAG, "setAudioRouteAllowed API not supported");
         }
 
         @Override
-        public boolean getAudioRouteAllowed(BluetoothDevice device) {
+        public boolean getAudioRouteAllowed(BluetoothDevice device, AttributionSource source) {
             Log.e(TAG, "getAudioRouteAllowed API not supported");
             return false;
         }
 
         @Override
-        public boolean connectAudio(BluetoothDevice device) {
+        public boolean connectAudio(BluetoothDevice device, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return false;
@@ -328,7 +329,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public boolean disconnectAudio(BluetoothDevice device) {
+        public boolean disconnectAudio(BluetoothDevice device, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return false;
@@ -337,7 +338,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public boolean acceptCall(BluetoothDevice device, int flag) {
+        public boolean acceptCall(BluetoothDevice device, int flag, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return false;
@@ -346,7 +347,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public boolean rejectCall(BluetoothDevice device) {
+        public boolean rejectCall(BluetoothDevice device, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return false;
@@ -355,7 +356,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public boolean holdCall(BluetoothDevice device) {
+        public boolean holdCall(BluetoothDevice device, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return false;
@@ -364,7 +365,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public boolean terminateCall(BluetoothDevice device, BluetoothHeadsetClientCall call) {
+        public boolean terminateCall(BluetoothDevice device, BluetoothHeadsetClientCall call, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 Log.w(TAG, "service is null");
@@ -374,7 +375,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public boolean explicitCallTransfer(BluetoothDevice device) {
+        public boolean explicitCallTransfer(BluetoothDevice device, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return false;
@@ -383,7 +384,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public boolean enterPrivateMode(BluetoothDevice device, int index) {
+        public boolean enterPrivateMode(BluetoothDevice device, int index, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return false;
@@ -392,7 +393,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public BluetoothHeadsetClientCall dial(BluetoothDevice device, String number) {
+        public BluetoothHeadsetClientCall dial(BluetoothDevice device, String number, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return null;
@@ -401,7 +402,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public List<BluetoothHeadsetClientCall> getCurrentCalls(BluetoothDevice device) {
+        public List<BluetoothHeadsetClientCall> getCurrentCalls(BluetoothDevice device, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return new ArrayList<BluetoothHeadsetClientCall>();
@@ -410,7 +411,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public boolean sendDTMF(BluetoothDevice device, byte code) {
+        public boolean sendDTMF(BluetoothDevice device, byte code, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return false;
@@ -419,7 +420,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public boolean getLastVoiceTagNumber(BluetoothDevice device) {
+        public boolean getLastVoiceTagNumber(BluetoothDevice device, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return false;
@@ -428,7 +429,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public Bundle getCurrentAgEvents(BluetoothDevice device) {
+        public Bundle getCurrentAgEvents(BluetoothDevice device, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return null;
@@ -437,7 +438,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public boolean sendVendorAtCommand(BluetoothDevice device, int vendorId, String atCommand) {
+        public boolean sendVendorAtCommand(BluetoothDevice device, int vendorId, String atCommand, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return false;
@@ -446,7 +447,7 @@ public class HeadsetClientService extends ProfileService {
         }
 
         @Override
-        public Bundle getCurrentAgFeatures(BluetoothDevice device) {
+        public Bundle getCurrentAgFeatures(BluetoothDevice device, AttributionSource source) {
             HeadsetClientService service = getService();
             if (service == null) {
                 return null;

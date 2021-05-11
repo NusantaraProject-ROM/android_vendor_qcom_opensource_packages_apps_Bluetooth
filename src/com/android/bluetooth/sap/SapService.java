@@ -13,6 +13,7 @@ import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.bluetooth.BluetoothUuid;
 import android.bluetooth.IBluetoothSap;
+import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -919,7 +920,7 @@ public class SapService extends ProfileService {
         }
 
         @Override
-        public int getState() {
+        public int getState(AttributionSource source) {
             Log.v(TAG, "getState()");
             SapService service = getService();
             if (service == null) {
@@ -929,7 +930,7 @@ public class SapService extends ProfileService {
         }
 
         @Override
-        public BluetoothDevice getClient() {
+        public BluetoothDevice getClient(AttributionSource source) {
             Log.v(TAG, "getClient()");
             SapService service = getService();
             if (service == null) {
@@ -940,7 +941,7 @@ public class SapService extends ProfileService {
         }
 
         @Override
-        public boolean isConnected(BluetoothDevice device) {
+        public boolean isConnected(BluetoothDevice device, AttributionSource source) {
             Log.v(TAG, "isConnected()");
             SapService service = getService();
             if (service == null) {
@@ -951,7 +952,7 @@ public class SapService extends ProfileService {
         }
 
         @Override
-        public boolean connect(BluetoothDevice device) {
+        public boolean connect(BluetoothDevice device, AttributionSource source) {
             Log.v(TAG, "connect()");
             SapService service = getService();
             if (service == null) {
@@ -961,7 +962,7 @@ public class SapService extends ProfileService {
         }
 
         @Override
-        public boolean disconnect(BluetoothDevice device) {
+        public boolean disconnect(BluetoothDevice device, AttributionSource source) {
             Log.v(TAG, "disconnect()");
             SapService service = getService();
             if (service == null) {
@@ -971,7 +972,7 @@ public class SapService extends ProfileService {
         }
 
         @Override
-        public List<BluetoothDevice> getConnectedDevices() {
+        public List<BluetoothDevice> getConnectedDevices(AttributionSource source) {
             Log.v(TAG, "getConnectedDevices()");
             SapService service = getService();
             if (service == null) {
@@ -981,7 +982,7 @@ public class SapService extends ProfileService {
         }
 
         @Override
-        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
+        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states, AttributionSource source) {
             Log.v(TAG, "getDevicesMatchingConnectionStates()");
             SapService service = getService();
             if (service == null) {
@@ -991,7 +992,7 @@ public class SapService extends ProfileService {
         }
 
         @Override
-        public int getConnectionState(BluetoothDevice device) {
+        public int getConnectionState(BluetoothDevice device, AttributionSource source) {
             Log.v(TAG, "getConnectionState()");
             SapService service = getService();
             if (service == null) {
@@ -1001,7 +1002,7 @@ public class SapService extends ProfileService {
         }
 
         @Override
-        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
+        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy, AttributionSource source) {
             SapService service = getService();
             if (service == null) {
                 return false;
@@ -1010,7 +1011,7 @@ public class SapService extends ProfileService {
         }
 
         @Override
-        public int getConnectionPolicy(BluetoothDevice device) {
+        public int getConnectionPolicy(BluetoothDevice device, AttributionSource source) {
             SapService service = getService();
             if (service == null) {
                 return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;

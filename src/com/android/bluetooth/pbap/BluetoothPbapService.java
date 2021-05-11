@@ -40,6 +40,7 @@ import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothSocket;
 import android.bluetooth.BluetoothUuid;
 import android.bluetooth.IBluetoothPbap;
+import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -729,7 +730,7 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         }
 
         @Override
-        public List<BluetoothDevice> getConnectedDevices() {
+        public List<BluetoothDevice> getConnectedDevices(AttributionSource source) {
             if (DEBUG) {
                 Log.d(TAG, "getConnectedDevices");
             }
@@ -741,7 +742,7 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         }
 
         @Override
-        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
+        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states, AttributionSource source) {
             if (DEBUG) {
                 Log.d(TAG, "getDevicesMatchingConnectionStates");
             }
@@ -753,7 +754,7 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         }
 
         @Override
-        public int getConnectionState(BluetoothDevice device) {
+        public int getConnectionState(BluetoothDevice device, AttributionSource source) {
             if (DEBUG) {
                 Log.d(TAG, "getConnectionState: " + device);
             }
@@ -765,7 +766,7 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         }
 
         @Override
-        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
+        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy, AttributionSource source) {
             if (DEBUG) {
                 Log.d(TAG, "setConnectionPolicy for device: " + device + ", policy:"
                         + connectionPolicy);
@@ -778,7 +779,7 @@ public class BluetoothPbapService extends ProfileService implements IObexConnect
         }
 
         @Override
-        public void disconnect(BluetoothDevice device) {
+        public void disconnect(BluetoothDevice device, AttributionSource source) {
             if (DEBUG) {
                 Log.d(TAG, "disconnect");
             }
