@@ -1754,7 +1754,7 @@ public class AdapterService extends Service {
         @Override
         public String getAddressWithAttribution(AttributionSource attributionSource) {
           // implement as necessary
-          return "";
+          return getAddress();
         }
         @Override
         public ParcelUuid[] getUuids(AttributionSource attributionSource) {
@@ -1786,7 +1786,17 @@ public class AdapterService extends Service {
         @Override
         public int getNameLengthForAdvertise() {
           // implement as necessary
-          return 0;
+        if ((Binder.getCallingUid() != Process.SYSTEM_UID) && (!Utils.checkCaller())) {
+                Log.w(TAG, "getName() - Not allowed for non-active user and non system user");
+                return 0;
+            }
+
+            AdapterService service = getService();
+            if (service == null) {
+              return 0;
+            }
+            String oStr = service.getName();
+            return oStr.length();
         }
         @Override
         public boolean setName(String name, AttributionSource attributionSource) {
@@ -2171,7 +2181,7 @@ public class AdapterService extends Service {
         public int getConnectionStateWithAttribution(
                 BluetoothDevice device, AttributionSource attributionSource) {
           // implement as necessary
-          return 0;
+          return getConnectionState(device);
         }
 
       @Override
@@ -2280,7 +2290,7 @@ public class AdapterService extends Service {
         public String getRemoteAliasWithAttribution(
                 BluetoothDevice device, AttributionSource attributionSource) {
           // implement as necessary
-          return "";
+          return getRemoteAlias(device);
         }
 
         @Override
