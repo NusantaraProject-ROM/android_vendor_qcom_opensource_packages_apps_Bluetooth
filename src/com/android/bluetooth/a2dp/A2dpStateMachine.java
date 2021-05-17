@@ -61,6 +61,8 @@ import com.android.bluetooth.BluetoothStatsLog;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.apm.ApmConstIntf;
 import com.android.bluetooth.apm.DeviceProfileMapIntf;
+import com.android.bluetooth.apm.MediaAudioIntf;
+
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
@@ -243,6 +245,8 @@ final class A2dpStateMachine extends StateMachine {
                     if (mA2dpService.okToConnect(mDevice, false)) {
                         Log.i(TAG, "Incoming A2DP Connecting request accepted: " + mDevice);
                         transitionTo(mConnecting);
+                        MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
+                        mMediaAudio.connect(mDevice);
                     } else {
                         // Reject the connection and stay in Disconnected state itself
                         Log.w(TAG, "Incoming A2DP Connecting request rejected: " + mDevice);
@@ -254,6 +258,8 @@ final class A2dpStateMachine extends StateMachine {
                     if (mA2dpService.okToConnect(mDevice, false)) {
                         Log.i(TAG, "Incoming A2DP Connected request accepted: " + mDevice);
                         transitionTo(mConnected);
+                        MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
+                        mMediaAudio.connect(mDevice);
                     } else {
                         // Reject the connection and stay in Disconnected state itself
                         Log.w(TAG, "Incoming A2DP Connected request rejected: " + mDevice);
@@ -449,6 +455,8 @@ final class A2dpStateMachine extends StateMachine {
                     if (mA2dpService.okToConnect(mDevice, false)) {
                         Log.w(TAG, "Disconnecting interrupted: device is connected: " + mDevice);
                         transitionTo(mConnected);
+                        MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
+                        mMediaAudio.connect(mDevice);
                     } else {
                         // Reject the connection and stay in Disconnecting state
                         Log.w(TAG, "Incoming A2DP Connected request rejected: " + mDevice);
@@ -459,6 +467,8 @@ final class A2dpStateMachine extends StateMachine {
                     if (mA2dpService.okToConnect(mDevice, false)) {
                         Log.i(TAG, "Disconnecting interrupted: try to reconnect: " + mDevice);
                         transitionTo(mConnecting);
+                        MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
+                        mMediaAudio.connect(mDevice);
                     } else {
                         // Reject the connection and stay in Disconnecting state
                         Log.w(TAG, "Incoming A2DP Connecting request rejected: " + mDevice);
