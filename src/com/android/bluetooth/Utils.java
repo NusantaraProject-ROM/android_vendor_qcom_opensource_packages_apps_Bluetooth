@@ -19,6 +19,7 @@ package com.android.bluetooth;
 import static android.Manifest.permission.BLUETOOTH_CONNECT;
 import static android.Manifest.permission.BLUETOOTH_SCAN;
 import static android.content.PermissionChecker.PERMISSION_HARD_DENIED;
+import static android.content.PermissionChecker.PID_UNKNOWN;
 import static android.content.pm.PackageManager.GET_PERMISSIONS;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 
@@ -32,6 +33,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.companion.Association;
 import android.companion.CompanionDeviceManager;
+import android.content.AttributionSource;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.PermissionChecker;
@@ -617,9 +619,10 @@ public final class Utils {
      * be noted.
      */
      public static boolean checkScanPermissionForDataDelivery(
-            Context context, String callingPackage, String callingAttributionTag, String message) {
-         int permissionCheckResult = PermissionChecker.checkCallingOrSelfPermissionForDataDelivery(
-                 context, BLUETOOTH_SCAN, callingPackage, callingAttributionTag, message);
+            Context context, AttributionSource attributionSource, String message) {
+         int permissionCheckResult = PermissionChecker.checkPermissionForDataDeliveryFromDataSource(
+                 context, BLUETOOTH_SCAN, PID_UNKNOWN,
+                 new AttributionSource(context.getAttributionSource(), attributionSource), message);
          if (permissionCheckResult == PERMISSION_HARD_DENIED) {
             throw new SecurityException("Need BLUETOOTH_SCAN permission");
          }

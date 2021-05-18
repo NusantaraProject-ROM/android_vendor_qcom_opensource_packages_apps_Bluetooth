@@ -18,7 +18,6 @@ package com.android.bluetooth.gatt;
 
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 
-import android.annotation.Nullable;
 import android.app.AppOpsManager;
 import android.app.PendingIntent;
 import android.app.Service;
@@ -46,6 +45,7 @@ import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
 import android.companion.ICompanionDeviceManager;
+import android.content.AttributionSource;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Binder;
@@ -443,7 +443,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
+        public List<BluetoothDevice> getDevicesMatchingConnectionStates(
+            int[] states,AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return new ArrayList<BluetoothDevice>();
@@ -453,7 +454,7 @@ public class GattService extends ProfileService {
 
         @Override
         public void registerClient(ParcelUuid uuid, IBluetoothGattCallback callback,
-                boolean eattSupport) {
+            boolean eattSupport,AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -462,7 +463,7 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void unregisterClient(int clientIf) {
+        public void unregisterClient(int clientIf, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -471,8 +472,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void registerScanner(IScannerCallback callback, WorkSource workSource)
-                throws RemoteException {
+        public void registerScanner(IScannerCallback callback, WorkSource workSource,
+            AttributionSource attributionSource) throws RemoteException {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -481,7 +482,7 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void unregisterScanner(int scannerId) {
+        public void unregisterScanner(int scannerId, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -491,39 +492,37 @@ public class GattService extends ProfileService {
 
         @Override
         public void startScan(int scannerId, ScanSettings settings, List<ScanFilter> filters,
-                List storages, String callingPackage, String callingFeatureId) {
+                List storages, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
             }
-            service.startScan(scannerId, settings, filters, storages, callingPackage,
-                    callingFeatureId);
+            service.startScan(scannerId, settings, filters, storages, attributionSource);
         }
 
         @Override
         public void startScanForIntent(PendingIntent intent, ScanSettings settings,
-                List<ScanFilter> filters, String callingPackage, String callingFeatureId)
+                List<ScanFilter> filters, AttributionSource attributionSource)
                 throws RemoteException {
             GattService service = getService();
             if (service == null) {
                 return;
             }
-            service.registerPiAndStartScan(intent, settings, filters, callingPackage,
-                    callingFeatureId);
+            service.registerPiAndStartScan(intent, settings, filters, attributionSource);
         }
 
         @Override
-        public void stopScanForIntent(PendingIntent intent, String callingPackage)
+        public void stopScanForIntent(PendingIntent intent, AttributionSource attributionSource)
                 throws RemoteException {
             GattService service = getService();
             if (service == null) {
                 return;
             }
-            service.stopScan(intent, callingPackage);
+            service.stopScan(intent);
         }
 
         @Override
-        public void stopScan(int scannerId) {
+        public void stopScan(int scannerId, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -532,7 +531,7 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void flushPendingBatchResults(int scannerId) {
+        public void flushPendingBatchResults(int scannerId, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -542,7 +541,7 @@ public class GattService extends ProfileService {
 
         @Override
         public void clientConnect(int clientIf, String address, boolean isDirect, int transport,
-                boolean opportunistic, int phy) {
+                boolean opportunistic, int phy, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -551,7 +550,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void clientDisconnect(int clientIf, String address) {
+        public void clientDisconnect(
+            int clientIf, String address,AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -561,7 +561,7 @@ public class GattService extends ProfileService {
 
         @Override
         public void clientSetPreferredPhy(int clientIf, String address, int txPhy, int rxPhy,
-                int phyOptions) {
+                int phyOptions, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -570,7 +570,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void clientReadPhy(int clientIf, String address) {
+        public void clientReadPhy(
+            int clientIf, String address, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -579,7 +580,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void refreshDevice(int clientIf, String address) {
+        public void refreshDevice(
+            int clientIf, String address, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -588,7 +590,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void discoverServices(int clientIf, String address) {
+        public void discoverServices(
+            int clientIf, String address, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -597,7 +600,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void discoverServiceByUuid(int clientIf, String address, ParcelUuid uuid) {
+        public void discoverServiceByUuid(int clientIf, String address, ParcelUuid uuid,
+                AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -606,7 +610,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void readCharacteristic(int clientIf, String address, int handle, int authReq) {
+        public void readCharacteristic(int clientIf, String address, int handle, int authReq,
+            AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -616,7 +621,7 @@ public class GattService extends ProfileService {
 
         @Override
         public void readUsingCharacteristicUuid(int clientIf, String address, ParcelUuid uuid,
-                int startHandle, int endHandle, int authReq) {
+            int startHandle, int endHandle, int authReq, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -627,7 +632,7 @@ public class GattService extends ProfileService {
 
         @Override
         public void writeCharacteristic(int clientIf, String address, int handle, int writeType,
-                int authReq, byte[] value) {
+            int authReq, byte[] value, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -636,7 +641,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void readDescriptor(int clientIf, String address, int handle, int authReq) {
+        public void readDescriptor(int clientIf, String address, int handle, int authReq,
+            AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -646,7 +652,7 @@ public class GattService extends ProfileService {
 
         @Override
         public void writeDescriptor(int clientIf, String address, int handle, int authReq,
-                byte[] value) {
+                byte[] value, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -655,7 +661,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void beginReliableWrite(int clientIf, String address) {
+        public void beginReliableWrite(
+            int clientIf, String address, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -664,7 +671,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void endReliableWrite(int clientIf, String address, boolean execute) {
+        public void endReliableWrite(int clientIf, String address, boolean execute,
+                AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -674,7 +682,7 @@ public class GattService extends ProfileService {
 
         @Override
         public void registerForNotification(int clientIf, String address, int handle,
-                boolean enable) {
+            boolean enable, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -683,7 +691,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void readRemoteRssi(int clientIf, String address) {
+        public void readRemoteRssi(
+            int clientIf, String address, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -692,7 +701,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void configureMTU(int clientIf, String address, int mtu) {
+        public void configureMTU(
+            int clientIf, String address, int mtu, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -702,7 +712,7 @@ public class GattService extends ProfileService {
 
         @Override
         public void connectionParameterUpdate(int clientIf, String address,
-                int connectionPriority) {
+                int connectionPriority, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -714,7 +724,8 @@ public class GattService extends ProfileService {
         public void leConnectionUpdate(int clientIf, String address,
                 int minConnectionInterval, int maxConnectionInterval,
                 int slaveLatency, int supervisionTimeout,
-                int minConnectionEventLen, int maxConnectionEventLen) {
+                int minConnectionEventLen, int maxConnectionEventLen,
+                AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -727,7 +738,7 @@ public class GattService extends ProfileService {
 
         @Override
         public void registerServer(ParcelUuid uuid, IBluetoothGattServerCallback callback,
-                boolean eattSupport) {
+                boolean eattSupport, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -736,7 +747,7 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void unregisterServer(int serverIf) {
+        public void unregisterServer(int serverIf, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -745,7 +756,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void serverConnect(int serverIf, String address, boolean isDirect, int transport) {
+        public void serverConnect(int serverIf, String address, boolean isDirect, int transport,
+            AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -754,7 +766,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void serverDisconnect(int serverIf, String address) {
+        public void serverDisconnect(
+            int serverIf, String address, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -764,7 +777,7 @@ public class GattService extends ProfileService {
 
         @Override
         public void serverSetPreferredPhy(int serverIf, String address, int txPhy, int rxPhy,
-                int phyOptions) {
+                int phyOptions, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -773,7 +786,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void serverReadPhy(int clientIf, String address) {
+        public void serverReadPhy(
+            int clientIf, String address, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -782,7 +796,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void addService(int serverIf, BluetoothGattService svc) {
+        public void addService(
+                int serverIf, BluetoothGattService svc, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -792,7 +807,7 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void removeService(int serverIf, int handle) {
+        public void removeService(int serverIf, int handle, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -801,7 +816,7 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void clearServices(int serverIf) {
+        public void clearServices(int serverIf, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -811,7 +826,7 @@ public class GattService extends ProfileService {
 
         @Override
         public void sendResponse(int serverIf, String address, int requestId, int status,
-                int offset, byte[] value) {
+                int offset, byte[] value, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -821,7 +836,7 @@ public class GattService extends ProfileService {
 
         @Override
         public void sendNotification(int serverIf, String address, int handle, boolean confirm,
-                byte[] value) {
+                byte[] value, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -833,7 +848,8 @@ public class GattService extends ProfileService {
         public void startAdvertisingSet(AdvertisingSetParameters parameters,
                 AdvertiseData advertiseData, AdvertiseData scanResponse,
                 PeriodicAdvertisingParameters periodicParameters, AdvertiseData periodicData,
-                int duration, int maxExtAdvEvents, IAdvertisingSetCallback callback) {
+                int duration, int maxExtAdvEvents, IAdvertisingSetCallback callback,
+                AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -843,7 +859,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void stopAdvertisingSet(IAdvertisingSetCallback callback) {
+        public void stopAdvertisingSet(
+                IAdvertisingSetCallback callback, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -862,7 +879,7 @@ public class GattService extends ProfileService {
 
         @Override
         public void enableAdvertisingSet(int advertiserId, boolean enable, int duration,
-                int maxExtAdvEvents) {
+                int maxExtAdvEvents, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -871,7 +888,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void setAdvertisingData(int advertiserId, AdvertiseData data) {
+        public void setAdvertisingData(
+                int advertiserId, AdvertiseData data, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -880,7 +898,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void setScanResponseData(int advertiserId, AdvertiseData data) {
+        public void setScanResponseData(
+                          int advertiserId, AdvertiseData data, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -890,7 +909,7 @@ public class GattService extends ProfileService {
 
         @Override
         public void setAdvertisingParameters(int advertiserId,
-                AdvertisingSetParameters parameters) {
+                AdvertisingSetParameters parameters, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -900,7 +919,7 @@ public class GattService extends ProfileService {
 
         @Override
         public void setPeriodicAdvertisingParameters(int advertiserId,
-                PeriodicAdvertisingParameters parameters) {
+                PeriodicAdvertisingParameters parameters, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -909,7 +928,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void setPeriodicAdvertisingData(int advertiserId, AdvertiseData data) {
+        public void setPeriodicAdvertisingData(int advertiserId, AdvertiseData data,
+                            AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -918,7 +938,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void setPeriodicAdvertisingEnable(int advertiserId, boolean enable) {
+        public void setPeriodicAdvertisingEnable(
+                int advertiserId, boolean enable, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -928,7 +949,7 @@ public class GattService extends ProfileService {
 
         @Override
         public void registerSync(ScanResult scanResult, int skip, int timeout,
-                IPeriodicAdvertisingCallback callback) {
+                IPeriodicAdvertisingCallback callback, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -956,7 +977,8 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void unregisterSync(IPeriodicAdvertisingCallback callback) {
+        public void unregisterSync(
+                IPeriodicAdvertisingCallback callback, AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -965,7 +987,7 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void disconnectAll() {
+        public void disconnectAll(AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -974,7 +996,7 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void unregAll() {
+        public void unregAll(AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return;
@@ -983,7 +1005,7 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public int numHwTrackFiltersAvailable() {
+        public int numHwTrackFiltersAvailable(AttributionSource attributionSource) {
             GattService service = getService();
             if (service == null) {
                 return 0;
@@ -2167,19 +2189,20 @@ public class GattService extends ProfileService {
     }
 
     void startScan(int scannerId, ScanSettings settings, List<ScanFilter> filters,
-            List<List<ResultStorageDescriptor>> storages, String callingPackage,
-            @Nullable String callingFeatureId) {
+            List<List<ResultStorageDescriptor>> storages, AttributionSource attributionSource) {
         if (DBG) {
-            Log.d(TAG, "start scan with filters. callingPackage: " + callingPackage);
+            Log.d(TAG, "start scan with filters. callingPackage: "
+                    + attributionSource.getPackageName());
         }
         if (!Utils.checkScanPermissionForDataDelivery(
-            this, callingPackage, callingFeatureId, "Starting GATT scan.")) {
+            this, attributionSource, "Starting GATT scan.")) {
             return;
         }
 
         if (needsPrivilegedPermissionForScan(settings)) {
             enforcePrivilegedPermission();
         }
+        String callingPackage = attributionSource.getPackageName();
         final ScanClient scanClient = new ScanClient(scannerId, settings, filters, storages);
         scanClient.userHandle = UserHandle.of(UserHandle.getCallingUserId());
         mAppOps.checkPackage(Binder.getCallingUid(), callingPackage);
@@ -2188,10 +2211,12 @@ public class GattService extends ProfileService {
         scanClient.isQApp = Utils.isQApp(this, callingPackage);
         if (scanClient.isQApp) {
             scanClient.hasLocationPermission = Utils.checkCallerHasFineLocation(this, mAppOps,
-                    callingPackage, callingFeatureId, scanClient.userHandle);
+                    callingPackage, attributionSource.getAttributionTag(),
+                    scanClient.userHandle);
         } else {
             scanClient.hasLocationPermission = Utils.checkCallerHasCoarseOrFineLocation(this,
-                    mAppOps, callingPackage, callingFeatureId, scanClient.userHandle);
+                    mAppOps, callingPackage, attributionSource.getAttributionTag(),
+                    scanClient.userHandle);
         }
 
         if (callingPackage != null &&
@@ -2217,13 +2242,13 @@ public class GattService extends ProfileService {
     }
 
     void registerPiAndStartScan(PendingIntent pendingIntent, ScanSettings settings,
-            List<ScanFilter> filters, String callingPackage, @Nullable String callingFeatureId) {
+            List<ScanFilter> filters, AttributionSource attributionSource) {
         if (DBG) {
             Log.d(TAG, "start scan with filters, for PendingIntent. callingPackage: "
-                    + callingPackage);
+                    + attributionSource.getPackageName());
         }
         if (!Utils.checkScanPermissionForDataDelivery(
-            this, callingPackage, callingFeatureId, "Starting GATT scan.")) {
+            this, attributionSource, "Starting GATT scan.")) {
             return;
         }
 
@@ -2235,6 +2260,7 @@ public class GattService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "startScan(PI) - UUID=" + uuid);
         }
+        String callingPackage = attributionSource.getPackageName();
         PendingIntentInfo piInfo = new PendingIntentInfo();
         piInfo.intent = pendingIntent;
         piInfo.settings = settings;
@@ -2249,10 +2275,12 @@ public class GattService extends ProfileService {
         try {
             if (app.mIsQApp) {
                 app.hasLocationPermission = Utils.checkCallerHasFineLocation(
-                      this, mAppOps, callingPackage, callingFeatureId, app.mUserHandle);
+                      this, mAppOps, callingPackage, attributionSource.getAttributionTag(),
+                      app.mUserHandle);
             } else {
                 app.hasLocationPermission = Utils.checkCallerHasCoarseOrFineLocation(
-                      this, mAppOps, callingPackage, callingFeatureId, app.mUserHandle);
+                      this, mAppOps, callingPackage, attributionSource.getAttributionTag(),
+                      app.mUserHandle);
             }
         } catch (SecurityException se) {
             // No need to throw here. Just mark as not granted.
@@ -2316,7 +2344,7 @@ public class GattService extends ProfileService {
         }
     }
 
-    void stopScan(PendingIntent intent, String callingPackage) {
+    void stopScan(PendingIntent intent) {
         if (!Utils.checkScanPermissionForPreflight(this)) {
             return;
         }

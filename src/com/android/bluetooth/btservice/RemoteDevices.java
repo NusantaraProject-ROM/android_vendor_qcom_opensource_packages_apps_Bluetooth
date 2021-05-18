@@ -560,6 +560,10 @@ final class RemoteDevices {
     }
 
     private void sendUuidIntent(BluetoothDevice device, DeviceProperties prop) {
+        if (sAdapterService.isIgnoreDevice(device)) {
+            debugLog("Ignoring action_UUID " +device.getAddress());
+            return;
+        }
         Intent intent = new Intent(BluetoothDevice.ACTION_UUID);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         intent.putExtra(BluetoothDevice.EXTRA_UUID, prop == null ? null : prop.mUuids);
@@ -706,6 +710,10 @@ final class RemoteDevices {
                                 debugLog("Skip name update for " + bdDevice);
                                 break;
                             }
+                            if(sAdapterService.isIgnoreDevice(bdDevice)) {
+                                debugLog("Skip name update for Duplicate Addr" + bdDevice);
+                                break;
+                            }
                             device.mName = newName;
                             intent = new Intent(BluetoothDevice.ACTION_NAME_CHANGED);
                             intent.putExtra(BluetoothDevice.EXTRA_DEVICE, bdDevice);
@@ -793,6 +801,7 @@ final class RemoteDevices {
                             debugLog("BT_PROPERTY_ADV_AUDIO_ACTION_UUID SiZE"
                                 + tmpUuidArr.length +
                                 " Device uuid size " + device.mUuids.length);
+                            device.mAdvAudioUuids.clear();
                             if (!device.isBondingInitiatedLocally()) {
                               device.setBondingInitiatedLocally(true);
                             }
