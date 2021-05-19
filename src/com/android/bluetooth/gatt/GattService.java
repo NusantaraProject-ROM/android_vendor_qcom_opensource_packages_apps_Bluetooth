@@ -2429,7 +2429,7 @@ public class GattService extends ProfileService {
             if (DBG) Log.d(TAG, "unreg:" + appId);
             if (isScanClient(appId)) {
                 ScanClient client = new ScanClient(appId);
-                stopScan(client);
+                stopScan(client.scannerId);
                 unregisterScanner(appId);
             }
         }
