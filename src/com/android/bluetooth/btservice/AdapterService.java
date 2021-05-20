@@ -2312,8 +2312,8 @@ public class AdapterService extends Service {
                 if (!Utils.checkConnectPermissionForPreflight(service)) {
                     return false;
                 }
-                enforceCdmAssociation(service.mCompanionDeviceManager, service, callingPackage,
-                        Binder.getCallingUid(), device);
+                enforceCdmAssociation(service.mCompanionDeviceManager, service,
+                        attributionSource.getPackageName(),Binder.getCallingUid(), device);
             }
             return service.setRemoteAlias(device, name);
         }
