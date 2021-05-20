@@ -28,6 +28,7 @@ import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothUuid;
 import android.bluetooth.IBluetoothMap;
 import android.bluetooth.SdpMnsRecord;
+import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -1258,7 +1259,7 @@ public class BluetoothMapService extends ProfileService {
         }
 
         @Override
-        public int getState() {
+        public int getState(AttributionSource source) {
             if (VERBOSE) {
                 Log.v(TAG, "getState()");
             }
@@ -1270,7 +1271,7 @@ public class BluetoothMapService extends ProfileService {
         }
 
         @Override
-        public BluetoothDevice getClient() {
+        public BluetoothDevice getClient(AttributionSource source) {
             if (VERBOSE) {
                 Log.v(TAG, "getClient()");
             }
@@ -1286,7 +1287,7 @@ public class BluetoothMapService extends ProfileService {
         }
 
         @Override
-        public boolean isConnected(BluetoothDevice device) {
+        public boolean isConnected(BluetoothDevice device, AttributionSource source) {
             if (VERBOSE) {
                 Log.v(TAG, "isConnected()");
             }
@@ -1296,7 +1297,7 @@ public class BluetoothMapService extends ProfileService {
         }
 
         @Override
-        public boolean disconnect(BluetoothDevice device) {
+        public boolean disconnect(BluetoothDevice device, AttributionSource source) {
             if (VERBOSE) {
                 Log.v(TAG, "disconnect()");
             }
@@ -1309,7 +1310,7 @@ public class BluetoothMapService extends ProfileService {
         }
 
         @Override
-        public List<BluetoothDevice> getConnectedDevices() {
+        public List<BluetoothDevice> getConnectedDevices(AttributionSource source) {
             if (VERBOSE) {
                 Log.v(TAG, "getConnectedDevices()");
             }
@@ -1322,7 +1323,7 @@ public class BluetoothMapService extends ProfileService {
         }
 
         @Override
-        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
+        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states, AttributionSource source) {
             if (VERBOSE) {
                 Log.v(TAG, "getDevicesMatchingConnectionStates()");
             }
@@ -1334,7 +1335,7 @@ public class BluetoothMapService extends ProfileService {
         }
 
         @Override
-        public int getConnectionState(BluetoothDevice device) {
+        public int getConnectionState(BluetoothDevice device, AttributionSource source) {
             if (VERBOSE) {
                 Log.v(TAG, "getConnectionState()");
             }
@@ -1346,7 +1347,7 @@ public class BluetoothMapService extends ProfileService {
         }
 
         @Override
-        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
+        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy, AttributionSource source) {
             BluetoothMapService service = getService();
             if (service == null) {
                 return false;
@@ -1355,7 +1356,7 @@ public class BluetoothMapService extends ProfileService {
         }
 
         @Override
-        public int getConnectionPolicy(BluetoothDevice device) {
+        public int getConnectionPolicy(BluetoothDevice device, AttributionSource source) {
             BluetoothMapService service = getService();
             if (service == null) {
                 return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;

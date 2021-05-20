@@ -21,6 +21,7 @@ import android.bluetooth.BluetoothAvrcpPlayerSettings;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.IBluetoothAvrcpController;
+import android.content.AttributionSource;
 import android.content.Intent;
 import android.media.MediaDescription;
 import android.media.browse.MediaBrowser.MediaItem;
@@ -228,7 +229,7 @@ public class AvrcpControllerService extends ProfileService {
         }
 
         @Override
-        public List<BluetoothDevice> getConnectedDevices() {
+        public List<BluetoothDevice> getConnectedDevices(AttributionSource source) {
             AvrcpControllerService service = getService();
             if (service == null) {
                 return new ArrayList<BluetoothDevice>(0);
@@ -237,7 +238,7 @@ public class AvrcpControllerService extends ProfileService {
         }
 
         @Override
-        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
+        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states, AttributionSource source) {
             AvrcpControllerService service = getService();
             if (service == null) {
                 return new ArrayList<BluetoothDevice>(0);
@@ -246,7 +247,7 @@ public class AvrcpControllerService extends ProfileService {
         }
 
         @Override
-        public int getConnectionState(BluetoothDevice device) {
+        public int getConnectionState(BluetoothDevice device, AttributionSource source) {
             AvrcpControllerService service = getService();
             if (service == null) {
                 return BluetoothProfile.STATE_DISCONNECTED;
@@ -255,19 +256,19 @@ public class AvrcpControllerService extends ProfileService {
         }
 
         @Override
-        public void sendGroupNavigationCmd(BluetoothDevice device, int keyCode, int keyState) {
+        public void sendGroupNavigationCmd(BluetoothDevice device, int keyCode, int keyState, AttributionSource source) {
             Log.w(TAG, "sendGroupNavigationCmd not implemented");
             return;
         }
 
         @Override
-        public boolean setPlayerApplicationSetting(BluetoothAvrcpPlayerSettings settings) {
+        public boolean setPlayerApplicationSetting(BluetoothAvrcpPlayerSettings settings, AttributionSource source) {
             Log.w(TAG, "setPlayerApplicationSetting not implemented");
             return false;
         }
 
         @Override
-        public BluetoothAvrcpPlayerSettings getPlayerSettings(BluetoothDevice device) {
+        public BluetoothAvrcpPlayerSettings getPlayerSettings(BluetoothDevice device, AttributionSource source) {
             Log.w(TAG, "getPlayerSettings not implemented");
             return null;
         }

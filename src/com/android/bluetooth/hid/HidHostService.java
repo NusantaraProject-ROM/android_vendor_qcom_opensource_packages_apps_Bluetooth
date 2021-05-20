@@ -24,6 +24,7 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHidHost;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.IBluetoothHidHost;
+import android.content.AttributionSource;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
@@ -346,7 +347,7 @@ public class HidHostService extends ProfileService {
         }
 
         @Override
-        public boolean connect(BluetoothDevice device) {
+        public boolean connect(BluetoothDevice device, AttributionSource source) {
             HidHostService service = getService();
             if (service == null) {
                 return false;
@@ -356,7 +357,7 @@ public class HidHostService extends ProfileService {
         }
 
         @Override
-        public boolean disconnect(BluetoothDevice device) {
+        public boolean disconnect(BluetoothDevice device, AttributionSource source) {
             HidHostService service = getService();
             if (service == null) {
                 return false;
@@ -366,7 +367,7 @@ public class HidHostService extends ProfileService {
         }
 
         @Override
-        public int getConnectionState(BluetoothDevice device) {
+        public int getConnectionState(BluetoothDevice device, AttributionSource source) {
             HidHostService service = getService();
             if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
                 return BluetoothHidHost.STATE_DISCONNECTED;
@@ -375,16 +376,16 @@ public class HidHostService extends ProfileService {
         }
 
         @Override
-        public List<BluetoothDevice> getConnectedDevices() {
+        public List<BluetoothDevice> getConnectedDevices(AttributionSource source) {
             HidHostService service = getService();
             if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
                 return new ArrayList<>();
             }
-            return getDevicesMatchingConnectionStates(new int[]{BluetoothProfile.STATE_CONNECTED});
+            return getDevicesMatchingConnectionStates(new int[]{BluetoothProfile.STATE_CONNECTED}, source);
         }
 
         @Override
-        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
+        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states, AttributionSource source) {
             HidHostService service = getService();
             if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
                 return new ArrayList<BluetoothDevice>(0);
@@ -393,7 +394,7 @@ public class HidHostService extends ProfileService {
         }
 
         @Override
-        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
+        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy, AttributionSource source) {
             HidHostService service = getService();
             if (service == null) {
                 return false;
@@ -403,7 +404,7 @@ public class HidHostService extends ProfileService {
         }
 
         @Override
-        public int getConnectionPolicy(BluetoothDevice device) {
+        public int getConnectionPolicy(BluetoothDevice device, AttributionSource source) {
             HidHostService service = getService();
             if (service == null) {
                 return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
@@ -414,7 +415,7 @@ public class HidHostService extends ProfileService {
 
         /* The following APIs regarding test app for compliance */
         @Override
-        public boolean getProtocolMode(BluetoothDevice device) {
+        public boolean getProtocolMode(BluetoothDevice device, AttributionSource source) {
             HidHostService service = getService();
             if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
                 return false;
@@ -423,7 +424,7 @@ public class HidHostService extends ProfileService {
         }
 
         @Override
-        public boolean virtualUnplug(BluetoothDevice device) {
+        public boolean virtualUnplug(BluetoothDevice device, AttributionSource source) {
             HidHostService service = getService();
             if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
                 return false;
@@ -432,7 +433,7 @@ public class HidHostService extends ProfileService {
         }
 
         @Override
-        public boolean setProtocolMode(BluetoothDevice device, int protocolMode) {
+        public boolean setProtocolMode(BluetoothDevice device, int protocolMode, AttributionSource source) {
             HidHostService service = getService();
             if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
                 return false;
@@ -442,7 +443,7 @@ public class HidHostService extends ProfileService {
 
         @Override
         public boolean getReport(BluetoothDevice device, byte reportType, byte reportId,
-                int bufferSize) {
+                int bufferSize, AttributionSource source) {
             HidHostService service = getService();
             if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
                 return false;
@@ -451,7 +452,7 @@ public class HidHostService extends ProfileService {
         }
 
         @Override
-        public boolean setReport(BluetoothDevice device, byte reportType, String report) {
+        public boolean setReport(BluetoothDevice device, byte reportType, String report, AttributionSource source) {
             HidHostService service = getService();
             if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
                 return false;
@@ -460,7 +461,7 @@ public class HidHostService extends ProfileService {
         }
 
         @Override
-        public boolean sendData(BluetoothDevice device, String report) {
+        public boolean sendData(BluetoothDevice device, String report, AttributionSource source) {
             HidHostService service = getService();
             if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
                 return false;
@@ -469,7 +470,7 @@ public class HidHostService extends ProfileService {
         }
 
         @Override
-        public boolean setIdleTime(BluetoothDevice device, byte idleTime) {
+        public boolean setIdleTime(BluetoothDevice device, byte idleTime, AttributionSource source) {
             HidHostService service = getService();
             if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
                 return false;
@@ -478,7 +479,7 @@ public class HidHostService extends ProfileService {
         }
 
         @Override
-        public boolean getIdleTime(BluetoothDevice device) {
+        public boolean getIdleTime(BluetoothDevice device, AttributionSource source) {
             HidHostService service = getService();
             if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
                 return false;

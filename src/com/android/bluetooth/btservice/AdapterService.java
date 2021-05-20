@@ -1789,9 +1789,9 @@ public class AdapterService extends Service {
             return service.getName();
         }
         @Override
-        public int getNameLengthForAdvertise() {
-          // implement as necessary
-        if ((Binder.getCallingUid() != Process.SYSTEM_UID) && (!Utils.checkCaller())) {
+        public int getNameLengthForAdvertise(AttributionSource source) {
+            // Add real implementation
+            if ((Binder.getCallingUid() != Process.SYSTEM_UID) && (!Utils.checkCaller())) {
                 Log.w(TAG, "getName() - Not allowed for non-active user and non system user");
                 return 0;
             }
@@ -1832,7 +1832,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean setBluetoothClass(BluetoothClass bluetoothClass) {
+        public boolean setBluetoothClass(BluetoothClass bluetoothClass, AttributionSource source) {
             if (!Utils.checkCaller()) {
                 Log.w(TAG, "setBluetoothClass() - Not allowed for non-active user");
                 return false;
@@ -1860,7 +1860,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean setIoCapability(int capability) {
+        public boolean setIoCapability(int capability, AttributionSource source) {
             if (!Utils.checkCaller()) {
                 Log.w(TAG, "setBluetoothClass() - Not allowed for non-active user");
                 return false;
@@ -1886,7 +1886,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean setLeIoCapability(int capability) {
+        public boolean setLeIoCapability(int capability, AttributionSource source) {
             if (!Utils.checkCaller()) {
                 Log.w(TAG, "setBluetoothClass() - Not allowed for non-active user");
                 return false;
@@ -2002,7 +2002,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public long getDiscoveryEndMillis() {
+        public long getDiscoveryEndMillis(AttributionSource source) {
             if (!Utils.checkCaller()) {
                 Log.w(TAG, "getDiscoveryEndMillis() - Not allowed for non-active user");
                 return -1;
@@ -2190,12 +2190,12 @@ public class AdapterService extends Service {
         }
 
       @Override
-        public boolean canBondWithoutDialog(BluetoothDevice device) {
+        public boolean canBondWithoutDialog(BluetoothDevice device, AttributionSource source) {
             return false;
         }
 
         @Override
-        public boolean removeActiveDevice(@ActiveDeviceUse int profiles) {
+        public boolean removeActiveDevice(@ActiveDeviceUse int profiles, AttributionSource source) {
             if (!Utils.checkCaller()) {
                 Log.w(TAG, "removeActiveDevice() - Not allowed for non-active user");
                 return false;
@@ -2209,7 +2209,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean setActiveDevice(BluetoothDevice device, @ActiveDeviceUse int profiles) {
+        public boolean setActiveDevice(BluetoothDevice device, @ActiveDeviceUse int profiles, AttributionSource source) {
             if (!Utils.checkCaller()) {
                 Log.w(TAG, "setActiveDevice() - Not allowed for non-active user");
                 return false;
@@ -2223,7 +2223,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean connectAllEnabledProfiles(BluetoothDevice device) {
+        public boolean connectAllEnabledProfiles(BluetoothDevice device, AttributionSource source) {
             if (!Utils.checkCaller()) {
                 Log.w(TAG, "connectAllEnabledProfiles() - Not allowed for non-active user");
                 return false;
@@ -2237,7 +2237,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean disconnectAllEnabledProfiles(BluetoothDevice device) {
+        public boolean disconnectAllEnabledProfiles(BluetoothDevice device, AttributionSource source) {
             if (!Utils.checkCaller()) {
                 Log.w(TAG, "disconnectAllEnabledProfiles() - Not allowed for non-active user");
                 return false;
@@ -2299,7 +2299,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean setRemoteAlias(BluetoothDevice device, String name, String callingPackage,
+        public boolean setRemoteAlias(BluetoothDevice device, String name,
             AttributionSource attributionSource) {
 
             AdapterService service = getService();
@@ -2399,7 +2399,8 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean setPairingConfirmation(BluetoothDevice device, boolean accept) {
+        public boolean setPairingConfirmation(BluetoothDevice device, boolean accept,
+                AttributionSource source) {
             if (!Utils.checkCaller()) {
                 Log.w(TAG, "setPairingConfirmation() - Not allowed for non-active user");
                 return false;
@@ -2428,7 +2429,8 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean setSilenceMode(BluetoothDevice device, boolean silence) {
+        public boolean setSilenceMode(BluetoothDevice device, boolean silence,
+                AttributionSource source) {
             if (!Utils.checkCaller()) {
                 Log.w(TAG, "setSilenceMode() - Not allowed for non-active user");
                 return false;
@@ -2442,7 +2444,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean getSilenceMode(BluetoothDevice device) {
+        public boolean getSilenceMode(BluetoothDevice device, AttributionSource source) {
             if (!Utils.checkCaller()) {
                 Log.w(TAG, "getSilenceMode() - Not allowed for non-active user");
                 return false;
@@ -2456,7 +2458,8 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean setPhonebookAccessPermission(BluetoothDevice device, int value) {
+        public boolean setPhonebookAccessPermission(BluetoothDevice device, int value,
+                AttributionSource source) {
             if (!Utils.checkCaller()) {
                 Log.w(TAG, "setPhonebookAccessPermission() - Not allowed for non-active user");
                 return false;
@@ -2485,7 +2488,8 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean setMessageAccessPermission(BluetoothDevice device, int value) {
+        public boolean setMessageAccessPermission(BluetoothDevice device, int value,
+                AttributionSource source) {
             if (!Utils.checkCaller()) {
                 Log.w(TAG, "setMessageAccessPermission() - Not allowed for non-active user");
                 return false;
@@ -2514,7 +2518,8 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean setSimAccessPermission(BluetoothDevice device, int value) {
+        public boolean setSimAccessPermission(BluetoothDevice device, int value,
+                AttributionSource source) {
             if (!Utils.checkCaller()) {
                 Log.w(TAG, "setSimAccessPermission() - Not allowed for non-active user");
                 return false;
@@ -2616,7 +2621,7 @@ public class AdapterService extends Service {
             return service.isBroadcastActive();
         }
         @Override
-        public boolean factoryReset() {
+        public boolean factoryReset(AttributionSource source) {
             AdapterService service = getService();
             if (service == null) {
                 return false;
@@ -2634,7 +2639,8 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean registerBluetoothConnectionCallback(IBluetoothConnectionCallback callback) {
+        public boolean registerBluetoothConnectionCallback(IBluetoothConnectionCallback callback,
+                AttributionSource source) {
             AdapterService service = getService();
             if (service == null) {
                 return false;
@@ -2646,7 +2652,7 @@ public class AdapterService extends Service {
 
         @Override
         public boolean unregisterBluetoothConnectionCallback(
-                IBluetoothConnectionCallback callback) {
+                IBluetoothConnectionCallback callback, AttributionSource source) {
             AdapterService service = getService();
             if (service == null) {
                 return false;
@@ -2656,7 +2662,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public void registerCallback(IBluetoothCallback cb) {
+        public void registerCallback(IBluetoothCallback cb, AttributionSource source) {
             AdapterService service = getService();
             if (service == null) {
                 return;
@@ -2665,7 +2671,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public void unregisterCallback(IBluetoothCallback cb) {
+        public void unregisterCallback(IBluetoothCallback cb, AttributionSource source) {
             AdapterService service = getService();
             if (service == null) {
                 return;
@@ -2757,7 +2763,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public BluetoothActivityEnergyInfo reportActivityInfo() {
+        public BluetoothActivityEnergyInfo reportActivityInfo(AttributionSource source) {
             AdapterService service = getService();
             if (service == null) {
                 return null;
@@ -2767,7 +2773,7 @@ public class AdapterService extends Service {
 
         @Override
         public boolean registerMetadataListener(IBluetoothMetadataListener listener,
-                BluetoothDevice device) {
+                BluetoothDevice device, AttributionSource source) {
             AdapterService service = getService();
             if (service == null) {
                 return false;
@@ -2776,7 +2782,8 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean unregisterMetadataListener(BluetoothDevice device) {
+        public boolean unregisterMetadataListener(BluetoothDevice device,
+                AttributionSource source) {
             AdapterService service = getService();
             if (service == null) {
                 return false;
@@ -2785,7 +2792,8 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean setMetadata(BluetoothDevice device, int key, byte[] value) {
+        public boolean setMetadata(BluetoothDevice device, int key, byte[] value,
+                AttributionSource source) {
             AdapterService service = getService();
             if (service == null) {
                 return false;
@@ -2794,7 +2802,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public byte[] getMetadata(BluetoothDevice device, int key) {
+        public byte[] getMetadata(BluetoothDevice device, int key, AttributionSource source) {
             AdapterService service = getService();
             if (service == null) {
                 return null;
@@ -2803,14 +2811,14 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public void requestActivityInfo(ResultReceiver result) {
+        public void requestActivityInfo(ResultReceiver result, AttributionSource source) {
             Bundle bundle = new Bundle();
-            bundle.putParcelable(BatteryStats.RESULT_RECEIVER_CONTROLLER_KEY, reportActivityInfo());
+            bundle.putParcelable(BatteryStats.RESULT_RECEIVER_CONTROLLER_KEY, reportActivityInfo(source));
             result.send(0, bundle);
         }
 
         @Override
-        public void onLeServiceUp() {
+        public void onLeServiceUp(AttributionSource source) {
             AdapterService service = getService();
             if (service == null) {
                 return;
@@ -2818,7 +2826,7 @@ public class AdapterService extends Service {
             service.onLeServiceUp();
         }
 
-        @Override
+        // @Override
         public void updateQuietModeStatus(boolean quietMode) {
             AdapterService service = getService();
             if (service == null) {
@@ -2829,7 +2837,7 @@ public class AdapterService extends Service {
 
 
         @Override
-        public void onBrEdrDown() {
+        public void onBrEdrDown(AttributionSource source) {
             AdapterService service = getService();
             if (service == null) {
                 return;
@@ -2901,7 +2909,7 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public void generateLocalOobData(int transport, IBluetoothOobDataCallback callback) {
+        public void generateLocalOobData(int transport, IBluetoothOobDataCallback callback, AttributionSource source) {
           // implement as necessary
         }
 

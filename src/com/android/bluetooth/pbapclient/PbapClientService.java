@@ -21,6 +21,7 @@ import android.accounts.AccountManager;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.IBluetoothPbapClient;
+import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -212,7 +213,7 @@ public class PbapClientService extends ProfileService {
         }
 
         @Override
-        public boolean connect(BluetoothDevice device) {
+        public boolean connect(BluetoothDevice device, AttributionSource source) {
             PbapClientService service = getService();
             if (DBG) {
                 Log.d(TAG, "PbapClient Binder connect ");
@@ -225,7 +226,7 @@ public class PbapClientService extends ProfileService {
         }
 
         @Override
-        public boolean disconnect(BluetoothDevice device) {
+        public boolean disconnect(BluetoothDevice device, AttributionSource source) {
             PbapClientService service = getService();
             if (service == null) {
                 return false;
@@ -234,7 +235,7 @@ public class PbapClientService extends ProfileService {
         }
 
         @Override
-        public List<BluetoothDevice> getConnectedDevices() {
+        public List<BluetoothDevice> getConnectedDevices(AttributionSource source) {
             PbapClientService service = getService();
             if (service == null) {
                 return new ArrayList<BluetoothDevice>(0);
@@ -243,7 +244,7 @@ public class PbapClientService extends ProfileService {
         }
 
         @Override
-        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
+        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states, AttributionSource source) {
             PbapClientService service = getService();
             if (service == null) {
                 return new ArrayList<BluetoothDevice>(0);
@@ -252,7 +253,7 @@ public class PbapClientService extends ProfileService {
         }
 
         @Override
-        public int getConnectionState(BluetoothDevice device) {
+        public int getConnectionState(BluetoothDevice device, AttributionSource source) {
             PbapClientService service = getService();
             if (service == null) {
                 return BluetoothProfile.STATE_DISCONNECTED;
@@ -261,7 +262,7 @@ public class PbapClientService extends ProfileService {
         }
 
         @Override
-        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
+        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy, AttributionSource source) {
             PbapClientService service = getService();
             if (service == null) {
                 return false;
@@ -270,7 +271,7 @@ public class PbapClientService extends ProfileService {
         }
 
         @Override
-        public int getConnectionPolicy(BluetoothDevice device) {
+        public int getConnectionPolicy(BluetoothDevice device, AttributionSource source) {
             PbapClientService service = getService();
             if (service == null) {
                 return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;

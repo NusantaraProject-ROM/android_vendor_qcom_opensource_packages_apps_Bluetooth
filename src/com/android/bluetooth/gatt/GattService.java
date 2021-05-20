@@ -869,7 +869,7 @@ public class GattService extends ProfileService {
         }
 
         @Override
-        public void getOwnAddress(int advertiserId) {
+        public void getOwnAddress(int advertiserId, AttributionSource source) {
             GattService service = getService();
             if (service == null) {
                 return;
