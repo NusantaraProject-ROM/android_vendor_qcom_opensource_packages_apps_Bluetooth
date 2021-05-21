@@ -225,6 +225,7 @@ public class Config {
                                     "persist.vendor.service.bt.adv_audio_mask", 0);
         boolean isCCEnabled = SystemProperties.getBoolean(
                                     "persist.vendor.service.bt.cc", false);
+        setAdvAudioMaskFromHostAddOnBits();
 
         Log.d(TAG, "adv_audio_feature_mask = " + adv_audio_feature_mask);
         ArrayList<Class> profiles = new ArrayList<>();
@@ -321,6 +322,35 @@ public class Config {
       }
 
       return isLC3Supported;
+    }
+
+    /* API to set Advance Audio mask based in Host AddOn Feature bits */
+    private static void setAdvAudioMaskFromHostAddOnBits() {
+        AdapterService service = AdapterService.getAdapterService();
+        if (service == null){
+            Log.e(TAG, "Adapter Service is NULL.");
+            return;
+        }
+
+        if (!service.isHostAdvAudioUnicastFeatureSupported() &&
+                !service.isHostAdvAudioStereoRecordingFeatureSupported()) {
+            Log.i(TAG, "Stereo recording and unicast features are disabled"
+                    + " in Host AddOn features");
+            adv_audio_feature_mask &= ~ADV_AUDIO_UNICAST_FEAT_MASK;
+        }
+
+        if (!service.isHostAdvAudioBCAFeatureSupported()) {
+            Log.i(TAG, "Broadcast Assist disabled in Host AddOn features");
+            adv_audio_feature_mask &= ~ADV_AUDIO_BCA_FEAT_MASK;
+        }
+
+        if (!service.isHostAdvAudioBCSFeatureSupported()) {
+            Log.i(TAG, "Broadcast Source disabled in Host AddOn features");
+            adv_audio_feature_mask &= ~ADV_AUDIO_BCS_FEAT_MASK;
+        }
+
+        SystemProperties.set("persist.vendor.service.bt.adv_audio_mask",
+                String.valueOf(adv_audio_feature_mask));
     }
 
     static Class[] getSupportedProfiles() {
