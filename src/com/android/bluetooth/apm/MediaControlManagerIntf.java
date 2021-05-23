@@ -38,7 +38,6 @@ import android.media.session.MediaSession.QueueItem;
 import android.media.session.PlaybackState;
 import android.util.Log;
 import android.util.StatsLog;
-import com.android.bluetooth.mcp.McpService;
 import java.util.List;
 import java.util.ArrayList;
 import java.lang.Boolean;
