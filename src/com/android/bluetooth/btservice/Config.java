@@ -134,14 +134,14 @@ public class Config {
                     (1 << BluetoothProfile.HEARING_AID)),
             new ProfileConfig(BATService.class, R.bool.profile_supported_ba,
                     (1 << BATService.BA_TRANSMITTER)),
-            new ProfileConfig(ApmConstIntf.MusicPlayerControlService, R.bool.profile_supported_music_player_service,
-                    (1 << 11))
     };
 
     /* List of Unicast Advance Audio Profiles */
     private static ArrayList<ProfileConfig> unicastAdvAudioProfiles =
             new ArrayList<ProfileConfig>(
                 Arrays.asList(
+                    new ProfileConfig(ApmConstIntf.MusicPlayerControlService,
+                        R.bool.profile_supported_music_player_service, (1 << 11))
 
             ));
 
