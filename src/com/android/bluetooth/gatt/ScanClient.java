@@ -48,6 +48,7 @@ import java.util.UUID;
     public boolean hasNetworkSettingsPermission;
     public boolean hasNetworkSetupWizardPermission;
     public boolean hasScanWithoutLocationPermission;
+    public boolean hasDisavowedLocation;
     public List<String> associatedDevices;
     public boolean allowAddressTypeInResults;
 
