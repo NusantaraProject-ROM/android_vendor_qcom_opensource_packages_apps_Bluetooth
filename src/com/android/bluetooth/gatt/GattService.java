@@ -1253,7 +1253,9 @@ public class GattService extends ProfileService {
 
     /** Determines if the given scan client has the appropriate permissions to receive callbacks. */
     private boolean hasScanResultPermission(final ScanClient client) {
-        if (client.hasNetworkSettingsPermission || client.hasNetworkSetupWizardPermission) {
+        if (client.hasNetworkSettingsPermission
+                || client.hasNetworkSetupWizardPermission
+                || client.hasScanWithoutLocationPermission) {
             return true;
         }
         return client.hasLocationPermission && !Utils.blockedByLocationOff(this, client.userHandle);
@@ -2229,6 +2231,8 @@ public class GattService extends ProfileService {
                 Utils.checkCallerHasNetworkSettingsPermission(this);
         scanClient.hasNetworkSetupWizardPermission =
                 Utils.checkCallerHasNetworkSetupWizardPermission(this);
+        scanClient.hasScanWithoutLocationPermission =
+                Utils.checkCallerHasScanWithoutLocationPermission(this);
         scanClient.associatedDevices = getAssociatedDevices(callingPackage, scanClient.userHandle);
 
         AppScanStats app = mScannerMap.getAppScanStatsById(scannerId);
@@ -2302,6 +2306,8 @@ public class GattService extends ProfileService {
                 Utils.checkCallerHasNetworkSettingsPermission(this);
         app.mHasNetworkSetupWizardPermission =
                 Utils.checkCallerHasNetworkSetupWizardPermission(this);
+        app.mHasScanWithoutLocationPermission =
+                Utils.checkCallerHasScanWithoutLocationPermission(this);
         app.mAssociatedDevices = getAssociatedDevices(callingPackage, app.mUserHandle);
         mScanManager.registerScanner(uuid);
     }
@@ -2317,6 +2323,7 @@ public class GattService extends ProfileService {
                 app.mEligibleForSanitizedExposureNotification;
         scanClient.hasNetworkSettingsPermission = app.mHasNetworkSettingsPermission;
         scanClient.hasNetworkSetupWizardPermission = app.mHasNetworkSetupWizardPermission;
+        scanClient.hasScanWithoutLocationPermission = app.mHasScanWithoutLocationPermission;
         scanClient.associatedDevices = app.mAssociatedDevices;
 
         AppScanStats scanStats = mScannerMap.getAppScanStatsById(scannerId);

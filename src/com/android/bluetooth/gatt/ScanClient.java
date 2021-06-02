@@ -47,6 +47,7 @@ import java.util.UUID;
     public boolean eligibleForSanitizedExposureNotification;
     public boolean hasNetworkSettingsPermission;
     public boolean hasNetworkSetupWizardPermission;
+    public boolean hasScanWithoutLocationPermission;
     public List<String> associatedDevices;
     public boolean allowAddressTypeInResults;
 

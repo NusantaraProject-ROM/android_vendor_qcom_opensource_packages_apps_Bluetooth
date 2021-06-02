@@ -440,14 +440,13 @@ public final class Utils {
                         == PackageManager.PERMISSION_GRANTED;
     }
 
-    private static boolean isMApp(Context context, String pkgName) {
-        try {
-            return context.getPackageManager().getApplicationInfo(pkgName, 0).targetSdkVersion
-                    >= Build.VERSION_CODES.M;
-        } catch (PackageManager.NameNotFoundException e) {
-            // In case of exception, assume M app
-        }
-        return true;
+    /**
+     * Returns true if the caller holds RADIO_SCAN_WITHOUT_LOCATION
+     */
+    public static boolean checkCallerHasScanWithoutLocationPermission(Context context) {
+        return context.checkCallingOrSelfPermission(
+                android.Manifest.permission.RADIO_SCAN_WITHOUT_LOCATION)
+                == PackageManager.PERMISSION_GRANTED;
     }
 
     public static boolean isQApp(Context context, String pkgName) {
