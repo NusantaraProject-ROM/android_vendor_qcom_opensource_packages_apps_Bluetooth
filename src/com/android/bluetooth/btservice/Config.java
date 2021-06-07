@@ -66,6 +66,7 @@ public class Config {
     private static Class mPCServiceClass = null;
     private static Class mCcServiceClass = null;
     private static Class mGroupServiceClass = null;
+    private static ArrayList<Class> profiles = new ArrayList<>();
 
     static {
         mBCServiceClass = ReflectionUtils.getRequiredClass(
@@ -189,7 +190,7 @@ public class Config {
         AdapterService.setAdvanceAudioSupport();
         initAdvAudioConfig(ctx);
 
-        ArrayList<Class> profiles = new ArrayList<>(PROFILE_SERVICES_AND_FLAGS.length);
+        profiles.clear();
         for (ProfileConfig config : PROFILE_SERVICES_AND_FLAGS) {
             boolean supported = resources.getBoolean(config.mSupported);
 
@@ -228,7 +229,7 @@ public class Config {
         setAdvAudioMaskFromHostAddOnBits();
 
         Log.d(TAG, "adv_audio_feature_mask = " + adv_audio_feature_mask);
-        ArrayList<Class> profiles = new ArrayList<>();
+        ArrayList<Class> advAudioProfiles = new ArrayList<>();
 
         /* Add common advance audio profiles */
         if (((adv_audio_feature_mask & ADV_AUDIO_UNICAST_FEAT_MASK) != 0) ||
@@ -245,7 +246,7 @@ public class Config {
                         continue;
                     }
                     Log.d(TAG, "Adding " + config.mClass.getSimpleName());
-                    profiles.add(config.mClass);
+                    advAudioProfiles.add(config.mClass);
                 }
             }
         }
@@ -257,7 +258,7 @@ public class Config {
                 boolean supported = resources.getBoolean(config.mSupported);
                 if (supported && config.mClass != null) {
                     Log.d(TAG, "Adding " + config.mClass.getSimpleName());
-                    profiles.add(config.mClass);
+                    advAudioProfiles.add(config.mClass);
                 }
             }
         }
@@ -282,15 +283,15 @@ public class Config {
                         continue;
                     }
                     Log.d(TAG, "Adding " + config.mClass.getSimpleName());
-                    profiles.add(config.mClass);
+                    advAudioProfiles.add(config.mClass);
                 }
             }
         }
 
         // Copy advance audio profiles to sSupportedProfiles
         List<Class> allProfiles = new ArrayList<Class>();
-        Collections.addAll(allProfiles, sSupportedProfiles);
         allProfiles.addAll(profiles);
+        allProfiles.addAll(advAudioProfiles);
         sSupportedProfiles = allProfiles.toArray(new Class[allProfiles.size()]);
     }
 
