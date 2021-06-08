@@ -2118,8 +2118,9 @@ public class AdapterService extends Service {
         public void generateLocalOobData(int transport, IBluetoothOobDataCallback callback,
                 AttributionSource source) {
             AdapterService service = getService();
-            if (service == null || !callerIsSystemOrActiveOrManagedUser(service,
-                    TAG, "generateLocalOobData")) {
+            if (service == null
+                    || !Utils.checkCallerIsSystemOrActiveOrManagedUser(service, TAG)
+                    || !Utils.checkConnectPermissionForDataDelivery(service, source, TAG)) {
                 return;
             }
             enforceBluetoothPrivilegedPermission(service);
@@ -3250,7 +3251,7 @@ public class AdapterService extends Service {
         }
         if (mOobDataCallbackQueue.peek() != null) {
             try {
-                callback.onError(BluetoothAdapter.OOB_ERROR_ANOTHER_ACTIVE_REQUEST);
+                callback.onError(BluetoothStatusCodes.ERROR_ANOTHER_ACTIVE_OOB_REQUEST);
                 return;
             } catch (RemoteException e) {
                 Log.e(TAG, "Failed to make callback", e);
@@ -3267,7 +3268,7 @@ public class AdapterService extends Service {
         }
         if (oobData == null) {
             try {
-                mOobDataCallbackQueue.poll().onError(BluetoothAdapter.OOB_ERROR_UNKNOWN);
+                mOobDataCallbackQueue.poll().onError(BluetoothStatusCodes.ERROR_UNKNOWN);
             } catch (RemoteException e) {
                 Log.e(TAG, "Failed to make callback", e);
             }
