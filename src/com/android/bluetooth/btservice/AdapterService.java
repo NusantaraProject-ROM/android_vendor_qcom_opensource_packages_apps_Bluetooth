@@ -4079,6 +4079,10 @@ public class AdapterService extends Service {
         if (!Utils.checkConnectPermissionForPreflight(this)) {
             return 0;
         }
+        if (mPbapService == null) {
+            debugLog("getPhonebookAccessPermission - PbapService Not Enabled");
+            return BluetoothDevice.ACCESS_UNKNOWN;
+        }
 
         SharedPreferences pref = getSharedPreferences(PHONEBOOK_ACCESS_PERMISSION_PREFERENCE_FILE,
                 Context.MODE_PRIVATE);
@@ -4105,6 +4109,10 @@ public class AdapterService extends Service {
     public boolean setPhonebookAccessPermission(BluetoothDevice device, int value) {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH PRIVILEGED permission");
+        if (mPbapService == null) {
+            debugLog("setPhonebookAccessPermission - PbapService Not Enabled");
+            return true;
+        }
         SharedPreferences pref = getSharedPreferences(PHONEBOOK_ACCESS_PERMISSION_PREFERENCE_FILE,
                 Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = pref.edit();
@@ -4119,6 +4127,10 @@ public class AdapterService extends Service {
 
     int getMessageAccessPermission(BluetoothDevice device) {
         enforceBluetoothPrivilegedPermission(this);
+        if (mMapService == null) {
+            debugLog("getMessageAccessPermission - MapService Not Enabled");
+            return BluetoothDevice.ACCESS_UNKNOWN;
+        }
         SharedPreferences pref = getSharedPreferences(MESSAGE_ACCESS_PERMISSION_PREFERENCE_FILE,
                 Context.MODE_PRIVATE);
         if (!pref.contains(device.getAddress())) {
@@ -4131,6 +4143,10 @@ public class AdapterService extends Service {
     public boolean setMessageAccessPermission(BluetoothDevice device, int value) {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH PRIVILEGED permission");
+        if (mMapService == null) {
+            debugLog("setMessageAccessPermission - MapService Not Enabled");
+            return true;
+        }
         SharedPreferences pref = getSharedPreferences(MESSAGE_ACCESS_PERMISSION_PREFERENCE_FILE,
                 Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = pref.edit();
@@ -4248,6 +4264,10 @@ public class AdapterService extends Service {
             return 0;
         }
 
+        if (mSapService == null) {
+            debugLog("getSimAccessPermission - SapService Not Enabled");
+            return BluetoothDevice.ACCESS_UNKNOWN;
+        }
         SharedPreferences pref =
                 getSharedPreferences(SIM_ACCESS_PERMISSION_PREFERENCE_FILE, Context.MODE_PRIVATE);
         if (!pref.contains(device.getAddress())) {
@@ -4260,6 +4280,11 @@ public class AdapterService extends Service {
     public boolean setSimAccessPermission(BluetoothDevice device, int value) {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH PRIVILEGED permission");
+        if (mSapService == null) {
+            debugLog("setSimAccessPermission - SapService Not Enabled");
+            return true;
+        }
+
         SharedPreferences pref =
                 getSharedPreferences(SIM_ACCESS_PERMISSION_PREFERENCE_FILE, Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = pref.edit();
