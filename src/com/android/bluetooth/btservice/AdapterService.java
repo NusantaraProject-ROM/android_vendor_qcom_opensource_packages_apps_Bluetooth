@@ -4791,6 +4791,32 @@ public class AdapterService extends Service {
     }
 
     /**
+     * Check whether Split A2DP Source AAC ABR enabled.
+     *
+     * @return true if Split A2DP Source AAC ABR is enabled
+     */
+    public boolean isSplitA2DPSourceAACABR() {
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return false;
+        }
+
+        return mAdapterProperties.isSplitA2DPSourceAACABR();
+    }
+
+    /**
+     * Check whether Split A2DP Source Tx-Split APTX ADAPTIVE enabled.
+     *
+     * @return true if Split A2DP Source Tx-Split APTX ADAPTIVE is enabled
+     */
+    public boolean isSplitA2DPSourceTxSplitAPTXADAPTIVE() {
+        if (!Utils.checkConnectPermissionForPreflight(this)) {
+            return false;
+        }
+
+        return mAdapterProperties.isSplitA2DPSourceTxSplitAPTXADAPTIVE();
+    }
+
+    /**
      * Check whether Broadcast Audio Tx with EC-2:5 enabled.
      *
      * @return true if Broadcast Audio Tx with EC-2:5 is enabled
