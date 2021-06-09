@@ -310,8 +310,6 @@ public class BluetoothInCallService extends InCallService {
 
     public BluetoothInCallService() {
         Log.i(TAG, "onCreate");
-        BluetoothAdapter.getDefaultAdapter()
-                .getProfileProxy(this, mProfileListener, BluetoothProfile.HEADSET);
         sInstance = this;
     }
 
@@ -536,6 +534,8 @@ public class BluetoothInCallService extends InCallService {
     public void onCreate() {
         Log.d(TAG, "onCreate");
         super.onCreate();
+        BluetoothAdapter.getDefaultAdapter()
+                .getProfileProxy(this, mProfileListener, BluetoothProfile.HEADSET);
     }
 
     @Override

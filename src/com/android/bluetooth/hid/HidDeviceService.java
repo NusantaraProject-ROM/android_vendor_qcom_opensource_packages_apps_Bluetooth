@@ -26,6 +26,7 @@ import android.bluetooth.BluetoothHidDeviceAppSdpSettings;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.IBluetoothHidDevice;
 import android.bluetooth.IBluetoothHidDeviceCallback;
+import android.content.AttributionSource;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Binder;
@@ -313,7 +314,7 @@ public class HidDeviceService extends ProfileService {
         @Override
         public boolean registerApp(BluetoothHidDeviceAppSdpSettings sdp,
                 BluetoothHidDeviceAppQosSettings inQos, BluetoothHidDeviceAppQosSettings outQos,
-                IBluetoothHidDeviceCallback callback) {
+                IBluetoothHidDeviceCallback callback, AttributionSource source) {
             if (DBG) {
                 Log.d(TAG, "registerApp()");
             }
@@ -327,7 +328,7 @@ public class HidDeviceService extends ProfileService {
         }
 
         @Override
-        public boolean unregisterApp() {
+        public boolean unregisterApp(AttributionSource source) {
             if (DBG) {
                 Log.d(TAG, "unregisterApp()");
             }
@@ -341,7 +342,7 @@ public class HidDeviceService extends ProfileService {
         }
 
         @Override
-        public boolean sendReport(BluetoothDevice device, int id, byte[] data) {
+        public boolean sendReport(BluetoothDevice device, int id, byte[] data, AttributionSource source) {
             if (DBG) {
                 Log.d(TAG, "sendReport(): device=" + device + "  id=" + id);
             }
@@ -355,7 +356,7 @@ public class HidDeviceService extends ProfileService {
         }
 
         @Override
-        public boolean replyReport(BluetoothDevice device, byte type, byte id, byte[] data) {
+        public boolean replyReport(BluetoothDevice device, byte type, byte id, byte[] data, AttributionSource source) {
             if (DBG) {
                 Log.d(TAG, "replyReport(): device=" + device + " type=" + type + " id=" + id);
             }
@@ -369,7 +370,7 @@ public class HidDeviceService extends ProfileService {
         }
 
         @Override
-        public boolean unplug(BluetoothDevice device) {
+        public boolean unplug(BluetoothDevice device, AttributionSource source) {
             if (DBG) {
                 Log.d(TAG, "unplug(): device=" + device);
             }
@@ -383,7 +384,7 @@ public class HidDeviceService extends ProfileService {
         }
 
         @Override
-        public boolean connect(BluetoothDevice device) {
+        public boolean connect(BluetoothDevice device, AttributionSource source) {
             if (DBG) {
                 Log.d(TAG, "connect(): device=" + device);
             }
@@ -397,7 +398,7 @@ public class HidDeviceService extends ProfileService {
         }
 
         @Override
-        public boolean disconnect(BluetoothDevice device) {
+        public boolean disconnect(BluetoothDevice device, AttributionSource source) {
             if (DBG) {
                 Log.d(TAG, "disconnect(): device=" + device);
             }
@@ -411,7 +412,7 @@ public class HidDeviceService extends ProfileService {
         }
 
         @Override
-        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
+        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy, AttributionSource source) {
             if (DBG) {
                 Log.d(TAG, "setConnectionPolicy(): device=" + device + " connectionPolicy="
                         + connectionPolicy);
@@ -426,7 +427,7 @@ public class HidDeviceService extends ProfileService {
         }
 
         @Override
-        public boolean reportError(BluetoothDevice device, byte error) {
+        public boolean reportError(BluetoothDevice device, byte error, AttributionSource source) {
             if (DBG) {
                 Log.d(TAG, "reportError(): device=" + device + " error=" + error);
             }
@@ -440,7 +441,7 @@ public class HidDeviceService extends ProfileService {
         }
 
         @Override
-        public int getConnectionState(BluetoothDevice device) {
+        public int getConnectionState(BluetoothDevice device, AttributionSource source) {
             if (DBG) {
                 Log.d(TAG, "getConnectionState(): device=" + device);
             }
@@ -454,16 +455,16 @@ public class HidDeviceService extends ProfileService {
         }
 
         @Override
-        public List<BluetoothDevice> getConnectedDevices() {
+        public List<BluetoothDevice> getConnectedDevices(AttributionSource source) {
             if (DBG) {
                 Log.d(TAG, "getConnectedDevices()");
             }
 
-            return getDevicesMatchingConnectionStates(new int[]{BluetoothProfile.STATE_CONNECTED});
+            return getDevicesMatchingConnectionStates(new int[]{BluetoothProfile.STATE_CONNECTED}, source);
         }
 
         @Override
-        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
+        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states, AttributionSource source) {
             if (DBG) {
                 Log.d(TAG,
                         "getDevicesMatchingConnectionStates(): states=" + Arrays.toString(states));
@@ -478,7 +479,7 @@ public class HidDeviceService extends ProfileService {
         }
 
         @Override
-        public String getUserAppName() {
+        public String getUserAppName(AttributionSource source) {
             HidDeviceService service = getService();
             if (service == null) {
                 return "";

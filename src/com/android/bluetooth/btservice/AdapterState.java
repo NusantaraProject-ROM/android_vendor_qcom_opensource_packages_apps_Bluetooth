@@ -339,6 +339,7 @@ final class AdapterState extends StateMachine {
 
                 case BLE_START_TIMEOUT:
                     errorLog(messageString(msg.what));
+                    mAdapterService.informTimeoutToHidl();
                     mAdapterService.disableProfileServices(true);
                     mAdapterService.StartHCIClose();
                     errorLog("BLE_START_TIMEOUT is going to kill the process as part of cleanup");
@@ -388,6 +389,7 @@ final class AdapterState extends StateMachine {
 
                 case BREDR_START_TIMEOUT:
                     errorLog(messageString(msg.what));
+                    mAdapterService.informTimeoutToHidl();
                     mAdapterService.disableProfileServices(false);
                     mAdapterService.StartHCIClose();
                     errorLog("BREDR_START_TIMEOUT is going to kill the process as part of cleanup");
@@ -438,6 +440,7 @@ final class AdapterState extends StateMachine {
 
                 case BREDR_STOP_TIMEOUT:
                     errorLog(messageString(msg.what));
+                    mAdapterService.informTimeoutToHidl();
                     mAdapterService.disableProfileServices(false);
                     mAdapterService.StartHCIClose();
                     errorLog("BREDR_STOP_TIMEOUT is going to kill the process as part of cleanup");

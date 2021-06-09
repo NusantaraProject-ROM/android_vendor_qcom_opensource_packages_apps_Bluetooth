@@ -23,6 +23,7 @@ import android.bluetooth.BluetoothHearingAid;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothUuid;
 import android.bluetooth.IBluetoothHearingAid;
+import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -918,7 +919,7 @@ public class HearingAidService extends ProfileService {
         }
 
         @Override
-        public boolean connect(BluetoothDevice device) {
+        public boolean connect(BluetoothDevice device, AttributionSource source) {
             HearingAidService service = getService();
             if (service == null) {
                 return false;
@@ -927,7 +928,7 @@ public class HearingAidService extends ProfileService {
         }
 
         @Override
-        public boolean disconnect(BluetoothDevice device) {
+        public boolean disconnect(BluetoothDevice device, AttributionSource source) {
             HearingAidService service = getService();
             if (service == null) {
                 return false;
@@ -936,7 +937,7 @@ public class HearingAidService extends ProfileService {
         }
 
         @Override
-        public List<BluetoothDevice> getConnectedDevices() {
+        public List<BluetoothDevice> getConnectedDevices(AttributionSource source) {
             HearingAidService service = getService();
             if (service == null) {
                 return new ArrayList<>();
@@ -945,7 +946,7 @@ public class HearingAidService extends ProfileService {
         }
 
         @Override
-        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
+        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states, AttributionSource source) {
             HearingAidService service = getService();
             if (service == null) {
                 return new ArrayList<>();
@@ -954,7 +955,7 @@ public class HearingAidService extends ProfileService {
         }
 
         @Override
-        public int getConnectionState(BluetoothDevice device) {
+        public int getConnectionState(BluetoothDevice device, AttributionSource source) {
             HearingAidService service = getService();
             if (service == null) {
                 return BluetoothProfile.STATE_DISCONNECTED;
@@ -963,7 +964,7 @@ public class HearingAidService extends ProfileService {
         }
 
         @Override
-        public boolean setActiveDevice(BluetoothDevice device) {
+        public boolean setActiveDevice(BluetoothDevice device, AttributionSource source) {
             HearingAidService service = getService();
             if (service == null) {
                 return false;
@@ -987,7 +988,7 @@ public class HearingAidService extends ProfileService {
         }
 
         @Override
-        public List<BluetoothDevice> getActiveDevices() {
+        public List<BluetoothDevice> getActiveDevices(AttributionSource source) {
             HearingAidService service = getService();
             if (service == null) {
                 return new ArrayList<>();
@@ -996,7 +997,7 @@ public class HearingAidService extends ProfileService {
         }
 
         @Override
-        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
+        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy, AttributionSource source) {
             HearingAidService service = getService();
             if (service == null) {
                 return false;
@@ -1005,7 +1006,7 @@ public class HearingAidService extends ProfileService {
         }
 
         @Override
-        public int getConnectionPolicy(BluetoothDevice device) {
+        public int getConnectionPolicy(BluetoothDevice device, AttributionSource source) {
             HearingAidService service = getService();
             if (service == null) {
                 return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
@@ -1014,7 +1015,7 @@ public class HearingAidService extends ProfileService {
         }
 
         @Override
-        public void setVolume(int volume) {
+        public void setVolume(int volume, AttributionSource source) {
             HearingAidService service = getService();
             if (service == null) {
                 return;
@@ -1023,7 +1024,7 @@ public class HearingAidService extends ProfileService {
         }
 
         @Override
-        public long getHiSyncId(BluetoothDevice device) {
+        public long getHiSyncId(BluetoothDevice device, AttributionSource source) {
             HearingAidService service = getService();
             if (service == null) {
                 return BluetoothHearingAid.HI_SYNC_ID_INVALID;
@@ -1032,7 +1033,7 @@ public class HearingAidService extends ProfileService {
         }
 
         @Override
-        public int getDeviceSide(BluetoothDevice device) {
+        public int getDeviceSide(BluetoothDevice device, AttributionSource source) {
             HearingAidService service = getService();
             if (service == null) {
                 return BluetoothHearingAid.SIDE_RIGHT;
@@ -1041,7 +1042,7 @@ public class HearingAidService extends ProfileService {
         }
 
         @Override
-        public int getDeviceMode(BluetoothDevice device) {
+        public int getDeviceMode(BluetoothDevice device, AttributionSource source) {
             HearingAidService service = getService();
             if (service == null) {
                 return BluetoothHearingAid.MODE_BINAURAL;

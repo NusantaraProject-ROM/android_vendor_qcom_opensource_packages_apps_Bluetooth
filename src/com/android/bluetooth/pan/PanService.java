@@ -25,6 +25,7 @@ import android.bluetooth.BluetoothPan.LocalPanRole;
 import android.bluetooth.BluetoothPan.RemotePanRole;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.IBluetoothPan;
+import android.content.AttributionSource;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources.NotFoundException;
@@ -256,7 +257,7 @@ public class PanService extends ProfileService {
         }
 
         @Override
-        public boolean connect(BluetoothDevice device) {
+        public boolean connect(BluetoothDevice device, AttributionSource source) {
             PanService service = getService();
             if (service == null) {
                 return false;
@@ -265,7 +266,7 @@ public class PanService extends ProfileService {
         }
 
         @Override
-        public boolean disconnect(BluetoothDevice device) {
+        public boolean disconnect(BluetoothDevice device, AttributionSource source) {
             PanService service = getService();
             if (service == null) {
                 return false;
@@ -274,7 +275,7 @@ public class PanService extends ProfileService {
         }
 
         @Override
-        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
+        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy, AttributionSource source) {
             PanService service = getService();
             if (service == null) {
                 return false;
@@ -283,7 +284,7 @@ public class PanService extends ProfileService {
         }
 
         @Override
-        public int getConnectionState(BluetoothDevice device) {
+        public int getConnectionState(BluetoothDevice device, AttributionSource source) {
             PanService service = getService();
             if (service == null) {
                 return BluetoothPan.STATE_DISCONNECTED;
@@ -311,7 +312,7 @@ public class PanService extends ProfileService {
         }
 
         @Override
-        public boolean isTetheringOn() {
+        public boolean isTetheringOn(AttributionSource source) {
             // TODO(BT) have a variable marking the on/off state
             PanService service = getService();
             if (service == null) {
@@ -321,18 +322,19 @@ public class PanService extends ProfileService {
         }
 
         @Override
-        public void setBluetoothTethering(boolean value, String pkgName, String attributionTag) {
+        public void setBluetoothTethering(boolean value, AttributionSource source) {
             PanService service = getService();
             if (service == null) {
                 return;
             }
-            Log.d(TAG, "setBluetoothTethering: " + value + ", pkgName: " + pkgName
+            Log.d(TAG, "setBluetoothTethering: " + value + ", pkgName: " + source.getPackageName()
                     + ", mTetherOn: " + service.mTetherOn);
-            service.setBluetoothTethering(value, pkgName, attributionTag);
+            service.setBluetoothTethering(value, source.getPackageName(),
+                    source.getAttributionTag());
         }
 
         @Override
-        public List<BluetoothDevice> getConnectedDevices() {
+        public List<BluetoothDevice> getConnectedDevices(AttributionSource source) {
             PanService service = getService();
             if (service == null) {
                 return new ArrayList<BluetoothDevice>(0);
@@ -341,7 +343,7 @@ public class PanService extends ProfileService {
         }
 
         @Override
-        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
+        public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states, AttributionSource source) {
             PanService service = getService();
             if (service == null) {
                 return new ArrayList<BluetoothDevice>(0);

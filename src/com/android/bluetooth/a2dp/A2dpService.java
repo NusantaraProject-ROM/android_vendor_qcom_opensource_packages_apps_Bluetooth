@@ -27,6 +27,7 @@ import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothUuid;
 import android.bluetooth.BufferConstraints;
 import android.bluetooth.IBluetoothA2dp;
+import android.content.AttributionSource;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -2306,6 +2307,11 @@ public class A2dpService extends ProfileService {
         }
 
         @Override
+        public boolean connectWithAttribution(BluetoothDevice device, AttributionSource source) {
+            return connect(device);
+        }
+
+        @Override
         public boolean disconnect(BluetoothDevice device) {
             if(ApmConstIntf.getLeAudioEnabled()) {
                 MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
@@ -2316,6 +2322,11 @@ public class A2dpService extends ProfileService {
                 return false;
             }
             return service.disconnect(device);
+        }
+
+        @Override
+        public boolean disconnectWithAttribution(BluetoothDevice device, AttributionSource source) {
+            return disconnect(device);
         }
 
         @Override
@@ -2332,6 +2343,11 @@ public class A2dpService extends ProfileService {
         }
 
         @Override
+        public List<BluetoothDevice> getConnectedDevicesWithAttribution(AttributionSource source) {
+            return getConnectedDevices();
+        }
+
+        @Override
         public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
             if(ApmConstIntf.getLeAudioEnabled()) {
                 MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
@@ -2342,6 +2358,12 @@ public class A2dpService extends ProfileService {
                 return new ArrayList<>(0);
             }
             return service.getDevicesMatchingConnectionStates(states);
+        }
+
+        @Override
+        public List<BluetoothDevice> getDevicesMatchingConnectionStatesWithAttribution(
+            int[] states, AttributionSource source) {
+            return getDevicesMatchingConnectionStates(states);
         }
 
         @Override
@@ -2358,7 +2380,12 @@ public class A2dpService extends ProfileService {
         }
 
         @Override
-        public boolean setActiveDevice(BluetoothDevice device) {
+        public int getConnectionStateWithAttribution(BluetoothDevice device, AttributionSource source) {
+            return getConnectionState(device);
+        }
+
+        @Override
+        public boolean setActiveDevice(BluetoothDevice device, AttributionSource source) {
             if(ApmConstIntf.getLeAudioEnabled()) {
                 ActiveDeviceManagerServiceIntf activeDeviceManager = ActiveDeviceManagerServiceIntf.get();
                 return activeDeviceManager.setActiveDevice(device, ApmConstIntf.AudioFeatures.MEDIA_AUDIO, true);
@@ -2371,7 +2398,7 @@ public class A2dpService extends ProfileService {
         }
 
         @Override
-        public BluetoothDevice getActiveDevice() {
+        public BluetoothDevice getActiveDevice(AttributionSource source) {
             if(ApmConstIntf.getLeAudioEnabled()) {
                 ActiveDeviceManagerServiceIntf activeDeviceManager = ActiveDeviceManagerServiceIntf.get();
                 return activeDeviceManager.getActiveDevice(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
@@ -2384,7 +2411,7 @@ public class A2dpService extends ProfileService {
         }
 
         @Override
-        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
+        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy, AttributionSource source) {
             if(ApmConstIntf.getLeAudioEnabled()) {
                 MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
                 return mMediaAudio.setConnectionPolicy(device, connectionPolicy);
@@ -2396,8 +2423,8 @@ public class A2dpService extends ProfileService {
             return service.setConnectionPolicy(device, connectionPolicy);
         }
 
-        //@Override
-        public int getPriority(BluetoothDevice device) {
+        @Override
+        public int getPriority(BluetoothDevice device, AttributionSource source) {
             if(ApmConstIntf.getLeAudioEnabled()) {
                 MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
                 return mMediaAudio.getPriority(device);
@@ -2410,7 +2437,7 @@ public class A2dpService extends ProfileService {
         }
 
         @Override
-        public int getConnectionPolicy(BluetoothDevice device) {
+        public int getConnectionPolicy(BluetoothDevice device, AttributionSource source) {
             if(ApmConstIntf.getLeAudioEnabled()) {
                 MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
                 return mMediaAudio.getConnectionPolicy(device);
@@ -2433,7 +2460,7 @@ public class A2dpService extends ProfileService {
         }
 
         @Override
-        public void setAvrcpAbsoluteVolume(int volume) {
+        public void setAvrcpAbsoluteVolume(int volume, AttributionSource source) {
             A2dpService service = getService();
             if (service == null) {
                 return;
@@ -2442,7 +2469,7 @@ public class A2dpService extends ProfileService {
         }
 
         @Override
-        public boolean isA2dpPlaying(BluetoothDevice device) {
+        public boolean isA2dpPlaying(BluetoothDevice device, AttributionSource source) {
             if(ApmConstIntf.getLeAudioEnabled()) {
                 MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
                 return mMediaAudio.isA2dpPlaying(device);
@@ -2455,7 +2482,7 @@ public class A2dpService extends ProfileService {
         }
 
         @Override
-        public BluetoothCodecStatus getCodecStatus(BluetoothDevice device) {
+        public BluetoothCodecStatus getCodecStatus(BluetoothDevice device, AttributionSource source) {
             if(ApmConstIntf.getLeAudioEnabled()) {
                 MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
                 return mMediaAudio.getCodecStatus(device);
@@ -2469,7 +2496,7 @@ public class A2dpService extends ProfileService {
 
         @Override
         public void setCodecConfigPreference(BluetoothDevice device,
-                                             BluetoothCodecConfig codecConfig) {
+                BluetoothCodecConfig codecConfig, AttributionSource source) {
             if(ApmConstIntf.getLeAudioEnabled()) {
                 MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
                 mMediaAudio.setCodecConfigPreference(device, codecConfig);
@@ -2483,7 +2510,7 @@ public class A2dpService extends ProfileService {
         }
 
         @Override
-        public void enableOptionalCodecs(BluetoothDevice device) {
+        public void enableOptionalCodecs(BluetoothDevice device, AttributionSource source) {
             if(ApmConstIntf.getLeAudioEnabled()) {
                 MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
                 mMediaAudio.enableOptionalCodecs(device);
@@ -2498,21 +2525,21 @@ public class A2dpService extends ProfileService {
                 return;
             }
 
-            BluetoothCodecStatus codecStatus = getCodecStatus(device);
+            BluetoothCodecStatus codecStatus = getCodecStatus(device, source);
             if (codecStatus == null || codecStatus.getCodecConfig() == null) {
                 Log.e(TAG, "enableOptionalCodecs: Codec status is null");
                 return;
             }
-            int enabled = getOptionalCodecsEnabled(device);
+            int enabled = getOptionalCodecsEnabled(device, source);
             if (enabled == BluetoothA2dp.OPTIONAL_CODECS_PREF_ENABLED
                 && codecStatus.getCodecConfig().isMandatoryCodec()) {
                 Log.e(TAG, "enableOptionalCodecs: failed, setOptionalCodecsEnabled to false");
-                setOptionalCodecsEnabled(device, BluetoothA2dp.OPTIONAL_CODECS_PREF_DISABLED);
+                setOptionalCodecsEnabled(device, BluetoothA2dp.OPTIONAL_CODECS_PREF_DISABLED, source);
             }
         }
 
         @Override
-        public void disableOptionalCodecs(BluetoothDevice device) {
+        public void disableOptionalCodecs(BluetoothDevice device, AttributionSource source) {
             if(ApmConstIntf.getLeAudioEnabled()) {
                 MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
                 mMediaAudio.disableOptionalCodecs(device);
@@ -2527,20 +2554,20 @@ public class A2dpService extends ProfileService {
                 return;
             }
 
-            BluetoothCodecStatus codecStatus = getCodecStatus(device);
+            BluetoothCodecStatus codecStatus = getCodecStatus(device, source);
             if (codecStatus == null || codecStatus.getCodecConfig() == null) {
                 Log.e(TAG, "disableOptionalCodecs: Codec status is null");
                 return;
             }
-            int enabled = getOptionalCodecsEnabled(device);
+            int enabled = getOptionalCodecsEnabled(device, source);
             if (enabled == BluetoothA2dp.OPTIONAL_CODECS_PREF_DISABLED
                 && !codecStatus.getCodecConfig().isMandatoryCodec()) {
                 Log.e(TAG, "disableOptionalCodecs: failed, setOptionalCodecsEnabled to true");
-                setOptionalCodecsEnabled(device, BluetoothA2dp.OPTIONAL_CODECS_PREF_ENABLED);
+                setOptionalCodecsEnabled(device, BluetoothA2dp.OPTIONAL_CODECS_PREF_ENABLED, source);
             }
         }
 
-        public int supportsOptionalCodecs(BluetoothDevice device) {
+        public int supportsOptionalCodecs(BluetoothDevice device, AttributionSource source) {
             A2dpService service = getService();
             if(ApmConstIntf.getLeAudioEnabled()) {
                 MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
@@ -2557,7 +2584,7 @@ public class A2dpService extends ProfileService {
             return service.getSupportsOptionalCodecs(device);
         }
 
-        public int getOptionalCodecsEnabled(BluetoothDevice device) {
+        public int getOptionalCodecsEnabled(BluetoothDevice device, AttributionSource source) {
             if(ApmConstIntf.getLeAudioEnabled()) {
                 MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
                 return mMediaAudio.getOptionalCodecsEnabled(device);
@@ -2569,7 +2596,8 @@ public class A2dpService extends ProfileService {
             return service.getOptionalCodecsEnabled(device);
         }
 
-        public void setOptionalCodecsEnabled(BluetoothDevice device, int value) {
+        public void setOptionalCodecsEnabled(BluetoothDevice device, int value,
+                AttributionSource source) {
             if(ApmConstIntf.getLeAudioEnabled()) {
                 MediaAudioIntf mMediaAudio = MediaAudioIntf.get();
                 mMediaAudio.setOptionalCodecsEnabled(device, value);
@@ -2582,7 +2610,7 @@ public class A2dpService extends ProfileService {
             service.setOptionalCodecsEnabled(device, value);
         }
 
-        public int getDynamicBufferSupport() {
+        public int getDynamicBufferSupport(AttributionSource source) {
             A2dpService service = getService();
             if (service == null) {
                 return BluetoothA2dp.DYNAMIC_BUFFER_SUPPORT_NONE;
@@ -2590,7 +2618,7 @@ public class A2dpService extends ProfileService {
             return service.getDynamicBufferSupport();
         }
 
-        public BufferConstraints getBufferConstraints() {
+        public BufferConstraints getBufferConstraints(AttributionSource source) {
             A2dpService service = getService();
             if (service == null) {
                 return null;
@@ -2598,7 +2626,7 @@ public class A2dpService extends ProfileService {
             return service.getBufferConstraints();
         }
 
-        public boolean setBufferLengthMillis(int codec, int value) {
+        public boolean setBufferLengthMillis(int codec, int value, AttributionSource source) {
             A2dpService service = getService();
             if (service == null) {
                 return false;

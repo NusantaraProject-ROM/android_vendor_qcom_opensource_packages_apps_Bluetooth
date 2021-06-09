@@ -340,6 +340,12 @@
         </service>
         <service
             android:process="@string/process"
+            android:name = ".mcp.McpService"
+            android:exported="true"
+            android:enabled="@bool/profile_supported_music_player_service">
+        </service>
+        <service
+            android:process="@string/process"
             android:name = ".acm.AcmService"
             android:exported="true"
             android:enabled="@bool/profile_supported_ca">
