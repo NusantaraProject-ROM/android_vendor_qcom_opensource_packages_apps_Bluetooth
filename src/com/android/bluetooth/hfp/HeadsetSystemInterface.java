@@ -184,6 +184,32 @@ public class HeadsetSystemInterface {
         }
     }
 
+     /**
+     * Terminate the call with given Index
+     *
+     * @param device the Bluetooth device used for terminating this call
+     * @param index Index of the call to be terminated
+     */
+    @VisibleForTesting
+    public void terminateCall(BluetoothDevice device, int index) {
+        if (device == null) {
+            Log.w(TAG, "terminateCall device is null");
+            return;
+        }
+        // Close the virtual call if active. Virtual call should be
+        // terminated for CHUP callback event
+        if (mHeadsetService.isVirtualCallStarted()) {
+            mHeadsetService.stopScoUsingVirtualVoiceCall();
+        } else {
+            BluetoothInCallService bluetoothInCallService = getBluetoothInCallServiceInstance();
+            if (bluetoothInCallService != null) {
+                bluetoothInCallService.terminateCall(index);
+            } else {
+                Log.e(TAG, "Handsfree phone proxy null for terminating the call: " + index);
+            }
+        }
+    }
+
     /**
      * Instructs Telecom to play the specified DTMF tone for the current foreground call
      *
@@ -206,7 +232,6 @@ public class HeadsetSystemInterface {
     }
 
     /**
-     * Instructs Telecom hold an incoming call
      *
      * @param chld index of the call to hold
      */
@@ -216,11 +241,27 @@ public class HeadsetSystemInterface {
         if (bluetoothInCallService != null) {
             return bluetoothInCallService.processChld(chld);
         } else {
-            Log.e(TAG, "Handsfree phone proxy null for sending DTMF");
+            Log.e(TAG, "processChld: bluetoothInCallService proxy null");
         }
         return false;
     }
 
+    /**
+     * Instructs Telecom to hold the call in given index
+     *
+     * @param index of the Call to be hold
+     * @return true on success, false otherwise
+     */
+    @VisibleForTesting
+    public boolean holdCall(int index) {
+        BluetoothInCallService bluetoothInCallService = getBluetoothInCallServiceInstance();
+        if (bluetoothInCallService != null) {
+            return bluetoothInCallService.holdCall(index);
+        } else {
+            Log.e(TAG, "holdCall: bluetoothInCallService proxy null");
+        }
+        return false;
+    }
     /**
      * Check for HD codec for voice call
      */
