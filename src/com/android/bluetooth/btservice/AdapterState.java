@@ -486,6 +486,7 @@ final class AdapterState extends StateMachine {
         @Override
         public void enter() {
             super.enter();
+            mAdapterService.unregGattIds();
             sendMessageDelayed(STACK_DISABLE_TIMEOUT, STACK_DISABLE_TIMEOUT_DELAY);
             boolean ret = mAdapterService.disableNative();
             if (!ret) {
