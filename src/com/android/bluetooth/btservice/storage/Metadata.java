@@ -49,6 +49,7 @@ class Metadata {
     public long last_active_time;
     public boolean is_active_a2dp_device;
     public boolean is_active_hfp_device;
+    public boolean is_connected_a2dpsrc_device;
 
     Metadata(String address) {
         this.address = address;
@@ -60,6 +61,7 @@ class Metadata {
         last_active_time = MetadataDatabase.sCurrentConnectionNumber++;
         is_active_a2dp_device = true;
         is_active_hfp_device = true;
+        is_connected_a2dpsrc_device = true;
     }
 
     String getAddress() {

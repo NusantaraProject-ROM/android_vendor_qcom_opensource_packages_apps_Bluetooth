@@ -162,8 +162,8 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                     + BluetoothShare.USER_CONFIRMATION_PENDING;
 
     private static final String WHERE_INVISIBLE_UNCONFIRMED =
-            "(" + BluetoothShare.STATUS + ">=" + BluetoothShare.STATUS_SUCCESS + " AND " + INVISIBLE
-                    + ") OR (" + WHERE_CONFIRM_PENDING_INBOUND + ")";
+            "(" + BluetoothShare.STATUS + " > " + BluetoothShare.STATUS_SUCCESS + " AND "
+                    + INVISIBLE + ") OR (" + WHERE_CONFIRM_PENDING_INBOUND + ")";
 
     private static BluetoothOppService sBluetoothOppService;
 
@@ -877,8 +877,10 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
 
         info.mId = cursor.getInt(cursor.getColumnIndexOrThrow(BluetoothShare._ID));
         if (info.mUri != null) {
-            info.mUri =
-                    Uri.parse(stringFromCursor(info.mUri.toString(), cursor, BluetoothShare.URI));
+            String uriString = stringFromCursor(info.mUri.toString(), cursor, BluetoothShare.URI);
+            if (uriString != null) {
+                info.mUri = Uri.parse(uriString);
+            }
         } else {
             Log.w(TAG, "updateShare() called for ID " + info.mId + " with null URI");
         }

@@ -263,7 +263,8 @@ public class HeadsetPhoneState {
                     sendDeviceStateChanged();
                 } else if (IccCardConstants.INTENT_VALUE_ICC_ABSENT.equals(stateExtra)
                            || IccCardConstants.INTENT_VALUE_ICC_UNKNOWN.equals(stateExtra)
-                           || IccCardConstants.INTENT_VALUE_ICC_CARD_IO_ERROR.equals(stateExtra)) {
+                           || IccCardConstants.INTENT_VALUE_ICC_CARD_IO_ERROR.equals(stateExtra)
+                           || IccCardConstants.INTENT_VALUE_ICC_NOT_READY.equals(stateExtra)) {
                     final int phoneId = intent.getIntExtra(PhoneConstants.PHONE_KEY,
                                        SubscriptionManager.getDefaultVoicePhoneId());
                     if (isValidPhoneId(phoneId) != true) {

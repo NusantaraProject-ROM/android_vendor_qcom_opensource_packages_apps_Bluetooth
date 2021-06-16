@@ -130,4 +130,7 @@
           - ACTION_SEND_PENDING_MAIL
           - ACTION_DELETE_MESSAGE -->
     <string name="email_ui_package">com.android.email</string>
+    <!-- Package that is providing the exposure notification service -->
+    <string name="exposure_notification_package">com.google.android.gms</string>
+
 </resources>

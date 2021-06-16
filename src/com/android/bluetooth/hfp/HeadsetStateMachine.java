@@ -44,6 +44,7 @@ import android.os.Build;
 
 import com.android.bluetooth.BluetoothStatsLog;
 import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.btservice.InteropUtil;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.State;
@@ -125,6 +126,7 @@ public class HeadsetStateMachine extends StateMachine {
     static final int CS_CALL_STATE_CHANGED_ACTIVE = 23;
     static final int A2DP_STATE_CHANGED = 24;
     static final int RESUME_A2DP = 26;
+    static final int AUDIO_SERVER_UP = 27;
 
     static final int STACK_EVENT = 101;
     private static final int CLCC_RSP_TIMEOUT = 104;
@@ -151,17 +153,6 @@ public class HeadsetStateMachine extends StateMachine {
     private int CS_CALL_ACTIVE_DELAY_TIME_MSEC = 10;
     private static final int INCOMING_CALL_IND_DELAY = 200;
     private static final int MAX_RETRY_CONNECT_COUNT = 2;
-    // Blacklist remote device addresses to send incoimg call indicators with delay of 200ms
-    private static final String [] BlacklistDeviceAddrToDelayCallInd =
-                                                               {"00:15:83", /* Beiqi Carkit */
-                                                                "2a:eb:00", /* BIAC Carkit */
-                                                                "30:53:00", /* BIAC series */
-                                                                "00:17:53", /* ADAYO Carkit */
-                                                                "40:ef:4c", /* Road Rover Carkit */
-                                                                "00:07:04", /* Tiguan RNS315 */
-                                                               };
-    private static final String [] BlacklistDeviceForSendingVOIPCallIndsBackToBack =
-                                                               {"f4:15:fd"}; /* Rongwei 360 Car */
     private static final String VOIP_CALL_NUMBER = "10000000";
 
     //VR app launched successfully
@@ -221,6 +212,7 @@ public class HeadsetStateMachine extends StateMachine {
     private boolean mPendingScoForVR = false;
     private boolean mIsCallIndDelay = false;
     private boolean mIsBlacklistedDevice = false;
+    private boolean mIsBlacklistedForSCOAfterSLC = false;
     private int retryConnectCount = 0;
 
     private static boolean mIsAvailable = false;
@@ -382,6 +374,12 @@ public class HeadsetStateMachine extends StateMachine {
             ProfileService.println(sb, "    " + line);
         }
         scanner.close();
+    }
+
+    public boolean getIfDeviceBlacklistedForSCOAfterSLC() {
+        Log.d(TAG, "getIfDeviceBlacklistedForSCOAfterSLC, returning " +
+                             mIsBlacklistedForSCOAfterSLC);
+        return  mIsBlacklistedForSCOAfterSLC;
     }
 
     /**
@@ -1355,6 +1353,8 @@ public class HeadsetStateMachine extends StateMachine {
                 sendMessageDelayed(QUERY_PHONE_STATE_AT_SLC, QUERY_PHONE_STATE_CHANGED_DELAYED);
                 // Checking for the Blacklisted device Addresses
                 mIsBlacklistedDevice = isConnectedDeviceBlacklistedforIncomingCall();
+                // Checking for the Blacklisted device Addresses
+                mIsBlacklistedForSCOAfterSLC = isSCONeededImmediatelyAfterSLC();
                 if (mSystemInterface.isInCall() || mSystemInterface.isRinging()) {
                    stateLogW("Connected: enter: suspending A2DP for Call since SLC connected");
                    // suspend A2DP since call is there
@@ -1673,6 +1673,10 @@ public class HeadsetStateMachine extends StateMachine {
                 case INTENT_SCO_VOLUME_CHANGED:
                     processIntentScoVolume((Intent) message.obj, mDevice);
                     break;
+                case AUDIO_SERVER_UP:
+                    stateLogD("AUDIO_SERVER_UP event");
+                    processAudioServerUp();
+                    break;
                 case STACK_EVENT:
                     HeadsetStackEvent event = (HeadsetStackEvent) message.obj;
                     stateLogD("STACK_EVENT: " + event);
@@ -1710,9 +1714,6 @@ public class HeadsetStateMachine extends StateMachine {
                         stateLogI("TWS+ device and other SCO is still Active, no BT_SCO=off");
                     } else {
                         mSystemInterface.getAudioManager().setBluetoothScoOn(false);
-                        if(mSystemInterface.getAudioManager().isSpeakerphoneOn()) {
-                            mSystemInterface.getAudioManager().setSpeakerphoneOn(true);
-                        }
                     }
                     if (!mSystemInterface.getHeadsetPhoneState().getIsCsCall()) {
                         stateLogI("Sco disconnected for call other than CS, check network type");
@@ -1794,9 +1795,6 @@ public class HeadsetStateMachine extends StateMachine {
                          stateLogI("TWS+ device and other SCO is still Active, no BT_SCO=off");
                     } else {
                         mSystemInterface.getAudioManager().setBluetoothScoOn(false);
-                        if(mSystemInterface.getAudioManager().isSpeakerphoneOn()) {
-                            mSystemInterface.getAudioManager().setSpeakerphoneOn(true);
-                        }
                     }
                     transitionTo(mConnected);
                     break;
@@ -1891,7 +1889,7 @@ public class HeadsetStateMachine extends StateMachine {
         return true;
     }
 
-    public void onAudioServerUp() {
+    private void processAudioServerUp() {
         Log.i(TAG, "onAudioSeverUp: restore audio parameters");
         mSystemInterface.getAudioManager().setBluetoothScoOn(false);
         mSystemInterface.getAudioManager().setParameters("A2dpSuspended=true");
@@ -2929,28 +2927,27 @@ public class HeadsetStateMachine extends StateMachine {
     }
 
     boolean isConnectedDeviceBlacklistedforIncomingCall() {
-        // Checking for the Blacklisted device Addresses
-        for (int j = 0; j < BlacklistDeviceAddrToDelayCallInd.length;j++) {
-            String addr = BlacklistDeviceAddrToDelayCallInd[j];
-            if (mDevice.toString().toLowerCase().startsWith(addr.toLowerCase())) {
-                log("Remote device address Blacklisted for sending delay");
-                return true;
-            }
-        }
-        return false;
+        boolean matched = InteropUtil.interopMatchAddrOrName(
+            InteropUtil.InteropFeature.INTEROP_HFP_FAKE_INCOMING_CALL_INDICATOR,
+            mDevice.getAddress());
+
+        return matched;
     }
 
     boolean isDeviceBlacklistedForSendingCallIndsBackToBack() {
-        // Checking for the Blacklisted device Addresses
-        for (int j = 0; j < BlacklistDeviceForSendingVOIPCallIndsBackToBack.length;j++) {
-            String addr = BlacklistDeviceForSendingVOIPCallIndsBackToBack[j];
-            if (mDevice.toString().toLowerCase().startsWith(addr.toLowerCase())) {
-                Log.w(TAG, "Remote device " + mDevice +
-                   " address Blacklisted for sending VOIP call inds back to back");
-                return true;
-            }
-        }
-        return false;
+        boolean matched = InteropUtil.interopMatchAddrOrName(
+            InteropUtil.InteropFeature.INTEROP_HFP_SEND_CALL_INDICATORS_BACK_TO_BACK,
+            mDevice.getAddress());
+
+        return matched;
+    }
+
+    boolean isSCONeededImmediatelyAfterSLC() {
+        boolean matched = InteropUtil.interopMatchAddrOrName(
+            InteropUtil.InteropFeature.INTEROP_SETUP_SCO_WITH_NO_DELAY_AFTER_SLC_DURING_CALL,
+            mDevice.getAddress());
+
+        return matched;
     }
 
     private void sendVoipConnectivityNetworktype(boolean isVoipStarted) {
@@ -3076,6 +3073,8 @@ public class HeadsetStateMachine extends StateMachine {
                 return "CLCC_RSP_TIMEOUT";
             case CONNECT_TIMEOUT:
                 return "CONNECT_TIMEOUT";
+            case AUDIO_SERVER_UP:
+                return "AUDIO_SERVER_UP";
             default:
                 return "UNKNOWN(" + what + ")";
         }

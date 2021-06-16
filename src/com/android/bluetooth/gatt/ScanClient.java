@@ -44,8 +44,10 @@ import java.util.UUID;
     public boolean hasLocationPermission;
     public UserHandle userHandle;
     public boolean isQApp;
+    public boolean eligibleForSanitizedExposureNotification;
     public boolean hasNetworkSettingsPermission;
     public boolean hasNetworkSetupWizardPermission;
+    public List<String> associatedDevices;
 
     public AppScanStats stats = null;
 

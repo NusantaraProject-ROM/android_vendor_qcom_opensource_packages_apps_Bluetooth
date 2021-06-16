@@ -44,7 +44,6 @@ android_app {
     ],
 
     // Add in path to Bluetooth directory because local path does not exist
-    // KEYSTONE(I16437f5eaa56279e11743c243fb26f71eb1bd6f8,b/153751857)
     javacflags: ["-Aroom.schemaLocation=vendor/qcom/opensource/commonsys/packages/apps/Bluetooth/tests/unit/src/com/android/bluetooth/btservice/storage/schemas"],
 
     optimize: {

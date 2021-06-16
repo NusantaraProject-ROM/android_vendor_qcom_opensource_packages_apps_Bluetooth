@@ -55,6 +55,7 @@ import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.btservice.ProfileService;
+import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
@@ -108,6 +109,7 @@ public class HeadsetService extends ProfileService {
     private int mSetMaxConfig;
     private BluetoothDevice mActiveDevice;
     private AdapterService mAdapterService;
+    private DatabaseManager mDatabaseManager;
     private HandlerThread mStateMachinesThread;
     // This is also used as a lock for shared data in HeadsetService
     private final HashMap<BluetoothDevice, HeadsetStateMachine> mStateMachines = new HashMap<>();
@@ -159,9 +161,11 @@ public class HeadsetService extends ProfileService {
             Log.w(TAG, "HeadsetService is already running");
             return true;
         }
-        // Step 1: Get adapter service, should never be null
+        // Step 1: Get AdapterService and DatabaseManager, should never be null
         mAdapterService = Objects.requireNonNull(AdapterService.getAdapterService(),
                 "AdapterService cannot be null when HeadsetService starts");
+        mDatabaseManager = Objects.requireNonNull(mAdapterService.getDatabase(),
+                "DatabaseManager cannot be null when HeadsetService starts");
         // Step 2: Start handler thread for state machines
         mStateMachinesThread = new HandlerThread("HeadsetService.StateMachines");
         mStateMachinesThread.start();
@@ -454,7 +458,7 @@ public class HeadsetService extends ProfileService {
                     for (HeadsetStateMachine stateMachine : mStateMachines.values()) {
                         if (stateMachine.getAudioState()
                                 == BluetoothHeadset.STATE_AUDIO_CONNECTED) {
-                            stateMachine.onAudioServerUp();
+                            stateMachine.sendMessage(HeadsetStateMachine.AUDIO_SERVER_UP);
                             break;
                         }
                     }
@@ -1232,8 +1236,11 @@ public class HeadsetService extends ProfileService {
     public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
         Log.i(TAG, "setConnectionPolicy: device=" + device
                 + ", connectionPolicy=" + connectionPolicy + ", " + Utils.getUidPidString());
-        mAdapterService.getDatabase()
-                .setProfileConnectionPolicy(device, BluetoothProfile.HEADSET, connectionPolicy);
+
+        if (!mDatabaseManager.setProfileConnectionPolicy(device, BluetoothProfile.HEADSET,
+                  connectionPolicy)) {
+            return false;
+        }
         if (connectionPolicy == BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
             connect(device);
         } else if (connectionPolicy == BluetoothProfile.CONNECTION_POLICY_FORBIDDEN) {
@@ -1255,7 +1262,7 @@ public class HeadsetService extends ProfileService {
      * @hide
      */
     public int getConnectionPolicy(BluetoothDevice device) {
-        return mAdapterService.getDatabase()
+        return mDatabaseManager
                 .getProfileConnectionPolicy(device, BluetoothProfile.HEADSET);
     }
 
@@ -1694,6 +1701,9 @@ public class HeadsetService extends ProfileService {
                         " ,returning true");
                 return true;
             }
+
+            if (stateMachine.getIfDeviceBlacklistedForSCOAfterSLC() == true)
+                connDelay = 0;
 
             Log.i(TAG, "connectAudio: connect audio after " + connDelay + " ms");
             stateMachine.sendMessageDelayed(HeadsetStateMachine.CONNECT_AUDIO, device, connDelay);

@@ -222,14 +222,24 @@ import java.util.UUID;
             ParcelUuid serviceDataUuid = filter.getServiceDataUuid();
             byte[] serviceData = filter.getServiceData();
             byte[] serviceDataMask = filter.getServiceDataMask();
-            if (serviceDataMask == null) {
-                serviceDataMask = new byte[serviceData.length];
-                Arrays.fill(serviceDataMask, (byte) 0xFF);
-            }
+
             serviceData = concate(serviceDataUuid, serviceData);
-            serviceDataMask = concate(serviceDataUuid, serviceDataMask);
-            if (serviceData != null && serviceDataMask != null) {
-                addServiceData(serviceData, serviceDataMask);
+            byte[] finalServiceDataMask = null;
+            if (serviceData != null) {
+                // finalServiceDataMask = ServiceDataUuidMask + ServiceDataMask. To let firmware
+                // accurately match service data uuid, ServiceDataUuidMask shall be set to all 0xFF.
+                finalServiceDataMask = new byte[serviceData.length];
+                Arrays.fill(finalServiceDataMask, (byte) 0xFF);
+                if (serviceDataMask != null) {
+                    int serviceDataUuidMaskLen =
+                            finalServiceDataMask.length - serviceDataMask.length;
+                    System.arraycopy(serviceDataMask, 0, finalServiceDataMask,
+                            serviceDataUuidMaskLen, serviceDataMask.length);
+                }
+            }
+
+            if (serviceData != null && finalServiceDataMask != null) {
+                addServiceData(serviceData, finalServiceDataMask);
             }
         }
         if (filter.getOrgId() >= 0) {

@@ -700,7 +700,8 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 }
 
 static bool initNative(JNIEnv* env, jobject obj, jboolean isGuest,
-                       jboolean isSingleUserMode, jboolean isAtvDevice) {
+                       jboolean isNiapMode, int configCompareResult,
+                       jboolean isAtvDevice ) {
   ALOGV("%s", __func__);
 
   android_bluetooth_UidTraffic.clazz =
@@ -716,8 +717,9 @@ static bool initNative(JNIEnv* env, jobject obj, jboolean isGuest,
 
   int ret = sBluetoothInterface->init(&sBluetoothCallbacks,
                                       isGuest == JNI_TRUE ? 1 : 0,
-                                      isSingleUserMode == JNI_TRUE ? 1 : 0,
-                                      0, isAtvDevice == JNI_TRUE ? 1 : 0);
+                                      isNiapMode == JNI_TRUE ? 1 : 0,
+                                      configCompareResult,
+                                      isAtvDevice == JNI_TRUE ? 1 : 0);
   if (ret != BT_STATUS_SUCCESS && ret != BT_STATUS_DONE) {
     ALOGE("Error while setting the callbacks: %d\n", ret);
     sBluetoothInterface = NULL;
@@ -1266,7 +1268,7 @@ static jbyteArray obfuscateAddressNative(JNIEnv* env, jobject obj,
 static JNINativeMethod sMethods[] = {
     /* name, signature, funcPtr */
     {"classInitNative", "()V", (void*)classInitNative},
-    {"initNative", "(ZZZ)Z", (void*)initNative},
+    {"initNative", "(ZZIZ)Z", (void*)initNative},
     {"cleanupNative", "()V", (void*)cleanupNative},
     {"enableNative", "()Z", (void*)enableNative},
     {"disableNative", "()Z", (void*)disableNative},
@@ -1326,6 +1328,13 @@ jint JNI_OnLoad(JavaVM *jvm, void *reserved) {
   status = android::register_com_android_bluetooth_btservice_AdapterService(e);
   if (status < 0) {
     ALOGE("jni adapter service registration failure, status: %d", status);
+    return JNI_ERR;
+  }
+
+  status =
+      android::register_com_android_bluetooth_btservice_BluetoothKeystore(e);
+  if (status < 0) {
+    ALOGE("jni BluetoothKeyStore registration failure: %d", status);
     return JNI_ERR;
   }
 
