@@ -152,6 +152,8 @@ class AdapterProperties {
     private boolean mVoiceDualSCO;
     private boolean mVoiceTWSPLUSeSCOAG;
     private boolean mSWBVoicewithAptxAdaptiveAG;
+    private boolean mSplitA2DPSourceAACABR;
+    private boolean mSplitA2DPSourceTxSplitAPTXADAPTIVE;
     private boolean mBroadcastAudioTxwithEC_2_5;
     private boolean mBroadcastAudioTxwithEC_3_9;
     private boolean mBroadcastAudioRxwithEC_2_5;
@@ -739,6 +741,20 @@ class AdapterProperties {
      */
     boolean isSWBVoicewithAptxAdaptiveAG() {
         return mSWBVoicewithAptxAdaptiveAG;
+    }
+
+    /**
+     * @return Split A2DP Source AAC ABR status
+     */
+    boolean isSplitA2DPSourceAACABR() {
+        return mSplitA2DPSourceAACABR;
+    }
+
+    /**
+     * @return Split A2DP Source Tx-Split APTX ADAPTIVE status
+     */
+    boolean isSplitA2DPSourceTxSplitAPTXADAPTIVE() {
+        return mSplitA2DPSourceTxSplitAPTXADAPTIVE;
     }
 
     /**
@@ -1360,6 +1376,8 @@ class AdapterProperties {
             mVoiceDualSCO = ((0x01 & ((int) val[3])) != 0);
             mVoiceTWSPLUSeSCOAG = ((0x02 & ((int) val[3])) != 0);
             mSWBVoicewithAptxAdaptiveAG = ((0x04 & ((int) val[3])) != 0);
+            mSplitA2DPSourceAACABR =  ((0x40 & ((int) val[3])) != 0);
+            mSplitA2DPSourceTxSplitAPTXADAPTIVE = ((0x80 & ((int) val[3])) != 0);
             mBroadcastAudioTxwithEC_2_5 = ((0x01 & ((int) val[4])) != 0);
             mBroadcastAudioTxwithEC_3_9 = ((0x02 & ((int) val[4])) != 0);
             mBroadcastAudioRxwithEC_2_5 = ((0x04 & ((int) val[4])) != 0);
@@ -1390,7 +1408,9 @@ class AdapterProperties {
                     + "\n mSplitA2DPSinkAPTXTWSPLUS = " + mSplitA2DPSinkAPTXTWSPLUS
                     + "\n mVoiceDualSCO = " + mVoiceDualSCO + "\n mVoiceTWSPLUSeSCOAG = "
                     + mVoiceTWSPLUSeSCOAG + "\n mSWBVoicewithAptxAdaptiveAG = "
-                    + mSWBVoicewithAptxAdaptiveAG + "\n BroadcastAudioTxwithEC_2_5 = "
+                    + mSWBVoicewithAptxAdaptiveAG + "\n SplitA2DPSourceAACABR = "
+                    + mSplitA2DPSourceAACABR + "\n SplitA2DPSourceTxSplitAPTXADAPTIVE = "
+                    + mSplitA2DPSourceTxSplitAPTXADAPTIVE + "\n BroadcastAudioTxwithEC_2_5 = "
                     + mBroadcastAudioTxwithEC_2_5 + "\n mBroadcastAudioTxwithEC_3_9 = "
                     + mBroadcastAudioTxwithEC_3_9 + "\n mBroadcastAudioRxwithEC_2_5 = "
                     + mBroadcastAudioRxwithEC_2_5 + "\n mBroadcastAudioRxwithEC_3_9= "
