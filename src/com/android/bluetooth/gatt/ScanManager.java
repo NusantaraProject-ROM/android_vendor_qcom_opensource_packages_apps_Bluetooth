@@ -106,6 +106,7 @@ public class ScanManager {
     private Set<ScanClient> mRegularScanClients;
     private Set<ScanClient> mBatchClients;
     private Set<ScanClient> mSuspendedScanClients;
+    private HashMap<Integer, Integer> mPriorityMap = new HashMap<Integer, Integer>();
 
     private CountDownLatch mLatch;
 
@@ -150,6 +151,12 @@ public class ScanManager {
         mDm = (DisplayManager) mService.getSystemService(Context.DISPLAY_SERVICE);
         mActivityManager = (ActivityManager) mService.getSystemService(Context.ACTIVITY_SERVICE);
         mLocationManager = (LocationManager) mService.getSystemService(Context.LOCATION_SERVICE);
+
+        mPriorityMap.put(ScanSettings.SCAN_MODE_OPPORTUNISTIC, 0);
+        mPriorityMap.put(ScanSettings.SCAN_MODE_LOW_POWER, 1);
+        mPriorityMap.put(ScanSettings.SCAN_MODE_BALANCED, 2);
+        mPriorityMap.put(ScanSettings.SCAN_MODE_AMBIENT_DISCOVERY, 3);
+        mPriorityMap.put(ScanSettings.SCAN_MODE_LOW_LATENCY, 4);
     }
 
     void start() {
@@ -244,7 +251,11 @@ public class ScanManager {
         sendMessage(MSG_START_BLE_SCAN, client);
     }
 
-    void stopScan(ScanClient client) {
+    void stopScan(int scannerId) {
+        ScanClient client = mScanNative.getBatchScanClient(scannerId);
+        if (client == null) {
+            client = mScanNative.getRegularScanClient(scannerId);
+        }
         sendMessage(MSG_STOP_BLE_SCAN, client);
     }
 
@@ -328,7 +339,6 @@ public class ScanManager {
                 return;
             }
 
-            boolean isFiltered = (client.filters != null) && !client.filters.isEmpty();
             if (DBG) {
                 Log.d(TAG, "handling starting scan");
             }
@@ -343,7 +353,7 @@ public class ScanManager {
                 return;
             }
 
-            if (!mScanNative.isOpportunisticScanClient(client) && !isScreenOn() && !isFiltered) {
+            if (requiresScreenOn(client) && !isScreenOn()) {
                 Log.w(TAG, "Cannot start unfiltered scan in screen-off. This scan will be resumed "
                         + "later: " + client.scannerId);
                 mSuspendedScanClients.add(client);
@@ -354,7 +364,7 @@ public class ScanManager {
             }
 
             final boolean locationEnabled = mLocationManager.isLocationEnabled();
-            if (!locationEnabled && !isFiltered) {
+            if (requiresLocationOn(client) && !locationEnabled) {
                 Log.i(TAG, "Cannot start unfiltered scan in location-off. This scan will be"
                         + " resumed when location is on: " + client.scannerId);
                 mSuspendedScanClients.add(client);
@@ -397,6 +407,16 @@ public class ScanManager {
                     }
                 }
             }
+        }
+
+        private boolean requiresScreenOn(ScanClient client) {
+            boolean isFiltered = (client.filters != null) && !client.filters.isEmpty();
+            return !mScanNative.isOpportunisticScanClient(client) && !isFiltered;
+        }
+
+        private boolean requiresLocationOn(ScanClient client) {
+            boolean isFiltered = (client.filters != null) && !client.filters.isEmpty();
+            return !client.hasDisavowedLocation && !isFiltered;
         }
 
         void handleStopScan(ScanClient client) {
@@ -479,8 +499,8 @@ public class ScanManager {
 
         void handleSuspendScans() {
             for (ScanClient client : mRegularScanClients) {
-                if (!mScanNative.isOpportunisticScanClient(client) && (client.filters == null
-                        || client.filters.isEmpty())) {
+                if ((requiresScreenOn(client) && !isScreenOn())
+                        || (requiresLocationOn(client) && !mLocationManager.isLocationEnabled())) {
                     /*Suspend unfiltered scans*/
                     if (client.stats != null) {
                         client.stats.recordScanSuspend(client.scannerId);
@@ -505,10 +525,13 @@ public class ScanManager {
 
         void handleResumeScans() {
             for (ScanClient client : mSuspendedScanClients) {
-                if (client.stats != null) {
-                    client.stats.recordScanResume(client.scannerId);
+                if ((!requiresScreenOn(client) || isScreenOn())
+                        && (!requiresLocationOn(client) || mLocationManager.isLocationEnabled())) {
+                    if (client.stats != null) {
+                        client.stats.recordScanResume(client.scannerId);
+                    }
+                    handleStartScan(client);
                 }
-                handleStartScan(client);
             }
             mSuspendedScanClients.clear();
         }
@@ -575,6 +598,8 @@ public class ScanManager {
         private static final int SCAN_MODE_BALANCED_INTERVAL_MS = 4096;
         private static final int SCAN_MODE_LOW_LATENCY_WINDOW_MS = 4096;
         private static final int SCAN_MODE_LOW_LATENCY_INTERVAL_MS = 4096;
+        private static final int SCAN_MODE_AMBIENT_DISCOVERY_WINDOW_MS = 128;
+        private static final int SCAN_MODE_AMBIENT_DISCOVERY_INTERVAL_MS = 640;
 
         /**
          * Onfound/onlost for scan settings
@@ -593,6 +618,8 @@ public class ScanManager {
         private static final int SCAN_MODE_BATCH_BALANCED_INTERVAL_MS = 15000;
         private static final int SCAN_MODE_BATCH_LOW_LATENCY_WINDOW_MS = 1500;
         private static final int SCAN_MODE_BATCH_LOW_LATENCY_INTERVAL_MS = 5000;
+        private static final int SCAN_MODE_BATCH_AMBIENT_DISCOVERY_WINDOW_MS = 1500;
+        private static final int SCAN_MODE_BATCH_AMBIENT_DISCOVERY_INTERVAL_MS = 15000;
 
         // The logic is AND for each filter field.
         private static final int LIST_LOGIC_TYPE = 0x1111111;
@@ -753,13 +780,12 @@ public class ScanManager {
 
         ScanClient getAggressiveClient(Set<ScanClient> cList) {
             ScanClient result = null;
-            int curScanSetting = Integer.MIN_VALUE;
+            int currentScanModePriority = Integer.MIN_VALUE;
             for (ScanClient client : cList) {
-                // ScanClient scan settings are assumed to be monotonically increasing in value for
-                // more power hungry(higher duty cycle) operation.
-                if (client.settings.getScanMode() > curScanSetting) {
+                int priority = mPriorityMap.get(client.settings.getScanMode());
+                if (priority > currentScanModePriority) {
                     result = client;
-                    curScanSetting = client.settings.getScanMode();
+                    currentScanModePriority = priority;
                 }
             }
             return result;
@@ -937,6 +963,8 @@ public class ScanManager {
                     return SCAN_MODE_BATCH_BALANCED_WINDOW_MS;
                 case ScanSettings.SCAN_MODE_LOW_POWER:
                     return SCAN_MODE_BATCH_LOW_POWER_WINDOW_MS;
+                case ScanSettings.SCAN_MODE_AMBIENT_DISCOVERY:
+                    return SCAN_MODE_BATCH_AMBIENT_DISCOVERY_WINDOW_MS;
                 default:
                     return SCAN_MODE_BATCH_LOW_POWER_WINDOW_MS;
             }
@@ -950,6 +978,8 @@ public class ScanManager {
                     return SCAN_MODE_BATCH_BALANCED_INTERVAL_MS;
                 case ScanSettings.SCAN_MODE_LOW_POWER:
                     return SCAN_MODE_BATCH_LOW_POWER_INTERVAL_MS;
+                case ScanSettings.SCAN_MODE_AMBIENT_DISCOVERY:
+                    return SCAN_MODE_BATCH_AMBIENT_DISCOVERY_INTERVAL_MS;
                 default:
                     return SCAN_MODE_BATCH_LOW_POWER_INTERVAL_MS;
             }
@@ -1325,6 +1355,8 @@ public class ScanManager {
                         resolver,
                         Settings.Global.BLE_SCAN_LOW_POWER_WINDOW_MS,
                         SCAN_MODE_LOW_POWER_WINDOW_MS);
+                case ScanSettings.SCAN_MODE_AMBIENT_DISCOVERY:
+                    return SCAN_MODE_AMBIENT_DISCOVERY_WINDOW_MS;
                 default:
                     return Settings.Global.getInt(
                         resolver,
@@ -1357,6 +1389,8 @@ public class ScanManager {
                         resolver,
                         Settings.Global.BLE_SCAN_LOW_POWER_INTERVAL_MS,
                         SCAN_MODE_LOW_POWER_INTERVAL_MS);
+                case ScanSettings.SCAN_MODE_AMBIENT_DISCOVERY:
+                    return SCAN_MODE_AMBIENT_DISCOVERY_INTERVAL_MS;
                 default:
                     return Settings.Global.getInt(
                         resolver,
@@ -1553,7 +1587,7 @@ public class ScanManager {
                     String action = intent.getAction();
                     if (LocationManager.MODE_CHANGED_ACTION.equals(action)) {
                         final boolean locationEnabled = mLocationManager.isLocationEnabled();
-                        if (locationEnabled && isScreenOn()) {
+                        if (locationEnabled) {
                             sendMessage(MSG_RESUME_SCANS, null);
                         } else {
                             sendMessage(MSG_SUSPEND_SCANS, null);

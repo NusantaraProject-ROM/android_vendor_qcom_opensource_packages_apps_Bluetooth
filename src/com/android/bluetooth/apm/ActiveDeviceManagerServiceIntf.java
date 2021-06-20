@@ -129,6 +129,49 @@ public class ActiveDeviceManagerServiceIntf {
 
     }
 
+    public boolean isRecordingActive(BluetoothDevice device) {
+        if(activeDeviceManagerService == null)
+            return false;
+
+        Class[] arg = new Class[1];
+        arg[0] = BluetoothDevice.class;
+
+        try {
+            Method isRecordingActive = activeDeviceManagerService.getDeclaredMethod("isRecordingActive", arg);
+            Boolean ret = (Boolean)isRecordingActive.invoke(mActiveDeviceManagerService, device);
+            return ret;
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+
+        return false;
+    }
+    public boolean suspendRecording(Boolean suspend) {
+        if(activeDeviceManagerService == null)
+            return false;
+
+        Class[] arg = new Class[1];
+        arg[0] = Boolean.class;
+
+        try {
+            Method suspendRecording = activeDeviceManagerService.getDeclaredMethod("suspendRecording", arg);
+            Boolean ret = (Boolean)suspendRecording.invoke(mActiveDeviceManagerService, suspend);
+            return ret;
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+
+        return false;
+    }
+
     public boolean setActiveDevice(BluetoothDevice device, int mAudioType) {
         if(activeDeviceManagerService == null)
             return false;

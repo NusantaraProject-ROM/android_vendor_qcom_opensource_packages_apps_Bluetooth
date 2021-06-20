@@ -66,6 +66,7 @@ public class Config {
     private static Class mPCServiceClass = null;
     private static Class mCcServiceClass = null;
     private static Class mGroupServiceClass = null;
+    private static ArrayList<Class> profiles = new ArrayList<>();
 
     static {
         mBCServiceClass = ReflectionUtils.getRequiredClass(
@@ -186,10 +187,12 @@ public class Config {
             return;
         }
 
-        AdapterService.setAdvanceAudioSupport();
-        initAdvAudioConfig(ctx);
+        if (isAdvAudioAvailable()) {
+            AdapterService.setAdvanceAudioSupport();
+            initAdvAudioConfig(ctx);
+        }
 
-        ArrayList<Class> profiles = new ArrayList<>(PROFILE_SERVICES_AND_FLAGS.length);
+        profiles.clear();
         for (ProfileConfig config : PROFILE_SERVICES_AND_FLAGS) {
             boolean supported = resources.getBoolean(config.mSupported);
 
@@ -212,7 +215,8 @@ public class Config {
     }
 
     static void initAdvAudioSupport(Context ctx) {
-        if (ctx == null) {
+        if (ctx == null || !isAdvAudioAvailable()) {
+            Log.w(TAG, "Context is null or advance audio features are unavailable");
             return;
         }
 
@@ -225,9 +229,10 @@ public class Config {
                                     "persist.vendor.service.bt.adv_audio_mask", 0);
         boolean isCCEnabled = SystemProperties.getBoolean(
                                     "persist.vendor.service.bt.cc", false);
+        setAdvAudioMaskFromHostAddOnBits();
 
         Log.d(TAG, "adv_audio_feature_mask = " + adv_audio_feature_mask);
-        ArrayList<Class> profiles = new ArrayList<>();
+        ArrayList<Class> advAudioProfiles = new ArrayList<>();
 
         /* Add common advance audio profiles */
         if (((adv_audio_feature_mask & ADV_AUDIO_UNICAST_FEAT_MASK) != 0) ||
@@ -244,7 +249,7 @@ public class Config {
                         continue;
                     }
                     Log.d(TAG, "Adding " + config.mClass.getSimpleName());
-                    profiles.add(config.mClass);
+                    advAudioProfiles.add(config.mClass);
                 }
             }
         }
@@ -256,7 +261,7 @@ public class Config {
                 boolean supported = resources.getBoolean(config.mSupported);
                 if (supported && config.mClass != null) {
                     Log.d(TAG, "Adding " + config.mClass.getSimpleName());
-                    profiles.add(config.mClass);
+                    advAudioProfiles.add(config.mClass);
                 }
             }
         }
@@ -281,15 +286,15 @@ public class Config {
                         continue;
                     }
                     Log.d(TAG, "Adding " + config.mClass.getSimpleName());
-                    profiles.add(config.mClass);
+                    advAudioProfiles.add(config.mClass);
                 }
             }
         }
 
         // Copy advance audio profiles to sSupportedProfiles
         List<Class> allProfiles = new ArrayList<Class>();
-        Collections.addAll(allProfiles, sSupportedProfiles);
         allProfiles.addAll(profiles);
+        allProfiles.addAll(advAudioProfiles);
         sSupportedProfiles = allProfiles.toArray(new Class[allProfiles.size()]);
     }
 
@@ -298,11 +303,28 @@ public class Config {
                                     "persist.vendor.service.bt.adv_audio_mask", 0);
         Log.d(TAG, "initAdvAudioConfig: adv_audio_feature_mask = " + adv_audio_feature_mask);
         if (!isLC3CodecSupported(ctx)) {
-            Log.w(TAG, "LC3 Codec is not supported.");
             adv_audio_feature_mask &= ~ADV_AUDIO_UNICAST_FEAT_MASK;
             adv_audio_feature_mask &= ~ADV_AUDIO_BCS_FEAT_MASK;
             SystemProperties.set("persist.vendor.service.bt.adv_audio_mask",
-                String.valueOf(adv_audio_feature_mask));
+                    String.valueOf(adv_audio_feature_mask));
+            SystemProperties.set("persist.vendor.btstack.lc3_reset_adv_audio_mask",
+                    "true");
+            Log.w(TAG, "LC3 Codec is not supported. adv_audio_feature_mask = "
+                    + adv_audio_feature_mask);
+        } else {
+            /* Recovery mechanism to re-enable LC3 based features */
+            boolean isLC3Reenabled = SystemProperties.getBoolean(
+                   "persist.vendor.btstack.lc3_reset_adv_audio_mask", false);
+            if (isLC3Reenabled) {
+                adv_audio_feature_mask |= ADV_AUDIO_UNICAST_FEAT_MASK;
+                adv_audio_feature_mask |= ADV_AUDIO_BCS_FEAT_MASK;
+                SystemProperties.set("persist.vendor.service.bt.adv_audio_mask",
+                        String.valueOf(adv_audio_feature_mask));
+                SystemProperties.set("persist.vendor.btstack.lc3_reset_adv_audio_mask",
+                        "false");
+                Log.i(TAG, "LC3 is reenabled. Updated adv_audio_feature_mask = "
+                        + adv_audio_feature_mask);
+            }
         }
     }
 
@@ -321,6 +343,40 @@ public class Config {
       }
 
       return isLC3Supported;
+    }
+
+    /* API to set Advance Audio mask based in Host AddOn Feature bits */
+    private static void setAdvAudioMaskFromHostAddOnBits() {
+        AdapterService service = AdapterService.getAdapterService();
+        if (service == null){
+            Log.e(TAG, "Adapter Service is NULL.");
+            return;
+        }
+
+        if (!service.isHostAdvAudioUnicastFeatureSupported() &&
+                !service.isHostAdvAudioStereoRecordingFeatureSupported()) {
+            Log.i(TAG, "Stereo recording and unicast features are disabled"
+                    + " in Host AddOn features");
+            adv_audio_feature_mask &= ~ADV_AUDIO_UNICAST_FEAT_MASK;
+        }
+
+        if (!service.isHostAdvAudioBCAFeatureSupported()) {
+            Log.i(TAG, "Broadcast Assist disabled in Host AddOn features");
+            adv_audio_feature_mask &= ~ADV_AUDIO_BCA_FEAT_MASK;
+        }
+
+        if (!service.isHostAdvAudioBCSFeatureSupported()) {
+            Log.i(TAG, "Broadcast Source disabled in Host AddOn features");
+            adv_audio_feature_mask &= ~ADV_AUDIO_BCS_FEAT_MASK;
+        }
+
+        SystemProperties.set("persist.vendor.service.bt.adv_audio_mask",
+                String.valueOf(adv_audio_feature_mask));
+    }
+
+    /* Returns true if advance audio project is available */
+    public static boolean isAdvAudioAvailable() {
+        return (mGroupServiceClass != null ? true : false);
     }
 
     static Class[] getSupportedProfiles() {

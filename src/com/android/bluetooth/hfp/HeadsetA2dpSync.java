@@ -44,6 +44,8 @@ import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ServiceFactory;
 import java.util.Objects;
 import java.lang.reflect.*;
+import com.android.bluetooth.apm.ApmConstIntf;
+import com.android.bluetooth.apm.ActiveDeviceManagerServiceIntf;
 
 /**
  * Defines methods used for synchronization between HFP and A2DP
@@ -126,7 +128,24 @@ public class HeadsetA2dpSync {
      * if A2DP is not connected, don't do anything.
      * caller need to send reason for suspend request( VR/CS-CALL/VOIP-CALL)
      */
-    public boolean suspendA2DP(int reason, BluetoothDevice device){
+
+    public void updateSuspendState() {
+      if(ApmConstIntf.getLeAudioEnabled()) {
+          ActiveDeviceManagerServiceIntf mActiveDeviceManager =
+                  ActiveDeviceManagerServiceIntf.get();
+          /*Precautionary Change: Force Active Device Manager
+           * to always return true*/
+          if(mActiveDeviceManager.isRecordingActive(null)) {
+            mActiveDeviceManager.suspendRecording(true);
+          } else {
+            mSystemInterface.getAudioManager().setParameters("A2dpSuspended=true");
+          }
+      } else {
+          mSystemInterface.getAudioManager().setParameters("A2dpSuspended=true");
+      }
+    }
+
+    public boolean suspendA2DP(int reason, BluetoothDevice device) {
         int a2dpState = isA2dpPlaying();
         String a2dpSuspendStatus;
 
@@ -200,11 +219,11 @@ public class HeadsetA2dpSync {
             if (is_broadcast_streaming) {
                 Log.d(TAG," Broadcast Playing ,wait for suspend ");
                 mA2dpSuspendTriggered = reason;
-                mSystemInterface.getAudioManager().setParameters("A2dpSuspended=true");
+                updateSuspendState();
                 return true;
             } else {
                 mA2dpSuspendTriggered = reason;
-                mSystemInterface.getAudioManager().setParameters("A2dpSuspended=true");
+                updateSuspendState();
                 Log.d(TAG, "Broadcast is in configured state, dont wait for suspend");
                 return false;
             }
@@ -216,13 +235,13 @@ public class HeadsetA2dpSync {
         }
         if(a2dpState == A2DP_CONNECTED) {
             mA2dpSuspendTriggered = reason;
-            mSystemInterface.getAudioManager().setParameters("A2dpSuspended=true");
+            updateSuspendState();
             Log.d(TAG," A2DP Connected,don't wait for suspend ");
             return false;
         }
         if(a2dpState == A2DP_PLAYING) {
             mA2dpSuspendTriggered = reason;
-            mSystemInterface.getAudioManager().setParameters("A2dpSuspended=true");
+            updateSuspendState();
             Log.d(TAG," A2DP Playing ,wait for suspend ");
             return true;
         }
@@ -245,7 +264,20 @@ public class HeadsetA2dpSync {
         }
         // A2DP Suspend was triggered by HFP.
         mA2dpSuspendTriggered = A2DP_SUSPENDED_NOT_TRIGGERED;
-        mSystemInterface.getAudioManager().setParameters("A2dpSuspended=false");
+
+        if(ApmConstIntf.getLeAudioEnabled()) {
+            ActiveDeviceManagerServiceIntf mActiveDeviceManager =
+                    ActiveDeviceManagerServiceIntf.get();
+            /*Precautionary Change: Force Active Device Manager
+             * to always return true*/
+            if(mActiveDeviceManager.isRecordingActive(null)) {
+              mActiveDeviceManager.suspendRecording(false);
+            } else {
+              mSystemInterface.getAudioManager().setParameters("A2dpSuspended=false");
+            }
+        } else {
+            mSystemInterface.getAudioManager().setParameters("A2dpSuspended=false");
+        }
         return true;
     }
 

@@ -89,6 +89,8 @@ public class GattService extends ProfileService {
     private static final boolean DBG = GattServiceConfig.DBG;
     private static final boolean VDBG = GattServiceConfig.VDBG;
     private static final String TAG = GattServiceConfig.TAG_PREFIX + "GattService";
+    private static final String UUID_SUFFIX = "-0000-1000-8000-00805f9b34fb";
+    private static final String UUID_ZERO_PAD = "00000000";
 
     static final int SCAN_FILTER_ENABLED = 1;
     static final int SCAN_FILTER_MODIFIED = 2;
@@ -364,25 +366,25 @@ public class GattService extends ProfileService {
                 Log.d(TAG, "Binder is dead - unregistering scanner (" + mScannerId + ")!");
             }
 
-            if (isScanClient(mScannerId)) {
-                ScanClient client = new ScanClient(mScannerId);
+            ScanClient client = getScanClient(mScannerId);
+            if (client != null) {
                 client.appDied = true;
-                stopScan(client);
+                stopScan(client.scannerId);
             }
         }
 
-        private boolean isScanClient(int clientIf) {
+        private ScanClient getScanClient(int clientIf) {
             for (ScanClient client : mScanManager.getRegularScanQueue()) {
                 if (client.scannerId == clientIf) {
-                    return true;
+                    return client;
                 }
             }
             for (ScanClient client : mScanManager.getBatchScanQueue()) {
                 if (client.scannerId == clientIf) {
-                    return true;
+                    return client;
                 }
             }
-            return false;
+            return null;
         }
     }
 
@@ -527,7 +529,7 @@ public class GattService extends ProfileService {
             if (service == null) {
                 return;
             }
-            service.stopScan(new ScanClient(scannerId));
+            service.stopScan(scannerId);
         }
 
         @Override
@@ -723,7 +725,7 @@ public class GattService extends ProfileService {
         @Override
         public void leConnectionUpdate(int clientIf, String address,
                 int minConnectionInterval, int maxConnectionInterval,
-                int slaveLatency, int supervisionTimeout,
+                int peripheralLatency, int supervisionTimeout,
                 int minConnectionEventLen, int maxConnectionEventLen,
                 AttributionSource attributionSource) {
             GattService service = getService();
@@ -731,7 +733,7 @@ public class GattService extends ProfileService {
                 return;
             }
             service.leConnectionUpdate(clientIf, address, minConnectionInterval,
-                                       maxConnectionInterval, slaveLatency,
+                                       maxConnectionInterval, peripheralLatency,
                                        supervisionTimeout, minConnectionEventLen,
                                        maxConnectionEventLen);
         }
@@ -1189,7 +1191,7 @@ public class GattService extends ProfileService {
             } catch (RemoteException | PendingIntent.CanceledException e) {
                 Log.e(TAG, "Exception: " + e);
                 mScannerMap.remove(client.scannerId);
-                mScanManager.stopScan(client);
+                mScanManager.stopScan(client.scannerId);
             }
         }
     }
@@ -1201,7 +1203,7 @@ public class GattService extends ProfileService {
         try {
             sendResultsByPendingIntent(pii, results, callbackType);
         } catch (PendingIntent.CanceledException e) {
-            stopScan(client);
+            stopScan(client.scannerId);
             unregisterScanner(client.scannerId);
         }
     }
@@ -1253,7 +1255,9 @@ public class GattService extends ProfileService {
 
     /** Determines if the given scan client has the appropriate permissions to receive callbacks. */
     private boolean hasScanResultPermission(final ScanClient client) {
-        if (client.hasNetworkSettingsPermission || client.hasNetworkSetupWizardPermission) {
+        if (client.hasNetworkSettingsPermission
+                || client.hasNetworkSetupWizardPermission
+                || client.hasScanWithoutLocationPermission) {
             return true;
         }
         return client.hasLocationPermission && !Utils.blockedByLocationOff(this, client.userHandle);
@@ -1804,7 +1808,7 @@ public class GattService extends ProfileService {
         } catch (RemoteException | PendingIntent.CanceledException e) {
             Log.e(TAG, "Exception: " + e);
             mScannerMap.remove(client.scannerId);
-            mScanManager.stopScan(client);
+            mScanManager.stopScan(client.scannerId);
         }
     }
 
@@ -2229,13 +2233,20 @@ public class GattService extends ProfileService {
                 Utils.checkCallerHasNetworkSettingsPermission(this);
         scanClient.hasNetworkSetupWizardPermission =
                 Utils.checkCallerHasNetworkSetupWizardPermission(this);
+        scanClient.hasScanWithoutLocationPermission =
+                Utils.checkCallerHasScanWithoutLocationPermission(this);
         scanClient.associatedDevices = getAssociatedDevices(callingPackage, scanClient.userHandle);
 
         AppScanStats app = mScannerMap.getAppScanStatsById(scannerId);
+        ScannerMap.App cbApp = mScannerMap.getById(scannerId);
         if (app != null) {
             scanClient.stats = app;
             boolean isFilteredScan = (filters != null) && !filters.isEmpty();
-            app.recordScanStart(settings, isFilteredScan, scannerId);
+            boolean isCallbackScan = false;
+            if (cbApp != null) {
+                isCallbackScan = cbApp.callback != null;
+            }
+            app.recordScanStart(settings, filters, isFilteredScan, isCallbackScan, scannerId);
         }
 
         mScanManager.startScan(scanClient);
@@ -2266,6 +2277,13 @@ public class GattService extends ProfileService {
         piInfo.settings = settings;
         piInfo.filters = filters;
         piInfo.callingPackage = callingPackage;
+
+        // Don't start scan if the Pi scan already in mScannerMap.
+        if (mScannerMap.getByContextInfo(piInfo) != null) {
+            Log.d(TAG, "Don't startScan(PI) since the same Pi scan already in mScannerMap.");
+            return;
+        }
+
         ScannerMap.App app = mScannerMap.add(uuid, null, null, piInfo, this);
         app.mUserHandle = UserHandle.of(UserHandle.getCallingUserId());
         mAppOps.checkPackage(Binder.getCallingUid(), callingPackage);
@@ -2290,6 +2308,8 @@ public class GattService extends ProfileService {
                 Utils.checkCallerHasNetworkSettingsPermission(this);
         app.mHasNetworkSetupWizardPermission =
                 Utils.checkCallerHasNetworkSetupWizardPermission(this);
+        app.mHasScanWithoutLocationPermission =
+                Utils.checkCallerHasScanWithoutLocationPermission(this);
         app.mAssociatedDevices = getAssociatedDevices(callingPackage, app.mUserHandle);
         mScanManager.registerScanner(uuid);
     }
@@ -2305,13 +2325,15 @@ public class GattService extends ProfileService {
                 app.mEligibleForSanitizedExposureNotification;
         scanClient.hasNetworkSettingsPermission = app.mHasNetworkSettingsPermission;
         scanClient.hasNetworkSetupWizardPermission = app.mHasNetworkSetupWizardPermission;
+        scanClient.hasScanWithoutLocationPermission = app.mHasScanWithoutLocationPermission;
         scanClient.associatedDevices = app.mAssociatedDevices;
 
         AppScanStats scanStats = mScannerMap.getAppScanStatsById(scannerId);
         if (scanStats != null) {
             scanClient.stats = scanStats;
             boolean isFilteredScan = (piInfo.filters != null) && !piInfo.filters.isEmpty();
-            scanStats.recordScanStart(piInfo.settings, isFilteredScan, scannerId);
+            scanStats.recordScanStart(
+                    piInfo.settings, piInfo.filters, isFilteredScan, false, scannerId);
         }
 
         mScanManager.startScan(scanClient);
@@ -2324,7 +2346,7 @@ public class GattService extends ProfileService {
         mScanManager.flushBatchScanResults(new ScanClient(scannerId));
     }
 
-    void stopScan(ScanClient client) {
+    void stopScan(int scannerId) {
         if (!Utils.checkScanPermissionForPreflight(this)) {
             return;
         }
@@ -2335,12 +2357,12 @@ public class GattService extends ProfileService {
         }
 
         AppScanStats app = null;
-        app = mScannerMap.getAppScanStatsById(client.scannerId);
+        app = mScannerMap.getAppScanStatsById(scannerId);
         if (app != null) {
-            app.recordScanStop(client.scannerId);
+            app.recordScanStop(scannerId);
         }
         if (mScanManager != null) {
-            mScanManager.stopScan(client);
+            mScanManager.stopScan(scannerId);
         }
     }
 
@@ -2357,7 +2379,7 @@ public class GattService extends ProfileService {
         }
         if (app != null) {
             final int scannerId = app.id;
-            stopScan(new ScanClient(scannerId));
+            stopScan(scannerId);
             // Also unregister the scanner
             unregisterScanner(scannerId);
         }
@@ -2407,7 +2429,7 @@ public class GattService extends ProfileService {
             if (DBG) Log.d(TAG, "unreg:" + appId);
             if (isScanClient(appId)) {
                 ScanClient client = new ScanClient(appId);
-                stopScan(client);
+                stopScan(client.scannerId);
                 unregisterScanner(appId);
             }
         }
@@ -2929,7 +2951,7 @@ public class GattService extends ProfileService {
         int minInterval;
         int maxInterval;
 
-        // Slave latency
+        // Peripheral latency
         int latency;
 
         // Link supervision timeout is measured in N * 10ms
@@ -2967,7 +2989,7 @@ public class GattService extends ProfileService {
     }
 
     void leConnectionUpdate(int clientIf, String address, int minInterval,
-                            int maxInterval, int slaveLatency,
+                            int maxInterval, int peripheralLatency,
                             int supervisionTimeout, int minConnectionEventLen,
                             int maxConnectionEventLen) {
         if (!Utils.checkConnectPermissionForPreflight(this)) {
@@ -2976,14 +2998,14 @@ public class GattService extends ProfileService {
 
         if (DBG) {
             Log.d(TAG, "leConnectionUpdate() - address=" + address + ", intervals="
-                        + minInterval + "/" + maxInterval + ", latency=" + slaveLatency
+                        + minInterval + "/" + maxInterval + ", latency=" + peripheralLatency
                         + ", timeout=" + supervisionTimeout + "msec" + ", min_ce="
                         + minConnectionEventLen + ", max_ce=" + maxConnectionEventLen);
 
 
         }
         gattConnectionParameterUpdateNative(clientIf, address, minInterval, maxInterval,
-                                            slaveLatency, supervisionTimeout,
+                                            peripheralLatency, supervisionTimeout,
                                             minConnectionEventLen, maxConnectionEventLen);
     }
 
@@ -3541,6 +3563,11 @@ public class GattService extends ProfileService {
             return false;
         }
 
+        // Ambient discovery mode, needs privileged permission.
+        if (settings.getScanMode() == ScanSettings.SCAN_MODE_AMBIENT_DISCOVERY) {
+            return true;
+        }
+
         // Regular scan, no special permission.
         if (settings.getReportDelayMillis() == 0) {
             return false;
@@ -3610,7 +3637,8 @@ public class GattService extends ProfileService {
         }
     }
 
-    private List<UUID> parseUuids(byte[] advData) {
+    @VisibleForTesting
+    List<UUID> parseUuids(byte[] advData) {
         List<UUID> uuids = new ArrayList<UUID>();
 
         int offset = 0;
@@ -3628,8 +3656,10 @@ public class GattService extends ProfileService {
                         int uuid16 = advData[offset++];
                         uuid16 += (advData[offset++] << 8);
                         len -= 2;
-                        uuids.add(UUID.fromString(
-                                String.format("%08x-0000-1000-8000-00805f9b34fb", uuid16)));
+                        String uuid_prefix = Integer.toHexString(uuid16);
+                        // Pad zeroes to make uuid_prefix length exactly 8.
+                        uuids.add(UUID.fromString(UUID_ZERO_PAD.substring(uuid_prefix.length())
+                                                  + uuid_prefix + UUID_SUFFIX));
                     }
                     break;
 
@@ -3642,6 +3672,22 @@ public class GattService extends ProfileService {
         return uuids;
     }
 
+    void dumpRegisterId(StringBuilder sb) {
+        sb.append("  Scanner:\n");
+        for (Integer appId : mScannerMap.getAllAppsIds()) {
+            println(sb, "    app_if: " + appId + ", appName: " + mScannerMap.getById(appId).name);
+        }
+        sb.append("  Client:\n");
+        for (Integer appId : mClientMap.getAllAppsIds()) {
+            println(sb, "    app_if: " + appId + ", appName: " + mClientMap.getById(appId).name);
+        }
+        sb.append("  Server:\n");
+        for (Integer appId : mServerMap.getAllAppsIds()) {
+            println(sb, "    app_if: " + appId + ", appName: " + mServerMap.getById(appId).name);
+        }
+        sb.append("\n\n");
+    }
+
     @Override
     public void dump(StringBuilder sb) {
         super.dump(sb);
@@ -3652,7 +3698,10 @@ public class GattService extends ProfileService {
 
         println(sb, "mMaxScanFilters: " + mMaxScanFilters);
 
-        sb.append("\nGATT Scanner Map\n");
+        sb.append("\nRegistered App\n");
+        dumpRegisterId(sb);
+
+        sb.append("GATT Scanner Map\n");
         mScannerMap.dump(sb);
 
         sb.append("GATT Client Map\n");

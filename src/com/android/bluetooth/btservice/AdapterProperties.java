@@ -157,6 +157,13 @@ class AdapterProperties {
     private boolean mBroadcastAudioRxwithEC_2_5;
     private boolean mBroadcastAudioRxwithEC_3_9;
     private boolean mAddonFeaturesSupported;
+    private boolean mHostAdvAudioUnicastFeatureSupported;
+    private boolean mHostAdvAudioBCAFeatureSupported;
+    private boolean mHostAdvAudioBCSFeatureSupported;
+    private boolean mHostAdvAudioStereoRecordingFeatureSupported;
+    private boolean mHostAdvAudioLC3QFeatureSupported;
+    private boolean mHostQHSFeatureSupported;
+    private boolean mHostAddonFeaturesSupported;
 
     private int mIsDynamicAudioBufferSizeSupported;
     private int mDynamicAudioBufferSizeSupportedCodecsGroup1;
@@ -769,6 +776,55 @@ class AdapterProperties {
         return mAddonFeaturesSupported;
     }
 
+     /**
+     * @return Host Adv Audio Unicast feature supported
+     */
+    boolean isHostAdvAudioUnicastFeatureSupported() {
+        return mHostAdvAudioUnicastFeatureSupported;
+    }
+
+    /**
+     * @return Host Adv Audio BCA feature supported
+     */
+    boolean isHostAdvAudioBCAFeatureSupported() {
+        return mHostAdvAudioBCAFeatureSupported;
+    }
+
+    /**
+     * @return Host Adv Audio BCS feature supported
+     */
+    boolean isHostAdvAudioBCSFeatureSupported() {
+        return mHostAdvAudioBCSFeatureSupported;
+    }
+
+    /**
+     * @return Host Adv Audio StereoRecording feature supported
+     */
+    boolean isHostAdvAudioStereoRecordingFeatureSupported() {
+        return mHostAdvAudioStereoRecordingFeatureSupported;
+    }
+
+    /**
+     * @return Host Adv Audio LC3Q feature supported
+     */
+    boolean isHostAdvAudioLC3QFeatureSupported() {
+        return mHostAdvAudioLC3QFeatureSupported;
+    }
+
+    /**
+     * @return Host QHS feature supported
+     */
+    boolean isHostQHSFeatureSupported() {
+        return mHostQHSFeatureSupported;
+    }
+
+    /**
+     * @return Host AddonFeatures Support status
+     */
+    boolean isHostAddonFeaturesSupported() {
+        return mHostAddonFeaturesSupported;
+    }
+
     /**
      * @return Dynamic Audio Buffer support
      */
@@ -1343,7 +1399,37 @@ class AdapterProperties {
     }
 
     public void updateHostFeatureSupport(byte[] val) {
-         Log.d(TAG, " Host Features are not supported currently ");
+         mHostAddonFeaturesSupported = (val.length != 0);
+         if (!mHostAddonFeaturesSupported) {
+             if (DBG) {
+                 Log.d(TAG, "BT_PROPERTY_HOST_ADD_ON_FEATURES: host add-on features not supported");
+             }
+         } else {
+             mHostAdvAudioUnicastFeatureSupported = ((0x01 & ((int) val[0])) != 0);
+             mHostAdvAudioBCAFeatureSupported = ((0x02 & ((int) val[0])) != 0);
+             mHostAdvAudioBCSFeatureSupported = ((0x04 & ((int) val[0])) != 0);
+             mHostAdvAudioStereoRecordingFeatureSupported = ((0x08 & ((int) val[0])) != 0);
+             mHostAdvAudioLC3QFeatureSupported = ((0x10 & ((int) val[0])) != 0);
+             mHostQHSFeatureSupported = ((0x20 & ((int) val[0])) != 0);
+             /* bit 7 and 8 of first byte reserved for future use
+             */
+
+             if (DBG) {
+                 Log.d(TAG, "BT_PROPERTY_HOST_ADD_ON_FEATURES: update from BT HAL"
+                         + "\n mHostAdvAudioUnicastFeatureSupported = "
+                         + mHostAdvAudioUnicastFeatureSupported
+                         + "\n mHostAdvAudioBCAFeatureSupported = "
+                         + mHostAdvAudioBCAFeatureSupported
+                         + "\n mHostAdvAudioBCSFeatureSupported = "
+                         + mHostAdvAudioBCSFeatureSupported
+                         + "\n mHostAdvAudioStereoRecordingFeatureSupported = "
+                         + mHostAdvAudioStereoRecordingFeatureSupported
+                         + "\n mHostAdvAudioLC3QFeatureSupported = "
+                         + mHostAdvAudioLC3QFeatureSupported
+                         + "\n mHostQHSFeatureSupported = "
+                         + mHostQHSFeatureSupported);
+             }
+         }
     }
 
     private void updateDynamicAudioBufferSupport(byte[] val) {
