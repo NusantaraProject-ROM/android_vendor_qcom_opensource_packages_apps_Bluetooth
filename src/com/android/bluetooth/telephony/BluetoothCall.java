@@ -240,7 +240,10 @@ public class BluetoothCall {
     }
 
     public String getGenericConferenceActiveChildCallId() {
-        return mCall.getGenericConferenceActiveChildCall().getDetails().getTelecomCallId();
+        if (mCall.getGenericConferenceActiveChildCall() != null) {
+           return mCall.getGenericConferenceActiveChildCall().getDetails().getTelecomCallId();
+        }
+        return null;
     }
 
     public String getContactDisplayName() {
