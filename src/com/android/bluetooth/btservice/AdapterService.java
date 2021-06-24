@@ -51,14 +51,19 @@
 
 package com.android.bluetooth.btservice;
 
+import static com.android.bluetooth.Utils.callerIsSystemOrActiveOrManagedUser;
 import static com.android.bluetooth.Utils.callerIsSystemOrActiveUser;
 import static com.android.bluetooth.Utils.enforceBluetoothPrivilegedPermission;
 import static com.android.bluetooth.Utils.enforceCdmAssociation;
 import static com.android.bluetooth.Utils.hasBluetoothPrivilegedPermission;
+import static com.android.bluetooth.Utils.enforceDumpPermission;
+import static com.android.bluetooth.Utils.enforceLocalMacAddressPermission;
 import static com.android.bluetooth.Utils.hasBluetoothPrivilegedPermission;
 import static com.android.bluetooth.Utils.isPackageNameAccurate;
 
-
+import android.annotation.NonNull;
+import android.annotation.RequiresPermission;
+import android.annotation.SuppressLint;
 import android.app.ActivityManager;
 import android.app.AlarmManager;
 import android.app.AppOpsManager;
@@ -1704,40 +1709,22 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean enable(boolean quietMode,AttributionSource attributionSource) {
-            if ((Binder.getCallingUid() != Process.SYSTEM_UID) && (!Utils.checkCaller())) {
-                Log.w(TAG, "enable() - Not allowed for non-active user and non system user");
-                return false;
-            }
+        public boolean enable(boolean quietMode, AttributionSource attributionSource) {
             AdapterService service = getService();
-            if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
+            if (service == null || !callerIsSystemOrActiveUser(TAG, "enable")
+                    || !Utils.checkConnectPermissionForDataDelivery(
+                            service, attributionSource, "AdapterService enable")) {
                 return false;
             }
             return service.enable();
         }
 
-        public boolean enableNoAutoConnect() {
-            if ((Binder.getCallingUid() != Process.SYSTEM_UID) && (!Utils.checkCaller())) {
-                Log.w(TAG, "enableNoAuto() - Not allowed for non-active user and non system user");
-                return false;
-            }
-
-            AdapterService service = getService();
-            if (service == null) {
-                return false;
-            }
-            return service.enableNoAutoConnect();
-        }
-
         @Override
         public boolean disable(AttributionSource attributionSource) {
-            if ((Binder.getCallingUid() != Process.SYSTEM_UID) && (!Utils.checkCaller())) {
-                Log.w(TAG, "disable() - Not allowed for non-active user and non system user");
-                return false;
-            }
-
             AdapterService service = getService();
-            if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
+            if (service == null || !callerIsSystemOrActiveUser(TAG, "disable")
+                    || !Utils.checkConnectPermissionForDataDelivery(
+                            service, attributionSource, "AdapterService disable")) {
                 return false;
             }
             return service.disable();
@@ -1745,196 +1732,195 @@ public class AdapterService extends Service {
 
         @Override
         public String getAddress() {
-            if ((Binder.getCallingUid() != Process.SYSTEM_UID)
-                    && (!Utils.checkCallerAllowManagedProfiles(mService))) {
-                Log.w(TAG, "getAddress() - Not allowed for non-active user and non system user");
-                return null;
-            }
-
-            AdapterService service = getService();
-            if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
-                return null;
-            }
-            return service.getAddress();
+            return getAddressWithAttribution(Utils.getCallingAttributionSource());
         }
+
         @Override
         public String getAddressWithAttribution(AttributionSource attributionSource) {
-          // implement as necessary
-          return getAddress();
+            AdapterService service = getService();
+            if (service == null || !callerIsSystemOrActiveOrManagedUser(service, TAG, "getAddress")
+                    || !Utils.checkConnectPermissionForDataDelivery(
+                            service, attributionSource, "AdapterService getAddress")) {
+                return null;
+            }
+
+            enforceLocalMacAddressPermission(service);
+
+            return Utils.getAddressStringFromByte(service.mAdapterProperties.getAddress());
         }
+
         @Override
         public ParcelUuid[] getUuids(AttributionSource attributionSource) {
-            if (!Utils.checkCaller()) {
-                Log.w(TAG, "getUuids() - Not allowed for non-active user");
+            AdapterService service = getService();
+            if (service == null || !callerIsSystemOrActiveUser(TAG, "getUuids")
+                    || !Utils.checkConnectPermissionForDataDelivery(
+                            service, attributionSource, "AdapterService getUuids")) {
                 return new ParcelUuid[0];
             }
 
-            AdapterService service = getService();
-            if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
-                return new ParcelUuid[0];
-            }
-            return service.getUuids();
+            return service.mAdapterProperties.getUuids();
         }
 
         @Override
         public String getName(AttributionSource attributionSource) {
-            if ((Binder.getCallingUid() != Process.SYSTEM_UID) && (!Utils.checkCaller())) {
-                Log.w(TAG, "getName() - Not allowed for non-active user and non system user");
+            AdapterService service = getService();
+            if (service == null || !callerIsSystemOrActiveUser(TAG, "getName")
+                    || !Utils.checkConnectPermissionForDataDelivery(
+                            service, attributionSource, "AdapterService getName")) {
                 return null;
             }
 
-            AdapterService service = getService();
-            if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
-                return null;
-            }
             return service.getName();
         }
+
         @Override
-        public int getNameLengthForAdvertise(AttributionSource source) {
-            // Add real implementation
-            if ((Binder.getCallingUid() != Process.SYSTEM_UID) && (!Utils.checkCaller())) {
-                Log.w(TAG, "getName() - Not allowed for non-active user and non system user");
-                return 0;
+        public int getNameLengthForAdvertise(AttributionSource attributionSource) {
+            AdapterService service = getService();
+            if (service == null || !callerIsSystemOrActiveUser(TAG, "getNameLengthForAdvertise")
+                    || !Utils.checkAdvertisePermissionForDataDelivery(
+                            service, attributionSource, TAG)) {
+                return -1;
             }
 
-            AdapterService service = getService();
-            if (service == null) {
-              return 0;
-            }
-            String oStr = service.getName();
-            return oStr.length();
+            return service.getNameLengthForAdvertise();
         }
+
         @Override
         public boolean setName(String name, AttributionSource attributionSource) {
-            if (!Utils.checkCaller()) {
-                Log.w(TAG, "setName() - Not allowed for non-active user");
+            AdapterService service = getService();
+            if (service == null || !callerIsSystemOrActiveUser(TAG, "setName")
+                    || !Utils.checkConnectPermissionForDataDelivery(
+                            service, attributionSource, "AdapterService setName")) {
                 return false;
             }
 
-            AdapterService service = getService();
-            if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
-                return false;
-            }
-            return service.setName(name);
+            return service.mAdapterProperties.setName(name);
         }
 
         @Override
         public BluetoothClass getBluetoothClass(AttributionSource attributionSource) {
-            if (!Utils.checkCaller()) {
-                Log.w(TAG, "getBluetoothClass() - Not allowed for non-active user");
+            AdapterService service = getService();
+            if (service == null || !callerIsSystemOrActiveUser(TAG, "getBluetoothClass")
+                    || !Utils.checkConnectPermissionForDataDelivery(
+                            service, attributionSource, "AdapterSource getBluetoothClass")) {
                 return null;
             }
 
-            AdapterService service = getService();
-            if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
-                return null;
-            }
-            return service.getBluetoothClass();
+            return service.mAdapterProperties.getBluetoothClass();
         }
 
         @Override
         public boolean setBluetoothClass(BluetoothClass bluetoothClass, AttributionSource source) {
-            if (!Utils.checkCaller()) {
-                Log.w(TAG, "setBluetoothClass() - Not allowed for non-active user");
+            AdapterService service = getService();
+            if (service == null
+                    || !Utils.checkCallerIsSystemOrActiveUser(TAG)
+                    || !Utils.checkConnectPermissionForDataDelivery(service, source, TAG)) {
                 return false;
             }
 
-            AdapterService service = getService();
-            if (service == null) {
-                return false;
+            enforceBluetoothPrivilegedPermission(service);
+
+            if (!service.mAdapterProperties.setBluetoothClass(bluetoothClass)) {
+              return false;
             }
-            return service.setBluetoothClass(bluetoothClass);
+
+            return Settings.Global.putInt(
+                    service.getContentResolver(),
+                    Settings.Global.BLUETOOTH_CLASS_OF_DEVICE,
+                    bluetoothClass.getClassOfDevice());
         }
 
         @Override
         public int getIoCapability(AttributionSource attributionSource) {
-            if (!Utils.checkCaller()) {
-                Log.w(TAG, "setBluetoothClass() - Not allowed for non-active user");
+            AdapterService service = getService();
+            if (service == null || !callerIsSystemOrActiveUser(TAG, "getIoCapability")
+                    || !Utils.checkConnectPermissionForDataDelivery(
+                            service, attributionSource, "AdapterService getIoCapability")) {
                 return BluetoothAdapter.IO_CAPABILITY_UNKNOWN;
             }
 
-            AdapterService service = getService();
-            if (service == null  || !Utils.checkConnectPermissionForPreflight(service)) {
-                return BluetoothAdapter.IO_CAPABILITY_UNKNOWN;
-            }
-            return service.getIoCapability();
+            return service.mAdapterProperties.getIoCapability();
         }
 
         @Override
         public boolean setIoCapability(int capability, AttributionSource source) {
-            if (!Utils.checkCaller()) {
-                Log.w(TAG, "setBluetoothClass() - Not allowed for non-active user");
+            AdapterService service = getService();
+            if (service == null
+                    || !Utils.checkCallerIsSystemOrActiveUser(TAG)
+                    || !Utils.checkConnectPermissionForDataDelivery(service, source, TAG)) {
                 return false;
             }
 
-            AdapterService service = getService();
-            if (service == null) return false;
-            return service.setIoCapability(capability);
+            enforceBluetoothPrivilegedPermission(service);
+
+            if (!isValidIoCapability(capability)) {
+              return false;
+            }
+
+            return service.mAdapterProperties.setIoCapability(capability);
         }
 
         @Override
         public int getLeIoCapability(AttributionSource attributionSource) {
-            if (!Utils.checkCaller()) {
-                Log.w(TAG, "setBluetoothClass() - Not allowed for non-active user");
+            AdapterService service = getService();
+            if (service == null || !callerIsSystemOrActiveUser(TAG, "getLeIoCapability")
+                    || !Utils.checkConnectPermissionForDataDelivery(
+                            service, attributionSource, "AdapterService getLeIoCapability")) {
                 return BluetoothAdapter.IO_CAPABILITY_UNKNOWN;
             }
 
-            AdapterService service = getService();
-            if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
-                return BluetoothAdapter.IO_CAPABILITY_UNKNOWN;
-            }
-            return service.getLeIoCapability();
+            return service.mAdapterProperties.getLeIoCapability();
         }
 
         @Override
         public boolean setLeIoCapability(int capability, AttributionSource source) {
-            if (!Utils.checkCaller()) {
-                Log.w(TAG, "setBluetoothClass() - Not allowed for non-active user");
+            AdapterService service = getService();
+            if (service == null
+                    || !Utils.checkCallerIsSystemOrActiveUser(TAG)
+                    || !Utils.checkConnectPermissionForDataDelivery(service, source, TAG)) {
                 return false;
             }
 
-            AdapterService service = getService();
-            if (service == null) return false;
-            return service.setLeIoCapability(capability);
+            enforceBluetoothPrivilegedPermission(service);
+
+            if (!isValidIoCapability(capability)) {
+              return false;
+            }
+
+            return service.mAdapterProperties.setLeIoCapability(capability);
         }
 
         @Override
         public int getScanMode(AttributionSource attributionSource) {
-            if (!Utils.checkCallerAllowManagedProfiles(mService)) {
-                Log.w(TAG, "getScanMode() - Not allowed for non-active user");
+            AdapterService service = getService();
+            if (service == null || !callerIsSystemOrActiveOrManagedUser(service, TAG, "getScanMode")
+                    || !Utils.checkScanPermissionForDataDelivery(
+                            service, attributionSource, "AdapterService getScanMode")) {
                 return BluetoothAdapter.SCAN_MODE_NONE;
             }
 
-            AdapterService service = getService();
-            if (service == null || !Utils.checkScanPermissionForPreflight(service)) {
-                return BluetoothAdapter.SCAN_MODE_NONE;
-            }
-            return service.getScanMode();
+            return service.mAdapterProperties.getScanMode();
         }
 
         @Override
         public boolean setScanMode(int mode, int duration, AttributionSource attributionSource) {
-            if (!Utils.checkCaller()) {
-                Log.w(TAG, "setScanMode() - Not allowed for non-active user");
+            AdapterService service = getService();
+            if (service == null || !callerIsSystemOrActiveUser(TAG, "setScanMode")
+                    || !Utils.checkScanPermissionForDataDelivery(
+                            service, attributionSource, "AdapterService setScanMode")) {
                 return false;
             }
 
-            AdapterService service = getService();
-            if (service == null || !Utils.checkScanPermissionForPreflight(service)) {
-                return false;
-            }
-            return service.setScanMode(mode, duration);
+            service.mAdapterProperties.setDiscoverableTimeout(duration);
+            return service.mAdapterProperties.setScanMode(convertScanModeToHal(mode));
         }
 
         @Override
         public int getDiscoverableTimeout(AttributionSource attributionSource) {
-            if (!Utils.checkCaller()) {
-                Log.w(TAG, "getDiscoverableTimeout() - Not allowed for non-active user");
-                return 0;
-            }
-
             AdapterService service = getService();
-            if (service == null) {
+            if (service == null || !callerIsSystemOrActiveUser(TAG, "getDiscoverableTimeout")
+                    || !Utils.checkScanPermissionForDataDelivery(
+                            service, attributionSource, "AdapterService getDiscoverableTimeout")) {
                 return 0;
             }
             return service.getDiscoverableTimeout();
@@ -1942,13 +1928,10 @@ public class AdapterService extends Service {
 
         @Override
         public boolean setDiscoverableTimeout(int timeout, AttributionSource attributionSource) {
-            if (!Utils.checkCaller()) {
-                Log.w(TAG, "setDiscoverableTimeout() - Not allowed for non-active user");
-                return false;
-            }
-
             AdapterService service = getService();
-            if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
+            if (service == null || !callerIsSystemOrActiveUser(TAG, "setDiscoverableTimeout")
+                    || !Utils.checkScanPermissionForDataDelivery(
+                            service, attributionSource, "AdapterService setDiscoverableTimeout")) {
                 return false;
             }
             return service.setDiscoverableTimeout(timeout);
@@ -1956,18 +1939,13 @@ public class AdapterService extends Service {
 
         @Override
         public boolean startDiscovery(AttributionSource attributionSource) {
-            if (!Utils.checkCaller()) {
-                Log.w(TAG, "startDiscovery() - Not allowed for non-active user");
-                return false;
-            }
-
             AdapterService service = getService();
-            if (service == null) {
+            if (service == null || !callerIsSystemOrActiveUser(TAG, "startDiscovery")) {
                 return false;
             }
 
             if (!Utils.checkScanPermissionForDataDelivery(
-                     service, attributionSource, "Starting discovery.")) {
+                    service, attributionSource, "Starting discovery.")) {
                 return false;
             }
 
@@ -1976,56 +1954,50 @@ public class AdapterService extends Service {
 
         @Override
         public boolean cancelDiscovery(AttributionSource attributionSource) {
-            if (!Utils.checkCaller()) {
-                Log.w(TAG, "cancelDiscovery() - Not allowed for non-active user");
-                return false;
-            }
-
             AdapterService service = getService();
-            if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
+            if (service == null || !callerIsSystemOrActiveUser(TAG, "cancelDiscovery")
+                    || !Utils.checkScanPermissionForDataDelivery(
+                            service, attributionSource, "AdapterService cancelDiscovery")) {
                 return false;
             }
+            service.debugLog("cancelDiscovery");
             return service.cancelDiscovery();
         }
 
         @Override
         public boolean isDiscovering(AttributionSource attributionSource) {
-            if (!Utils.checkCallerAllowManagedProfiles(mService)) {
-                Log.w(TAG, "isDiscovering() - Not allowed for non-active user");
+            AdapterService service = getService();
+            if (service == null
+                    || !callerIsSystemOrActiveOrManagedUser(service, TAG, "isDiscovering")
+                    || !Utils.checkScanPermissionForDataDelivery(
+                            service, attributionSource, "AdapterService isDiscovering")) {
                 return false;
             }
 
-            AdapterService service = getService();
-            if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
-                return false;
-            }
             return service.isDiscovering();
         }
 
         @Override
         public long getDiscoveryEndMillis(AttributionSource source) {
-            if (!Utils.checkCaller()) {
-                Log.w(TAG, "getDiscoveryEndMillis() - Not allowed for non-active user");
-                return -1;
-            }
-
             AdapterService service = getService();
-            if (service == null) {
+            if (service == null
+                    || !Utils.checkCallerIsSystemOrActiveUser(TAG)
+                    || !Utils.checkConnectPermissionForDataDelivery(service, source, TAG)) {
                 return -1;
             }
+            enforceBluetoothPrivilegedPermission(service);
             return service.getDiscoveryEndMillis();
         }
 
         @Override
         public List<BluetoothDevice> getMostRecentlyConnectedDevices(
-            AttributionSource attributionSource) {
+                AttributionSource attributionSource) {
             // don't check caller, may be called from system UI
             AdapterService service = getService();
-            if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
+            if (service == null || !Utils.checkConnectPermissionForDataDelivery(
+                    service, attributionSource, "AdapterService getMostRecentlyConnectedDevices")) {
                 return new ArrayList<>();
             }
-
-            Context context = service;
 
             return service.mDatabaseManager.getMostRecentlyConnectedDevices();
         }
@@ -2034,7 +2006,8 @@ public class AdapterService extends Service {
         public BluetoothDevice[] getBondedDevices(AttributionSource attributionSource) {
             // don't check caller, may be called from system UI
             AdapterService service = getService();
-            if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
+            if (service == null || !Utils.checkConnectPermissionForDataDelivery(
+                    service, attributionSource, "AdapterService getBondedDevices")) {
                 return new BluetoothDevice[0];
             }
             return service.getBondedDevices();
@@ -2044,21 +2017,22 @@ public class AdapterService extends Service {
         public int getAdapterConnectionState() {
             // don't check caller, may be called from system UI
             AdapterService service = getService();
-            if (service == null|| !Utils.checkConnectPermissionForPreflight(service)) {
+            if (service == null) {
                 return BluetoothAdapter.STATE_DISCONNECTED;
             }
             return service.getAdapterConnectionState();
         }
 
+        /**
+         * This method has an associated binder cache.  The invalidation
+         * methods must be changed if the logic behind this method changes.
+         */
         @Override
         public int getProfileConnectionState(int profile) {
-            if (!Utils.checkCallerAllowManagedProfiles(mService)) {
-                Log.w(TAG, "getProfileConnectionState- Not allowed for non-active user");
-                return BluetoothProfile.STATE_DISCONNECTED;
-            }
-
             AdapterService service = getService();
-            if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
+            if (service == null
+                    || !callerIsSystemOrActiveOrManagedUser(
+                            service, TAG, "getProfileConnectionState")) {
                 return BluetoothProfile.STATE_DISCONNECTED;
             }
             return service.getProfileConnectionState(profile);
@@ -2067,13 +2041,10 @@ public class AdapterService extends Service {
         @Override
         public boolean createBond(BluetoothDevice device, int transport, OobData remoteP192Data,
                 OobData remoteP256Data, AttributionSource attributionSource) {
-            if (!Utils.checkCallerAllowManagedProfiles(mService)) {
-                Log.w(TAG, "createBond() - Not allowed for non-active user");
-                return false;
-            }
-
             AdapterService service = getService();
-            if (service == null) {
+            if (service == null || !callerIsSystemOrActiveOrManagedUser(service, TAG, "createBond")
+                    || !Utils.checkConnectPermissionForDataDelivery(
+                            service, attributionSource, "AdapterService createBond")) {
                 return false;
             }
             // This conditional is required to satisfy permission dependencies
@@ -2107,16 +2078,14 @@ public class AdapterService extends Service {
 
         @Override
         public boolean cancelBondProcess(
-            BluetoothDevice device, AttributionSource attributionSource) {
-            if (!Utils.checkCaller()) {
-                Log.w(TAG, "cancelBondProcess() - Not allowed for non-active user");
+                BluetoothDevice device, AttributionSource attributionSource) {
+            AdapterService service = getService();
+            if (service == null || !callerIsSystemOrActiveUser(TAG, "cancelBondProcess")
+                    || !Utils.checkConnectPermissionForDataDelivery(
+                            service, attributionSource, "AdapterService cancelBondProcess")) {
                 return false;
             }
 
-            AdapterService service = getService();
-            if (service == null || !Utils.checkConnectPermissionForPreflight(service)) {
-                return false;
-            }
             return service.cancelBondProcess(device);
         }
 
@@ -2945,10 +2914,6 @@ public class AdapterService extends Service {
         return enable(false);
     }
 
-    public boolean enableNoAutoConnect() {
-        return enable(true);
-    }
-
     public synchronized boolean enable(boolean quietMode) {
         if (!Utils.checkConnectPermissionForPreflight(this)) {
             return false;
@@ -3007,6 +2972,19 @@ public class AdapterService extends Service {
             debugLog("getName() - Unexpected exception (" + t + ")");
         }
         return null;
+    }
+
+    public int getNameLengthForAdvertise() {
+        return mAdapterProperties.getName().length();
+    }
+
+    private static boolean isValidIoCapability(int capability) {
+        if (capability < 0 || capability >= BluetoothAdapter.IO_CAPABILITY_MAX) {
+            Log.e(TAG, "Invalid IO capability value - " + capability);
+            return false;
+        }
+
+        return true;
     }
 
     boolean setName(String name) {
@@ -3235,14 +3213,14 @@ public class AdapterService extends Service {
         } else if (Utils.checkCallerHasNetworkSetupWizardPermission(this)) {
             permission = android.Manifest.permission.NETWORK_SETUP_WIZARD;
         } else if (isQApp) {
-            if (!Utils.checkCallerHasFineLocation(this, mAppOps, callingPackage,
-                    attributionSource.getAttributionTag(), callingUser)) {
+            if (!Utils.checkCallerHasFineLocation(this,
+                    attributionSource, callingUser)) {
                 return false;
             }
             permission = android.Manifest.permission.ACCESS_FINE_LOCATION;
         } else {
-            if (!Utils.checkCallerHasCoarseLocation(this, mAppOps, callingPackage,
-                    attributionSource.getAttributionTag(), callingUser)) {
+            if (!Utils.checkCallerHasCoarseLocation(this,
+                    attributionSource, callingUser)) {
                 return false;
             }
             permission = android.Manifest.permission.ACCESS_COARSE_LOCATION;
@@ -4958,7 +4936,6 @@ public class AdapterService extends Service {
     }
 
     private BluetoothActivityEnergyInfo reportActivityInfo() {
-        enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED, "Need BLUETOOTH permission");
         if (mAdapterProperties.getState() != BluetoothAdapter.STATE_ON
                 || !mAdapterProperties.isActivityAndEnergyReportingSupported()) {
             return null;

@@ -47,12 +47,14 @@ import android.provider.Telephony.Sms.Inbox;
 import android.telephony.PhoneStateListener;
 import android.telephony.ServiceState;
 import android.telephony.SmsManager;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.util.Log;
 import android.util.Xml;
 
+import com.android.bluetooth.Utils;
 import com.android.bluetooth.map.BluetoothMapUtils.TYPE;
 import com.android.bluetooth.map.BluetoothMapbMessageMime.MimePart;
 import com.android.bluetooth.mapapi.BluetoothMapContract;
@@ -3496,9 +3498,8 @@ public class BluetoothMapContentObserver {
 
     public static void actionSmsSentDisconnected(Context context, Intent intent, int result) {
         /* Check permission for message deletion. */
-        if ((Binder.getCallingPid() != Process.myPid()) || (
-                context.checkCallingOrSelfPermission("android.Manifest.permission.WRITE_SMS")
-                        != PackageManager.PERMISSION_GRANTED)) {
+        if ((Binder.getCallingPid() != Process.myPid())
+                || !Utils.checkCallerHasWriteSmsPermission(context)) {
             Log.w(TAG, "actionSmsSentDisconnected: Not allowed to delete SMS/MMS messages");
             return;
         }
