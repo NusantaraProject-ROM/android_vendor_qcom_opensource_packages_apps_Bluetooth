@@ -521,6 +521,12 @@ public final class Utils {
     @RequiresPermission(android.Manifest.permission.BLUETOOTH_ADVERTISE)
     public static boolean checkAdvertisePermissionForDataDelivery(
             Context context, AttributionSource attributionSource, String message) {
+        if (attributionSource != null &&
+            attributionSource.getPackageName().equals("com.android.bluetooth")) {
+            // This is a WAR for BDCST security exception. It will be removed once
+            // the proper fix is identified.
+            return true;
+        }
         return checkPermissionForDataDelivery(context, BLUETOOTH_ADVERTISE,
                 attributionSource, message);
     }
