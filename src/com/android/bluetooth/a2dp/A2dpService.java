@@ -831,6 +831,38 @@ public class A2dpService extends ProfileService {
         }
     }
 
+    private boolean removeA2dpDevice() {
+        boolean ret = false;
+        try {
+            mA2dpNativeInterfaceLock.readLock().lock();
+            if (mA2dpNativeInterface != null) {
+                ret = mA2dpNativeInterface.setActiveDevice(null);
+            }
+        } finally {
+            mA2dpNativeInterfaceLock.readLock().unlock();
+        }
+        if(!ret) {
+            Log.d(TAG," removeA2dpDevice(): Rejected by Native");
+            return false;
+        }
+
+        if(isA2dpPlaying(mActiveDevice)) {
+            mShoActive = true;
+        }
+
+        synchronized (mBtA2dpLock) {
+            synchronized (mStateMachines) {
+                if (mFactory.getAvrcpTargetService() != null) {
+                    mFactory.getAvrcpTargetService().volumeDeviceSwitched(null);
+                }
+
+                mActiveDevice = null;
+            }
+        }
+
+        return true;
+    }
+
     private void removeActiveDevice(boolean forceStopPlayingAudio) {
         BluetoothDevice previousActiveDevice = mActiveDevice;
         Log.d(TAG," removeActiveDevice(): forceStopPlayingAudio:  " + forceStopPlayingAudio);
@@ -989,11 +1021,15 @@ public class A2dpService extends ProfileService {
         }
 
         if (setActiveDeviceA2dp(device)) {
-            if(!playReq || isInCall || isFMActive) {
-                return ActiveDeviceManagerServiceIntf.SHO_SUCCESS;
-            } else {
+            if(playReq && !(isInCall || isFMActive)) {
                 mShoActive = true;
+            }
+
+            if(mShoActive) {
+                Log.d(TAG, "SHO is not fully complete, return pending");
                 return ActiveDeviceManagerServiceIntf.SHO_PENDING;
+            } else {
+                return ActiveDeviceManagerServiceIntf.SHO_SUCCESS;
             }
         }
 
@@ -1149,8 +1185,7 @@ public class A2dpService extends ProfileService {
                 if(mAvrcp_ext != null)
                     mAvrcp_ext.setActiveDevice(device);
             }
-            removeActiveDevice(false);
-            return true;
+            return removeA2dpDevice();
         }
 
         synchronized (mBtA2dpLock) {

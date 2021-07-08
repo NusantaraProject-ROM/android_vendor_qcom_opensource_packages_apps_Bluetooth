@@ -17,6 +17,7 @@
 package com.android.bluetooth.btservice;
 
 import static android.Manifest.permission.BLUETOOTH_CONNECT;
+import static android.Manifest.permission.BLUETOOTH_SCAN;
 
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothA2dpSink;
@@ -152,6 +153,8 @@ class AdapterProperties {
     private boolean mVoiceDualSCO;
     private boolean mVoiceTWSPLUSeSCOAG;
     private boolean mSWBVoicewithAptxAdaptiveAG;
+    private boolean mSplitA2DPSourceAACABR;
+    private boolean mSplitA2DPSourceTxSplitAPTXADAPTIVE;
     private boolean mBroadcastAudioTxwithEC_2_5;
     private boolean mBroadcastAudioTxwithEC_3_9;
     private boolean mBroadcastAudioRxwithEC_2_5;
@@ -742,6 +745,20 @@ class AdapterProperties {
     }
 
     /**
+     * @return Split A2DP Source AAC ABR status
+     */
+    boolean isSplitA2DPSourceAACABR() {
+        return mSplitA2DPSourceAACABR;
+    }
+
+    /**
+     * @return Split A2DP Source Tx-Split APTX ADAPTIVE status
+     */
+    boolean isSplitA2DPSourceTxSplitAPTXADAPTIVE() {
+        return mSplitA2DPSourceTxSplitAPTXADAPTIVE;
+    }
+
+    /**
      * @return Broadcast Audio Tx with EC_2_5 status
      */
     boolean isBroadcastAudioTxwithEC_2_5() {
@@ -1039,7 +1056,8 @@ class AdapterProperties {
                     Log.w(TAG, "ADAPTER_CONNECTION_STATE_CHANGE: unexpected transition for profile="
                             + profile + ", device=" + device + ", " + prevState + " -> " + state);
                 }
-                mService.sendBroadcastAsUser(intent, UserHandle.ALL, BLUETOOTH_CONNECT);
+                mService.sendBroadcastAsUser(intent, UserHandle.ALL, BLUETOOTH_CONNECT,
+                        Utils.getTempAllowlistBroadcastOptions());
             }
         }
     }
@@ -1210,7 +1228,7 @@ class AdapterProperties {
                         intent.putExtra(BluetoothAdapter.EXTRA_LOCAL_NAME, mName);
                         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
                         mService.sendBroadcastAsUser(intent, UserHandle.ALL,
-                                BLUETOOTH_CONNECT);
+                                BLUETOOTH_CONNECT, Utils.getTempAllowlistBroadcastOptions());
                         debugLog("Name is: " + mName);
                         break;
                     case AbstractionLayer.BT_PROPERTY_BDADDR:
@@ -1221,7 +1239,7 @@ class AdapterProperties {
                         intent.putExtra(BluetoothAdapter.EXTRA_BLUETOOTH_ADDRESS, address);
                         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
                         mService.sendBroadcastAsUser(intent, UserHandle.ALL,
-                                BLUETOOTH_CONNECT);
+                                BLUETOOTH_CONNECT, Utils.getTempAllowlistBroadcastOptions());
                         break;
                     case AbstractionLayer.BT_PROPERTY_CLASS_OF_DEVICE:
                         if (val == null || val.length != 3) {
@@ -1241,7 +1259,8 @@ class AdapterProperties {
                         intent = new Intent(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED);
                         intent.putExtra(BluetoothAdapter.EXTRA_SCAN_MODE, mScanMode);
                         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
-                        mService.sendBroadcast(intent, BLUETOOTH_CONNECT);
+                        mService.sendBroadcast(intent, BLUETOOTH_SCAN,
+                                Utils.getTempAllowlistBroadcastOptions());
                         debugLog("Scan Mode:" + mScanMode);
                         break;
                     case AbstractionLayer.BT_PROPERTY_UUIDS:
@@ -1360,6 +1379,8 @@ class AdapterProperties {
             mVoiceDualSCO = ((0x01 & ((int) val[3])) != 0);
             mVoiceTWSPLUSeSCOAG = ((0x02 & ((int) val[3])) != 0);
             mSWBVoicewithAptxAdaptiveAG = ((0x04 & ((int) val[3])) != 0);
+            mSplitA2DPSourceAACABR =  ((0x40 & ((int) val[3])) != 0);
+            mSplitA2DPSourceTxSplitAPTXADAPTIVE = ((0x80 & ((int) val[3])) != 0);
             mBroadcastAudioTxwithEC_2_5 = ((0x01 & ((int) val[4])) != 0);
             mBroadcastAudioTxwithEC_3_9 = ((0x02 & ((int) val[4])) != 0);
             mBroadcastAudioRxwithEC_2_5 = ((0x04 & ((int) val[4])) != 0);
@@ -1390,7 +1411,9 @@ class AdapterProperties {
                     + "\n mSplitA2DPSinkAPTXTWSPLUS = " + mSplitA2DPSinkAPTXTWSPLUS
                     + "\n mVoiceDualSCO = " + mVoiceDualSCO + "\n mVoiceTWSPLUSeSCOAG = "
                     + mVoiceTWSPLUSeSCOAG + "\n mSWBVoicewithAptxAdaptiveAG = "
-                    + mSWBVoicewithAptxAdaptiveAG + "\n BroadcastAudioTxwithEC_2_5 = "
+                    + mSWBVoicewithAptxAdaptiveAG + "\n SplitA2DPSourceAACABR = "
+                    + mSplitA2DPSourceAACABR + "\n SplitA2DPSourceTxSplitAPTXADAPTIVE = "
+                    + mSplitA2DPSourceTxSplitAPTXADAPTIVE + "\n BroadcastAudioTxwithEC_2_5 = "
                     + mBroadcastAudioTxwithEC_2_5 + "\n mBroadcastAudioTxwithEC_3_9 = "
                     + mBroadcastAudioTxwithEC_3_9 + "\n mBroadcastAudioRxwithEC_2_5 = "
                     + mBroadcastAudioRxwithEC_2_5 + "\n mBroadcastAudioRxwithEC_3_9= "
@@ -1497,12 +1520,14 @@ class AdapterProperties {
                 mService.clearDiscoveringPackages();
                 mDiscoveryEndMs = System.currentTimeMillis();
                 intent = new Intent(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
-                mService.sendBroadcast(intent, BLUETOOTH_CONNECT);
+                mService.sendBroadcast(intent, BLUETOOTH_SCAN,
+                        Utils.getTempAllowlistBroadcastOptions());
             } else if (state == AbstractionLayer.BT_DISCOVERY_STARTED) {
                 mDiscovering = true;
                 mDiscoveryEndMs = System.currentTimeMillis() + DEFAULT_DISCOVERY_TIMEOUT_MS;
                 intent = new Intent(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
-                mService.sendBroadcast(intent, BLUETOOTH_CONNECT);
+                mService.sendBroadcast(intent, BLUETOOTH_SCAN,
+                        Utils.getTempAllowlistBroadcastOptions());
             }
         }
     }

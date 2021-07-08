@@ -347,6 +347,29 @@ public class BluetoothInCallService extends InCallService {
         }
     }
 
+    public boolean terminateCall(int index) {
+        boolean ret = false;
+        synchronized (LOCK) {
+            enforceModifyPermission();
+            Log.i(TAG, "BT - terminate call: " + index);
+            int state = -1;
+            BluetoothCall call = null;
+            for (Map.Entry<BluetoothCall, Integer> entry : mClccIndexMap.entrySet()) {
+                if (index == entry.getValue()) {
+                    state = entry.getKey().getState();
+                    call = entry.getKey();
+                }
+            }
+            if (state == -1) {
+                Log.e(TAG, "no such call with Index");
+                return false;
+            }
+            call.disconnect();
+            ret = true;
+            return ret;
+        }
+    }
+
     public boolean sendDtmf(int dtmf) {
         synchronized (LOCK) {
             enforceModifyPermission();
@@ -470,6 +493,15 @@ public class BluetoothInCallService extends InCallService {
             long token = Binder.clearCallingIdentity();
             Log.i(TAG, "processChld " + chld);
             return _processChld(chld);
+        }
+    }
+
+    public boolean holdCall(int index) {
+        synchronized (LOCK) {
+            enforceModifyPermission();
+            long token = Binder.clearCallingIdentity();
+            Log.i(TAG, "holdCall " + index);
+            return _holdCall(index);
         }
     }
 
@@ -677,6 +709,52 @@ public class BluetoothInCallService extends InCallService {
         // NOTE: Indexes are removed in {@link #onCallRemoved}.
         mClccIndexMap.put(call, i);
         return i;
+    }
+    /*
+     * Hold the active or Incoming call based on parameter received
+     *
+     * return true on success, fail otherwise
+     */
+    private boolean _holdCall(int index) {
+        boolean ret = false;
+        int state = -1;
+        BluetoothCall call = null;
+        for (Map.Entry<BluetoothCall, Integer> entry : mClccIndexMap.entrySet()) {
+            if (index == entry.getValue()) {
+                state = entry.getKey().getState();
+                call = entry.getKey();
+            }
+        }
+        if (state == -1) {
+            Log.e(TAG, "no such call with Index");
+            return false;
+        }
+        boolean isForeground = mCallInfo.getForegroundCall() == call;
+        int btState = getBtCallState(call, isForeground);
+
+        if (btState == CALL_STATE_INCOMING) {
+            BluetoothCall ringingCall = mCallInfo.getRingingOrSimulatedRingingCall();
+            if (ringingCall == null) {
+                Log.i(TAG, "ringingCall null");
+            } else {
+               ringingCall.hold();
+               ret = true;
+            }
+        } else if (btState == CALL_STATE_ACTIVE) {
+            BluetoothCall activeCall = mCallInfo.getActiveCall();
+            if (activeCall == null) {
+                Log.i(TAG, "activeCall null");
+            }
+            Log.i(TAG, "activeCall.can(Connection.CAPABILITY_HOLD)" + activeCall.can(Connection.CAPABILITY_HOLD));
+            if (!mCallInfo.isNullCall(activeCall)
+                    && activeCall.can(Connection.CAPABILITY_HOLD)) {
+                Log.i(TAG, "holding activeCall");
+                activeCall.hold();
+                ret = true;
+            }
+
+        }
+        return ret;
     }
 
     private boolean _processChld(int chld) {

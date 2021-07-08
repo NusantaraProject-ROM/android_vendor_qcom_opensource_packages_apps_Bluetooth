@@ -16,6 +16,8 @@
 
 package com.android.bluetooth.btservice;
 
+import android.annotation.RequiresPermission;
+import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -415,6 +417,7 @@ public class ActiveDeviceManager {
     }
 
     /** Notifications of audio device connection and disconnection events. */
+    @SuppressLint("AndroidFrameworkRequiresPermission")
     private class AudioManagerAudioDeviceCallback extends AudioDeviceCallback {
         private boolean isWiredAudioHeadset(AudioDeviceInfo deviceInfo) {
             switch (deviceInfo.getType()) {
@@ -524,6 +527,7 @@ public class ActiveDeviceManager {
         return mHandlerThread.getLooper();
     }
 
+    @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
     private boolean setA2dpActiveDevice(BluetoothDevice device) {
         if (DBG) {
             Log.d(TAG, "setA2dpActiveDevice(" + device + ")");
@@ -539,6 +543,10 @@ public class ActiveDeviceManager {
         return true;
     }
 
+    @RequiresPermission(allOf = {
+            android.Manifest.permission.BLUETOOTH_CONNECT,
+            android.Manifest.permission.MODIFY_PHONE_STATE,
+    })
     private boolean setHfpActiveDevice(BluetoothDevice device) {
         if (DBG) {
             Log.d(TAG, "setHfpActiveDevice(" + device + ")");
@@ -554,6 +562,7 @@ public class ActiveDeviceManager {
         return true;
     }
 
+    @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
     private void setHearingAidActiveDevice(BluetoothDevice device) {
         if (DBG) {
             Log.d(TAG, "setHearingAidActiveDevice(" + device + ")");
@@ -617,6 +626,10 @@ public class ActiveDeviceManager {
      * It might be called multiple times each time a wired audio device is connected.
      */
     @VisibleForTesting
+    @RequiresPermission(allOf = {
+            android.Manifest.permission.BLUETOOTH_CONNECT,
+            android.Manifest.permission.MODIFY_PHONE_STATE,
+    })
     void wiredAudioDeviceConnected() {
         if (DBG) {
             Log.d(TAG, "wiredAudioDeviceConnected");

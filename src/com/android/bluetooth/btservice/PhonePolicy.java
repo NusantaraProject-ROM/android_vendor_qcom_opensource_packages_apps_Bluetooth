@@ -17,6 +17,7 @@
 
 package com.android.bluetooth.btservice;
 
+import android.annotation.RequiresPermission;
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothA2dpSink;
 import android.bluetooth.BluetoothAdapter;
@@ -315,6 +316,10 @@ class PhonePolicy {
     }
 
     // Policy implementation, all functions MUST be private
+    @RequiresPermission(allOf = {
+            android.Manifest.permission.BLUETOOTH_CONNECT,
+            android.Manifest.permission.BLUETOOTH_PRIVILEGED,
+    })
     private void processInitProfilePriorities(BluetoothDevice device, ParcelUuid[] uuids) {
 
         ParcelUuid ADV_AUDIO_T_MEDIA =
@@ -448,6 +453,10 @@ class PhonePolicy {
         //_REF*/
     }
 
+    @RequiresPermission(allOf = {
+            android.Manifest.permission.BLUETOOTH_CONNECT,
+            android.Manifest.permission.BLUETOOTH_PRIVILEGED,
+    })
     private void processProfileStateChanged(BluetoothDevice device, int profileId, int nextState,
             int prevState) {
         debugLog("processProfileStateChanged, device=" + device + ", profile=" + profileId + ", "
@@ -550,6 +559,10 @@ class PhonePolicy {
         mDatabaseManager.setConnection(device, false);
     }
 
+    @RequiresPermission(allOf = {
+            android.Manifest.permission.BLUETOOTH_CONNECT,
+            android.Manifest.permission.BLUETOOTH_PRIVILEGED,
+    })
     private boolean handleAllProfilesDisconnected(BluetoothDevice device) {
         boolean atLeastOneProfileConnectedForDevice = false;
         boolean allProfilesEmpty = true;
@@ -602,6 +615,10 @@ class PhonePolicy {
 
     // Delaying Auto Connect to make sure that all clients
     // are up and running, specially BluetoothHeadset.
+    @RequiresPermission(allOf = {
+            android.Manifest.permission.BLUETOOTH_CONNECT,
+            android.Manifest.permission.MODIFY_PHONE_STATE,
+    })
     public void autoConnect() {
         debugLog( "delay auto connect by 500 ms");
         if ((mHandler.hasMessages(MESSAGE_AUTO_CONNECT_PROFILES) == false) &&
@@ -676,6 +693,7 @@ class PhonePolicy {
         }
     }
 
+    @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
     private void autoConnectA2dp(BluetoothDevice device) {
         final A2dpService a2dpService = mFactory.getA2dpService();
         if (a2dpService == null) {
@@ -697,6 +715,10 @@ class PhonePolicy {
         }
     }
 
+    @RequiresPermission(allOf = {
+            android.Manifest.permission.BLUETOOTH_CONNECT,
+            android.Manifest.permission.MODIFY_PHONE_STATE,
+    })
     private void autoConnectHeadset(BluetoothDevice device) {
         final HeadsetService hsService = mFactory.getHeadsetService();
         if (hsService == null) {
@@ -814,6 +836,11 @@ class PhonePolicy {
     // profiles which are not already connected or in the process of connecting to attempt to
     // connect to the device that initiated the connection.  In the event that this function is
     // invoked and there are no current bluetooth connections no new profiles will be connected.
+    @RequiresPermission(allOf = {
+            android.Manifest.permission.BLUETOOTH_CONNECT,
+            android.Manifest.permission.BLUETOOTH_PRIVILEGED,
+            android.Manifest.permission.MODIFY_PHONE_STATE,
+    })
     private void processConnectOtherProfiles(BluetoothDevice device) {
         debugLog("processConnectOtherProfiles, device=" + device);
         if (mAdapterService.getState() != BluetoothAdapter.STATE_ON) {

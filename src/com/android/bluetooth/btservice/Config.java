@@ -361,12 +361,12 @@ public class Config {
         }
 
         if (!service.isHostAdvAudioBCAFeatureSupported()) {
-            Log.i(TAG, "Broadcast Assist disabled in Host AddOn features");
+            Log.i(TAG, "BCA disabled in Host AddOn features");
             adv_audio_feature_mask &= ~ADV_AUDIO_BCA_FEAT_MASK;
         }
 
         if (!service.isHostAdvAudioBCSFeatureSupported()) {
-            Log.i(TAG, "Broadcast Source disabled in Host AddOn features");
+            Log.i(TAG, "BCS disabled in Host AddOn features");
             adv_audio_feature_mask &= ~ADV_AUDIO_BCS_FEAT_MASK;
         }
 
@@ -436,7 +436,6 @@ public class Config {
             return false;
 
         boolean isBAEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bca", false);
-        boolean isBCEnabled = SystemProperties.getBoolean("persist.vendor.service.bt.bc", true);
         // Split A2dp will be enabled by default
         boolean isSplitA2dpEnabled = true;
         AdapterService adapterService = AdapterService.getAdapterService();
@@ -452,10 +451,6 @@ public class Config {
             Log.d(TAG," isBAEnabled = " + isBAEnabled
                           + " isSplitEnabled " + isSplitA2dpEnabled);
             return isBAEnabled && isSplitA2dpEnabled;
-        }
-        if(serviceName.equals("BCService")) {
-            Log.d(TAG," isBCEnabled = " + isBCEnabled);
-            return isBCEnabled;
         }
 
         // always return true for other profiles
