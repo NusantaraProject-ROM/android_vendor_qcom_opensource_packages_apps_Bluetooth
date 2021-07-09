@@ -238,6 +238,24 @@ public class CallAudioIntf {
         return false;
     }
 
+    public boolean isVoiceOrCallActive() {
+        if(CallAudio == null)
+            return false;
+
+        try {
+            Method isVoiceOrCallActive = CallAudio.getDeclaredMethod("isVoiceOrCallActive");
+            Boolean ret = (Boolean)isVoiceOrCallActive.invoke(mCallAudio);
+            return ret;
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+        return false;
+    }
+
     public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
         if(CallAudio == null)
             return false;
