@@ -142,8 +142,9 @@ public class Config {
             new ArrayList<ProfileConfig>(
                 Arrays.asList(
                     new ProfileConfig(ApmConstIntf.MusicPlayerControlService,
-                        R.bool.profile_supported_music_player_service, (1 << 11))
-
+                        R.bool.profile_supported_music_player_service, (1 << 11)),
+                    new ProfileConfig(mCcServiceClass, R.bool.profile_supported_cc_server,
+                        (1 << BluetoothProfile.CC_SERVER))
             ));
 
     /* List of Broadcast Advance Audio Profiles */
@@ -156,9 +157,7 @@ public class Config {
                          R.bool.profile_supported_broadcast,
                         (1 << BluetoothProfile.BROADCAST)),
                     new ProfileConfig(mPCServiceClass, R.bool.profile_supported_pc,
-                        (1 << BluetoothProfile.PC_PROFILE)),
-                    new ProfileConfig(mCcServiceClass, R.bool.profile_supported_cc_server,
-                        (1 << BluetoothProfile.CC_SERVER))
+                        (1 << BluetoothProfile.PC_PROFILE))
             ));
 
     /* List of Profiles common for Unicast and Broadcast advance audio features */
@@ -259,7 +258,11 @@ public class Config {
             for (ProfileConfig config : unicastAdvAudioProfiles) {
                 if (config.mClass == null) continue;
                 boolean supported = resources.getBoolean(config.mSupported);
-                if (supported && config.mClass != null) {
+                if (config.mClass.getSimpleName().equals("CCService") &&
+                    isCCEnabled == false) {
+                    Log.d(TAG," isCCEnabled = " + isCCEnabled);
+                    continue;
+                } else if (supported && config.mClass != null) {
                     Log.d(TAG, "Adding " + config.mClass.getSimpleName());
                     advAudioProfiles.add(config.mClass);
                 }
@@ -273,11 +276,7 @@ public class Config {
                 if (config.mClass == null) continue;
                 boolean supported = resources.getBoolean(config.mSupported);
                 if (supported && config.mClass != null) {
-                    if (config.mClass.getSimpleName().equals("CCService") &&
-                        isCCEnabled == false) {
-                        Log.d(TAG," isCCEnabled = " + isCCEnabled);
-                        continue;
-                    } else if ((config.mClass == mBroadcastClass) &&
+                    if ((config.mClass == mBroadcastClass) &&
                            (adv_audio_feature_mask & ADV_AUDIO_BCS_FEAT_MASK) == 0) {
                         continue;
                     } else if ((config.mClass == mBCServiceClass ||
