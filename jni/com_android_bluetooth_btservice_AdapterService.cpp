@@ -729,7 +729,7 @@ static void classInitNative(JNIEnv* env, jclass clazz) {
 }
 
 static bool initNative(JNIEnv* env, jobject obj, jboolean isGuest,
-                       jboolean isNiapMode,
+                       jboolean isCommonCriteriaMode,
                        int configCompareResult,
                        jboolean isAtvDevice,
                        jobjectArray initFlags) {
@@ -761,7 +761,7 @@ static bool initNative(JNIEnv* env, jobject obj, jboolean isGuest,
 
   int ret = sBluetoothInterface->init(&sBluetoothCallbacks,
                                       isGuest == JNI_TRUE ? 1 : 0,
-                                      isNiapMode == JNI_TRUE ? 1 : 0,
+                                      isCommonCriteriaMode == JNI_TRUE ? 1 : 0,
                                       configCompareResult, flags,
                                       isAtvDevice == JNI_TRUE ? 1 : 0);
 

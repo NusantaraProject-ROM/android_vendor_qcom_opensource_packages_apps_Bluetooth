@@ -98,7 +98,7 @@ public class ProfileServiceTest {
 
         mProfiles = Config.getSupportedProfiles();
 
-        mMockAdapterService.initNative(false /* is_restricted */, false /* is_niap_mode */,
+        mMockAdapterService.initNative(false /* is_restricted */, false /* is_common_criteria_mode */,
                 0 /* config_compare_result */, false,
                 new String[0]);
         TestUtils.setAdapterService(mMockAdapterService);
