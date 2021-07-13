@@ -2532,7 +2532,7 @@ public class HeadsetService extends ProfileService {
             int toState) {
         synchronized (mStateMachines) {
             List<BluetoothDevice> audioConnectableDevices =
-                    getDevicesMatchingConnectionStates(CONNECTING_CONNECTED_STATES);
+                                            getConnectedDevices();
             if (fromState != BluetoothProfile.STATE_CONNECTED
                     && toState == BluetoothProfile.STATE_CONNECTED) {
                 if (audioConnectableDevices.size() > 1 &&
