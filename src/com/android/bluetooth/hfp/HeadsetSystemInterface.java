@@ -21,6 +21,7 @@ import android.annotation.Nullable;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
 import com.android.bluetooth.telephony.BluetoothInCallService;
+import android.telephony.TelephonyManager;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
@@ -49,6 +50,7 @@ public class HeadsetSystemInterface {
     private final AudioManager mAudioManager;
     private final HeadsetPhoneState mHeadsetPhoneState;
     private PowerManager.WakeLock mVoiceRecognitionWakeLock;
+    private final TelephonyManager mTelephonyManager;
 
     HeadsetSystemInterface(HeadsetService headsetService) {
         if (headsetService == null) {
@@ -62,6 +64,8 @@ public class HeadsetSystemInterface {
                 powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG + ":VoiceRecognition");
         mVoiceRecognitionWakeLock.setReferenceCounted(false);
         mHeadsetPhoneState = new com.android.bluetooth.hfp.HeadsetPhoneState(mHeadsetService);
+        mTelephonyManager = (TelephonyManager) mHeadsetService.getSystemService(
+                                                      Context.TELEPHONY_SERVICE);
     }
 
     private BluetoothInCallService getBluetoothInCallServiceInstance() {
@@ -299,8 +303,9 @@ public class HeadsetSystemInterface {
     public String getNetworkOperator() {
         BluetoothInCallService bluetoothInCallService = getBluetoothInCallServiceInstance();
         if (bluetoothInCallService == null) {
-            Log.e(TAG, "getNetworkOperator() failed: mBluetoothInCallService is null");
-            return null;
+            Log.i(TAG, "mBluetoothInCallService is null,"+
+                     " so fetching NetworkOperator Name from telephony directly");
+            return mTelephonyManager.getNetworkOperatorName();
         }
         // Should never return null
         return bluetoothInCallService.getNetworkOperator();
@@ -315,8 +320,14 @@ public class HeadsetSystemInterface {
     public String getSubscriberNumber() {
         BluetoothInCallService bluetoothInCallService = getBluetoothInCallServiceInstance();
         if (bluetoothInCallService == null) {
-            Log.e(TAG, "getSubscriberNumber() failed: mBluetoothInCallService is null");
-            return null;
+            Log.i(TAG, "mBluetoothInCallService is null,"+
+                     " so fetching Subscriber Number from telephony directly");
+            String address = null;
+            address = mTelephonyManager.getLine1Number();
+            if (address == null) {
+                address = "";
+            }
+            return address;
         }
         return bluetoothInCallService.getSubscriberNumber();
     }
