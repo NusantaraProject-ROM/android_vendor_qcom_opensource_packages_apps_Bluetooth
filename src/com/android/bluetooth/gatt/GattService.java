@@ -2481,6 +2481,23 @@ public class GattService extends ProfileService {
         }
     }
 
+    /**************************************************************************
+     * Clear all pending Scanning and Advertising sets
+     *************************************************************************/
+    public void clearPendingOperations() {
+        for (Integer appId : mScannerMap.getAllAppsIds()) {
+            if (DBG) Log.d(TAG, "clearPendingOperations ID: " + appId);
+            if (isScanClient(appId)) {
+                ScanClient client = new ScanClient(appId);
+                mScanManager.cancelScans(client);
+                unregisterScanner(appId, getAttributionSource());
+            }
+        }
+        if (mAdvertiseManager != null) {
+            mAdvertiseManager.stopAdvertisingSets();
+        }
+    }
+
     public void setAptXLowLatencyMode(boolean enabled){
         mScanManager.setAptXLowLatencyMode(enabled);
     }
