@@ -3609,7 +3609,6 @@ public class AdapterService extends Service {
             } else {
                 mHeadsetService.setActiveDevice(device);
             }
-            mHeadsetService.setActiveDevice(device);
         }
 
         return true;
