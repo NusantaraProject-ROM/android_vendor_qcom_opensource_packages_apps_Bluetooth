@@ -136,6 +136,7 @@ import com.android.bluetooth.btservice.RemoteDevices.DeviceProperties;
 import com.android.bluetooth.btservice.bluetoothkeystore.BluetoothKeystoreService;
 import com.android.bluetooth.btservice.storage.DatabaseManager;
 import com.android.bluetooth.btservice.storage.MetadataDatabase;
+import com.android.bluetooth.btservice.AdapterState;
 import com.android.bluetooth.gatt.GattService;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
@@ -843,7 +844,12 @@ public class AdapterService extends Service {
 
     void ssrCleanupCallback() {
         disableProfileServices(false);
-        Log.e(TAG, "Killing the process to force restart as part of fault tolerance");
+        Log.e(TAG, "Disabling the BluetoothInCallService component"+
+                " and kill the process to recover");
+        getApplicationContext().getPackageManager().setComponentEnabledSetting(
+            AdapterState.BLUETOOTH_INCALLSERVICE_COMPONENT,
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+            PackageManager.DONT_KILL_APP);
         android.os.Process.killProcess(android.os.Process.myPid());
     }
 
