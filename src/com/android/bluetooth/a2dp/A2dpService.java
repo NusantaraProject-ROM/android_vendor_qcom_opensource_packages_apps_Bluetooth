@@ -342,8 +342,13 @@ public class A2dpService extends ProfileService {
             }
             mStateMachines.clear();
         }
-        mStateMachinesThread.quitSafely();
-        mStateMachinesThread = null;
+
+        synchronized (mVariableLock) {
+           if (mStateMachinesThread != null) {
+               mStateMachinesThread.quitSafely();
+               mStateMachinesThread = null;
+           }
+        }
 
         // Step 3: Cleanup AVRCP
         synchronized (mBtAvrcpLock) {
