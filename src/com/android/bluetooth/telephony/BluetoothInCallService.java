@@ -43,6 +43,7 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.bluetooth.hfp.BluetoothHeadsetProxy;
+import com.android.bluetooth.hfp.HeadsetService;
 
 import androidx.annotation.VisibleForTesting;
 import com.android.internal.telephony.PhoneConstants;
@@ -393,9 +394,19 @@ public class BluetoothInCallService extends InCallService {
         synchronized (LOCK) {
             enforceModifyPermission();
             Log.i(TAG, "getNetworkOperator");
-            PhoneAccount account = mCallInfo.getBestPhoneAccount();
-            if (account != null && account.getLabel() != null) {
-                return account.getLabel().toString();
+            if (mTelecomManager != null) {
+                PhoneAccount account = mCallInfo.getBestPhoneAccount();
+                if (account != null && account.getLabel() != null) {
+                    return account.getLabel().toString();
+                }
+            } else {
+                Log.e(TAG, "TelecomManager is Null");
+                mTelephonyManager = (TelephonyManager) HeadsetService.getHeadsetService()
+                    .getSystemService(Context.TELEPHONY_SERVICE);
+            }
+            if (mTelephonyManager == null) {
+                Log.e(TAG, "TelephonyManager is Null");
+                return null;
             }
             // Finally, just get the network name from telephony.
             return mTelephonyManager.getNetworkOperatorName();
@@ -407,12 +418,22 @@ public class BluetoothInCallService extends InCallService {
             enforceModifyPermission();
             Log.i(TAG, "getSubscriberNumber");
             String address = null;
-            PhoneAccount account = mCallInfo.getBestPhoneAccount();
-            if (account != null) {
-                Uri addressUri = account.getAddress();
-                if (addressUri != null) {
-                    address = addressUri.getSchemeSpecificPart();
+            if (mTelecomManager != null) {
+                PhoneAccount account = mCallInfo.getBestPhoneAccount();
+                if (account != null) {
+                    Uri addressUri = account.getAddress();
+                    if (addressUri != null) {
+                        address = addressUri.getSchemeSpecificPart();
+                    }
                 }
+            } else {
+                Log.e(TAG, "TelecomManager is Null");
+                mTelephonyManager = (TelephonyManager) HeadsetService.getHeadsetService()
+                    .getSystemService(Context.TELEPHONY_SERVICE);
+            }
+            if (mTelephonyManager == null) {
+                Log.e(TAG, "TelephonyManager is Null");
+                return null;
             }
             if (TextUtils.isEmpty(address)) {
                 address = mTelephonyManager.getLine1Number();
