@@ -30,6 +30,7 @@
 package com.android.bluetooth.apm;
 
 import android.bluetooth.BluetoothDevice;
+import android.content.Intent;
 import android.util.Log;
 import android.util.StatsLog;
 
@@ -110,16 +111,16 @@ public class VolumeManagerIntf {
         }
     }
 
-    public void setCallVolume (int volume) {
+    public void setCallVolume (Intent intent) {
         if(VolumeManager == null)
             return;
 
         Class[] arg = new Class[1];
-        arg[0] = Integer.class;
+        arg[0] = Intent.class;
 
         try {
             Method setCallVolume = VolumeManager.getDeclaredMethod("setCallVolume", arg);
-            setCallVolume.invoke(mVolumeManager, volume);
+            setCallVolume.invoke(mVolumeManager, intent);
         } catch(IllegalAccessException e) {
             Log.i(TAG, "Exception" + e);
         } catch(NoSuchMethodException e) {
