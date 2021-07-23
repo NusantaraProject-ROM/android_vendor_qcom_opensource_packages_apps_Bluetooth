@@ -478,6 +478,9 @@ class PhonePolicy {
                     case BluetoothProfile.A2DP_SINK:
                         mDatabaseManager.setConnectionForA2dpSrc(device);
                         break;
+                    case BluetoothProfile.BC_PROFILE:
+                        mDatabaseManager.setConnectionStateForBc(device, nextState);
+                        break;
                 }
                 connectOtherProfile(device);
             }
@@ -499,14 +502,12 @@ class PhonePolicy {
                                     + " for device "+ device);
                         mDatabaseManager.setDisconnectionForA2dpSrc(device);
                     }
+                    if (profileId == BluetoothProfile.BC_PROFILE) {
+                        mDatabaseManager.setConnectionStateForBc(device, nextState);
+                    }
                 }
                 handleAllProfilesDisconnected(device);
             }
-        }
-
-        if (profileId == BluetoothProfile.BC_PROFILE &&
-                (nextState == BluetoothProfile.STATE_CONNECTED || nextState ==BluetoothProfile.STATE_DISCONNECTED)) {
-            mDatabaseManager.setConnectionStateForBc(device, nextState);
         }
     }
 
@@ -648,7 +649,7 @@ class PhonePolicy {
                                                 mostRecentlyActiveHfpDevice);
             debugLog("autoConnect: mostRecentlyConnectedA2dpSrcDevice: " +
                                                 mostRecentlyConnectedA2dpSrcDevice);
-            autoConnectBC();
+            autoConnectBC(true, null);
             //Initiate auto-connection for latest connected a2dp source device.
             if (mostRecentlyConnectedA2dpSrcDevice != null) {
                debugLog("autoConnect: attempting auto connection for recently"+
@@ -752,43 +753,44 @@ class PhonePolicy {
 
     }
     ///*_REF
-    private void autoConnectBC() {
+    private void autoConnectBC(boolean autoconnect, BluetoothDevice mDevice) {
+        if (autoconnect == false) {
+            if (mDatabaseManager.deviceSupportsBCprofile(mDevice)) {
+                connectBC(mDevice);
+            }
+            return;
+        }
         BluetoothDevice bondedDevices[] =  mAdapterService.getBondedDevices();
-        if (bondedDevices == null) {
-            errorLog("autoConnectBC, bondedDevices are null");
-            return;
-        }
-        if (mBCGetConnPolicy == null ||  mBCConnect == null ) {
-            Log.e(TAG, "BC reference are null");
-            return;
-        }
         for (BluetoothDevice device : bondedDevices) {
             if (mDatabaseManager.wasBCConnectedDevice(device) == false) {
                 Log.d(TAG, "not a BC connected device earlier, Ignoring");
                 continue;
             }
-            int connPolicy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+            connectBC(device);
+        }
+    }
+    private void connectBC(BluetoothDevice device) {
+        if (mBCGetConnPolicy == null ||  mBCConnect == null ) {
+            Log.e(TAG, "BC reference are null");
+            return;
+        }
+        if (device == null) return;
+        int connPolicy = BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
+        try {
+            connPolicy = (int) mBCGetConnPolicy.invoke(mBCService, device);
+        } catch(IllegalAccessException | InvocationTargetException e) {
+            Log.e(TAG, "BC:connPolicy IllegalAccessException");
+        } 
+        debugLog("ConnectBC, attempt connection with device " + device
+                 + " connPolicy " + connPolicy);
+        if (connPolicy == BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
+            debugLog("autoConnectBC() - Connecting BC with " + device.toString());
             try {
-                connPolicy = (int) mBCGetConnPolicy.invoke(mBCService, device);
-            } catch(IllegalAccessException e) {
-                Log.e(TAG, "BC:connPolicy IllegalAccessException");
-            } catch (InvocationTargetException e) {
-                Log.e(TAG, "BC:connPolicy InvocationTargetException");
-            }
-            debugLog("autoConnectBC, attempt auto-connect with device " + device
-                     + " connPolicy " + connPolicy);
-            if (connPolicy == BluetoothProfile.CONNECTION_POLICY_ALLOWED) {
-                debugLog("autoConnectBC() - Connecting BC with " + device.toString());
-                try {
-                    mBCConnect.invoke(mBCService, device);
-                } catch(IllegalAccessException e) {
-                    Log.e(TAG, "autoConnectBC:connect IllegalAccessException");
-                } catch (InvocationTargetException e) {
-                   Log.e(TAG, "autoConnectBC:connect InvocationTargetException");
-                }
+                mBCConnect.invoke(mBCService, device);
+            } catch(IllegalAccessException | InvocationTargetException e) {
+                Log.e(TAG, "autoConnectBC:connect IllegalAccessException");
             }
         }
-
     }
     //_REF*/
 
@@ -985,7 +987,7 @@ class PhonePolicy {
                 a2dpSinkService.connect(device);
             }
         }
-
+        autoConnectBC(false, device);
     }
 
     private static void debugLog(String msg) {
