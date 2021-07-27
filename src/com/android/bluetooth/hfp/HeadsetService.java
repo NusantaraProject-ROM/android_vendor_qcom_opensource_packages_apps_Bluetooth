@@ -114,6 +114,8 @@ public class HeadsetService extends ProfileService {
     private int mMaxHeadsetConnections = 1;
     private int mSetMaxConfig;
     private BluetoothDevice mActiveDevice;
+    private BluetoothDevice mTempActiveDevice;
+    private boolean mSHOStatus = false;
     private AdapterService mAdapterService;
     private DatabaseManager mDatabaseManager;
     private HandlerThread mStateMachinesThread;
@@ -1727,7 +1729,12 @@ public class HeadsetService extends ProfileService {
             return mActiveDeviceManager.setActiveDevice(device,
                     ApmConstIntf.AudioFeatures.CALL_AUDIO, true);
         } else {
-            return setActiveDeviceHF(device);
+            int ret = setActiveDeviceHF(device);
+            if (ret == ActiveDeviceManagerServiceIntf.SHO_FAILED) {
+              return false;
+            } else {
+              return true;
+            }
         }
     }
 
@@ -1737,8 +1744,7 @@ public class HeadsetService extends ProfileService {
      * @param device the active device
      * @return true on success, otherwise false
      */
-    public boolean setActiveDeviceHF(BluetoothDevice device) {
-
+    public int setActiveDeviceHF(BluetoothDevice device) {
         Log.i(TAG, "setActiveDevice: device=" + device + ", " + Utils.getUidPidString());
         synchronized (mStateMachines) {
             if (device == null) {
@@ -1763,32 +1769,42 @@ public class HeadsetService extends ProfileService {
                 if (!mNativeInterface.setActiveDevice(null)) {
                     Log.w(TAG, "setActiveDevice: Cannot set active device as null in native layer");
                 }
-                mActiveDevice = null;
-                if(!ApmConstIntf.getLeAudioEnabled()) {
-                    broadcastActiveDevice(null);
+                if ((getAudioState(mActiveDevice) == BluetoothHeadset.STATE_AUDIO_DISCONNECTING) ||
+                   (getAudioState(mActiveDevice) == BluetoothHeadset.STATE_AUDIO_CONNECTED))
+                {
+                   if (ApmConstIntf.getLeAudioEnabled()) {
+                      mSHOStatus = true;
+                      mTempActiveDevice = device;
+                      mActiveDevice = null;
+                      return ActiveDeviceManagerServiceIntf.SHO_PENDING;
+                   }
                 }
-                return true;
+                mActiveDevice = null;
+                if (!ApmConstIntf.getLeAudioEnabled()) {
+                   broadcastActiveDevice(null);
+                }
+                return ActiveDeviceManagerServiceIntf.SHO_SUCCESS;
             }
             if (device.equals(mActiveDevice)) {
                 Log.i(TAG, "setActiveDevice: device " + device + " is already active");
-                return true;
+                return ActiveDeviceManagerServiceIntf.SHO_SUCCESS;
             }
             if (getConnectionState(device) != BluetoothProfile.STATE_CONNECTED) {
                 Log.e(TAG, "setActiveDevice: Cannot set " + device
                         + " as active, device is not connected");
-                return false;
+                return ActiveDeviceManagerServiceIntf.SHO_FAILED;
             }
             if (mActiveDevice != null && mAdapterService.isTwsPlusDevice(device) &&
                 mAdapterService.isTwsPlusDevice(mActiveDevice) &&
                 !Objects.equals(device, mActiveDevice) &&
                 getConnectionState(mActiveDevice) == BluetoothProfile.STATE_CONNECTED) {
                 Log.d(TAG,"Ignore setActiveDevice request");
-                return false;
+                return ActiveDeviceManagerServiceIntf.SHO_FAILED;
             }
 
             if (!mNativeInterface.setActiveDevice(device)) {
                 Log.e(TAG, "setActiveDevice: Cannot set " + device + " as active in native layer");
-                return false;
+                return ActiveDeviceManagerServiceIntf.SHO_FAILED;
             }
             BluetoothDevice previousActiveDevice = mActiveDevice;
             mActiveDevice = device;
@@ -1829,7 +1845,7 @@ public class HeadsetService extends ProfileService {
                             + previousActiveDevice);
                     mActiveDevice = previousActiveDevice;
                     mNativeInterface.setActiveDevice(previousActiveDevice);
-                    return false;
+                    return ActiveDeviceManagerServiceIntf.SHO_FAILED;
                 }
                 if(!ApmConstIntf.getLeAudioEnabled()) {
                     broadcastActiveDevice(mActiveDevice);
@@ -1841,7 +1857,7 @@ public class HeadsetService extends ProfileService {
                         Log.e(TAG, "setActiveDevice: fail to connectAudio to " + mActiveDevice);
                         mActiveDevice = previousActiveDevice;
                         mNativeInterface.setActiveDevice(previousActiveDevice);
-                        return false;
+                        return ActiveDeviceManagerServiceIntf.SHO_FAILED;
                     }
                 }
                 if(!ApmConstIntf.getLeAudioEnabled()) {
@@ -1853,7 +1869,7 @@ public class HeadsetService extends ProfileService {
                 }
             }
         }
-        return true;
+        return ActiveDeviceManagerServiceIntf.SHO_SUCCESS;
     }
 
     /**
@@ -2579,6 +2595,13 @@ public class HeadsetService extends ProfileService {
         Log.w(TAG, "onAudioStateChangedFromStateMachine: " + fromState + "->" + toState);
         synchronized (mStateMachines) {
             if (toState == BluetoothHeadset.STATE_AUDIO_DISCONNECTED) {
+                if (mSHOStatus) {
+                   ActiveDeviceManagerServiceIntf mActiveDeviceManager =
+                         ActiveDeviceManagerServiceIntf.get();
+                   mActiveDeviceManager.onActiveDeviceChange(mTempActiveDevice,
+                                           ApmConstIntf.AudioFeatures.CALL_AUDIO);
+                   mSHOStatus = false;
+                }
                 //Transfer SCO is not needed for TWS+ devices
                 if (mAdapterService != null && mAdapterService.isTwsPlusDevice(device) &&
                    mActiveDevice != null &&
