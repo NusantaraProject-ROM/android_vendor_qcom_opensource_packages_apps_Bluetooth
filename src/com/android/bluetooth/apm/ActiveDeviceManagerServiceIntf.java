@@ -87,12 +87,12 @@ public class ActiveDeviceManagerServiceIntf {
         arg[2] = Boolean.class;
         arg[3] = Boolean.class;
 
-        Log.d(TAG, "gghai setActiveDevice at Intf: " + device );
+        Log.d(TAG, "setActiveDevice at Intf: " + device );
         try {
             Method setActiveDevice = activeDeviceManagerService.getDeclaredMethod("setActiveDevice", arg);
             Boolean ret = (Boolean) setActiveDevice.invoke(mActiveDeviceManagerService,
                         device, mAudioType, isUIReq, playReq);
-            Log.d(TAG, "gghai setActiveDevice returned at Intf: " + ret );
+            Log.d(TAG, "setActiveDevice returned at Intf: " + ret );
             return ret;
         } catch(IllegalAccessException e) {
             Log.i(TAG, "Exception" + e);
