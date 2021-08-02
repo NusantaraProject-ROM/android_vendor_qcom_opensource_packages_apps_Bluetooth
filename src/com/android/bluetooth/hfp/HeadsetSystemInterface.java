@@ -31,6 +31,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.media.AudioManager;
 import android.os.PowerManager;
+import android.os.SystemProperties;
 import android.util.Log;
 
 import com.android.internal.annotations.VisibleForTesting;
@@ -51,6 +52,8 @@ public class HeadsetSystemInterface {
     private final HeadsetPhoneState mHeadsetPhoneState;
     private PowerManager.WakeLock mVoiceRecognitionWakeLock;
     private final TelephonyManager mTelephonyManager;
+    private static final int ANSWERCALL_DELAY_DEFAULT = 100;
+    private static int mAnswerCallDelay;
 
     HeadsetSystemInterface(HeadsetService headsetService) {
         if (headsetService == null) {
@@ -66,6 +69,8 @@ public class HeadsetSystemInterface {
         mHeadsetPhoneState = new com.android.bluetooth.hfp.HeadsetPhoneState(mHeadsetService);
         mTelephonyManager = (TelephonyManager) mHeadsetService.getSystemService(
                                                       Context.TELEPHONY_SERVICE);
+        mAnswerCallDelay = SystemProperties.getInt("persist.vendor.bluetooth.answercalldelay",
+                                                    ANSWERCALL_DELAY_DEFAULT);
     }
 
     private BluetoothInCallService getBluetoothInCallServiceInstance() {
@@ -157,6 +162,14 @@ public class HeadsetSystemInterface {
         BluetoothInCallService bluetoothInCallService = getBluetoothInCallServiceInstance();
         if (bluetoothInCallService != null) {
             mHeadsetService.setActiveDevice(device);
+            if (mAnswerCallDelay > 0) {
+                Log.d(TAG, "Delay " + mAnswerCallDelay + " msec before calling answerCall");
+                try {
+                    Thread.sleep(mAnswerCallDelay);
+                } catch (InterruptedException e) {
+                    Log.e(TAG, "Thread sleep ", e);
+                }
+            }
             bluetoothInCallService.answerCall();
         } else {
             Log.e(TAG, "Handsfree phone proxy null for answering call");
