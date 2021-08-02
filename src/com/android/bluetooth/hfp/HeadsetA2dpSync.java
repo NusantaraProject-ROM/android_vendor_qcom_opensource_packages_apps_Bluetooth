@@ -46,6 +46,7 @@ import java.util.Objects;
 import java.lang.reflect.*;
 import com.android.bluetooth.apm.ApmConstIntf;
 import com.android.bluetooth.apm.ActiveDeviceManagerServiceIntf;
+import com.android.bluetooth.apm.CallAudioIntf;
 
 /**
  * Defines methods used for synchronization between HFP and A2DP
@@ -257,8 +258,9 @@ public class HeadsetA2dpSync {
         if(mA2dpSuspendTriggered == A2DP_SUSPENDED_NOT_TRIGGERED) {
             return true;
         }
-        if (mHeadsetService.isInCall() || mHeadsetService.isRinging() ||
-                                                 mHeadsetService.isAudioOn()) {
+
+        CallAudioIntf mCallAudio = CallAudioIntf.get();
+        if (mCallAudio.isVoiceOrCallActive()) {
             Log.d(TAG," Call/Ring/SCO on for some other stateMachine, bail out ");
             return true;
         }

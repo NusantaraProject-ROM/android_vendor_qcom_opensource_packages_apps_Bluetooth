@@ -65,6 +65,10 @@ import android.os.WorkSource;
 import android.provider.DeviceConfig;
 import android.provider.Settings;
 import android.util.Log;
+import android.os.Message;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Looper;
 
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.R;
@@ -210,6 +214,36 @@ public class GattService extends ProfileService {
      */
     private Set<String> mReliableQueue = new HashSet<String>();
 
+    private ScanResultHandler mScanResultHandler = null;
+
+    public class AdvertisingReport {
+        int eventType;
+        int addressType;
+        String address;
+        int primaryPhy;
+        int secondaryPhy;
+        int advertisingSid;
+        int txPower;
+        int rssi;
+        int periodicAdvInt;
+        byte[] advData;
+
+        public AdvertisingReport(int eventType, int addressType, String address, int primaryPhy,
+            int secondaryPhy, int advertisingSid, int txPower, int rssi, int periodicAdvInt,
+            byte[] advData) {
+            this.eventType = eventType;
+            this.addressType = addressType;
+            this.address = address;
+            this.primaryPhy = primaryPhy;
+            this.secondaryPhy = secondaryPhy;
+            this.advertisingSid = advertisingSid;
+            this.txPower = txPower;
+            this.rssi = rssi;
+            this.periodicAdvInt = periodicAdvInt;
+            this.advData = advData;
+        }
+    };
+
     static {
         if (DBG) Log.d(TAG, "classInitNative called");
         System.loadLibrary("bluetooth_qti_jni");
@@ -244,6 +278,12 @@ public class GattService extends ProfileService {
         mPeriodicScanManager = new PeriodicScanManager(AdapterService.getAdapterService());
         mPeriodicScanManager.start();
 
+        HandlerThread thread = new HandlerThread("ScanResultHandler");
+        thread.start();
+        Looper looper = thread.getLooper();
+
+        mScanResultHandler = new ScanResultHandler(looper);
+
         setGattService(this);
         return true;
     }
@@ -253,6 +293,19 @@ public class GattService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "stop()");
         }
+
+        if (mScanResultHandler != null) {
+            // Perform cleanup
+            mScanResultHandler.removeCallbacksAndMessages(null);
+            Looper looper = mScanResultHandler.getLooper();
+            if (looper != null) {
+                Log.i(TAG, "Quit looper");
+                looper.quit();
+            }
+            Log.i(TAG, "Remove Handler");
+            mScanResultHandler = null;
+        }
+
         setGattService(null);
         mScannerMap.clear();
         mClientMap.clear();
@@ -1097,11 +1150,11 @@ public class GattService extends ProfileService {
         return new ScanResult(null, 0, 0, 0, 0, 0, result.getRssi(), 0, record, 0);
     }
 
-    void onScanResult(int eventType, int addressType, String address, int primaryPhy,
+    void HandleScanResult(int eventType, int addressType, String address, int primaryPhy,
             int secondaryPhy, int advertisingSid, int txPower, int rssi, int periodicAdvInt,
             byte[] advData) {
         if (VDBG) {
-            Log.d(TAG, "onScanResult() - eventType=0x" + Integer.toHexString(eventType)
+            Log.d(TAG, "HandleScanResult() - eventType=0x" + Integer.toHexString(eventType)
                     + ", addressType=" + addressType + ", address=" + address + ", primaryPhy="
                     + primaryPhy + ", secondaryPhy=" + secondaryPhy + ", advertisingSid=0x"
                     + Integer.toHexString(advertisingSid) + ", txPower=" + txPower + ", rssi="
@@ -1219,6 +1272,58 @@ public class GattService extends ProfileService {
                 mScanManager.stopScan(client.scannerId);
             }
         }
+    }
+
+    public final class ScanResultHandler extends Handler {
+        private static final String TAG = "ScanResultHandler";
+        public static final int MSG_BLE_ADVERTISING_REPORT = 1;
+
+        private ScanResultHandler(Looper looper) {
+            super(looper);
+            Log.i(TAG, "ScanResultHandler ");
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            if (VDBG) Log.v(TAG, "Handler(): got msg=" + msg.what);
+
+            if (msg.what == MSG_BLE_ADVERTISING_REPORT) {
+                AdvertisingReport advReport = (AdvertisingReport) msg.obj;
+
+                if (advReport != null) {
+                    HandleScanResult(advReport.eventType, advReport.addressType,
+                                     advReport.address, advReport.primaryPhy,
+                                     advReport.secondaryPhy, advReport.advertisingSid,
+                                     advReport.txPower, advReport.rssi,
+                                     advReport.periodicAdvInt, advReport.advData);
+                }
+            }
+        }
+    }
+
+    void onScanResult(int eventType, int addressType, String address, int primaryPhy,
+            int secondaryPhy, int advertisingSid, int txPower, int rssi, int periodicAdvInt,
+            byte[] advData) {
+        if (VDBG) {
+            Log.d(TAG, "onScanResult() - eventType=0x" + Integer.toHexString(eventType)
+                    + ", addressType=" + addressType + ", address=" + address + ", primaryPhy="
+                    + primaryPhy + ", secondaryPhy=" + secondaryPhy + ", advertisingSid=0x"
+                    + Integer.toHexString(advertisingSid) + ", txPower=" + txPower + ", rssi="
+                    + rssi + ", periodicAdvInt=0x" + Integer.toHexString(periodicAdvInt));
+        }
+
+        if (mScanResultHandler == null) {
+            Log.d(TAG, "onScanResult: mScanResultHandler is null.");
+            return;
+        }
+
+        AdvertisingReport advReport = new AdvertisingReport(eventType, addressType, address,
+                           primaryPhy, secondaryPhy, advertisingSid, txPower, rssi,
+                           periodicAdvInt, advData);
+        Message message = new Message();
+        message.what = ScanResultHandler.MSG_BLE_ADVERTISING_REPORT;
+        message.obj = advReport;
+        mScanResultHandler.sendMessage(message);
     }
 
     private void sendResultByPendingIntent(PendingIntentInfo pii, ScanResult result,
@@ -2474,6 +2579,23 @@ public class GattService extends ProfileService {
                 ScanClient client = new ScanClient(appId);
                 stopScan(client.scannerId, attributionSource);
                 unregisterScanner(appId, attributionSource);
+            }
+        }
+        if (mAdvertiseManager != null) {
+            mAdvertiseManager.stopAdvertisingSets();
+        }
+    }
+
+    /**************************************************************************
+     * Clear all pending Scanning and Advertising sets
+     *************************************************************************/
+    public void clearPendingOperations() {
+        for (Integer appId : mScannerMap.getAllAppsIds()) {
+            if (DBG) Log.d(TAG, "clearPendingOperations ID: " + appId);
+            if (isScanClient(appId)) {
+                ScanClient client = new ScanClient(appId);
+                mScanManager.cancelScans(client);
+                unregisterScanner(appId, getAttributionSource());
             }
         }
         if (mAdvertiseManager != null) {

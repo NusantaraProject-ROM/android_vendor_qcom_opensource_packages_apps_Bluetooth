@@ -70,6 +70,7 @@ import android.app.AppOpsManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.bluetooth.BluetoothA2dp;
+import android.app.admin.DevicePolicyManager;
 import android.bluetooth.BluetoothActivityEnergyInfo;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothAdapter.ActiveDeviceUse;
@@ -318,6 +319,7 @@ public class AdapterService extends Service {
     private HearingAidService mHearingAidService;
     private Object mGroupService;
     private SapService mSapService;
+    private GattService mGattService;
 
     ///*_REF
     Object mBCService = null;
@@ -515,6 +517,7 @@ public class AdapterService extends Service {
                         initProfileServices();
                         getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS);
                         getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS_BLE);
+                        getAdapterPropertyNative(AbstractionLayer.BT_PROPERTY_DYNAMIC_AUDIO_BUFFER);
                         mAdapterStateMachine.sendMessage(AdapterState.BREDR_STARTED);
                         //update wifi state to lower layers
                         fetchWifiState();
@@ -638,14 +641,14 @@ public class AdapterService extends Service {
         mAdapterStateMachine =  AdapterState.make(this);
         mJniCallbacks = new JniCallbacks(this, mAdapterProperties);
         mVendorSocket = new VendorSocket(this);
-        mBluetoothKeystoreService = new BluetoothKeystoreService(isNiapMode());
+        mBluetoothKeystoreService = new BluetoothKeystoreService(isCommonCriteriaMode());
         mBluetoothKeystoreService.start();
         int configCompareResult = mBluetoothKeystoreService.getCompareResult();
 
         // Android TV doesn't show consent dialogs for just works and encryption only le pairing
         boolean isAtvDevice = getApplicationContext().getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_LEANBACK_ONLY);
-        initNative(isGuest(), isNiapMode(), configCompareResult, isAtvDevice, getInitFlags());
+        initNative(isGuest(), isCommonCriteriaMode(), configCompareResult, isAtvDevice, getInitFlags());
         mNativeAvailable = true;
         mCallbacks = new RemoteCallbackList<IBluetoothCallback>();
         mAppOps = getSystemService(AppOpsManager.class);
@@ -950,6 +953,14 @@ public class AdapterService extends Service {
             mAdapterStateMachine.sendMessage(AdapterState.BLE_STOPPED);
         }
         setProfileServiceState(GattService.class, BluetoothAdapter.STATE_OFF);
+    }
+
+    void unregGattIds() {
+      if (mGattService != null) {
+          mGattService.clearPendingOperations();
+      } else {
+          debugLog("FAILED to clear All registered Gatt Ids");
+      }
     }
 
     void updateAdapterState(int prevState, int newState) {
@@ -1466,6 +1477,7 @@ public class AdapterService extends Service {
         mHearingAidService = HearingAidService.getHearingAidService();
         mGroupService = new ServiceFactory().getGroupService();
         mSapService = SapService.getSapService();
+        mGattService = GattService.getGattService();
         if (isAdvBCAAudioFeatEnabled()) {
         ///*_REF
             Class<?> bcClass = null;
@@ -5360,8 +5372,9 @@ public class AdapterService extends Service {
         return UserManager.get(this).isGuestUser();
     }
 
-    private boolean isNiapMode() {
-        return Settings.Global.getInt(getContentResolver(), "niap_mode", 0) == 1;
+    private boolean isCommonCriteriaMode() {
+        return ((DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE))
+                .isCommonCriteriaModeEnabled(null);
     }
 
     private static final String GD_CORE_FLAG = "INIT_gd_core";
@@ -5501,7 +5514,7 @@ public class AdapterService extends Service {
 
     static native void classInitNative();
 
-    native boolean initNative(boolean startRestricted, boolean isNiapMode,
+    native boolean initNative(boolean startRestricted, boolean isCommonCriteriaMode,
             int configCompareResult, boolean isAtvDevice,
             String[] initFlags);
 

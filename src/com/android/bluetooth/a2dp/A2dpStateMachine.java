@@ -674,7 +674,7 @@ final class A2dpStateMachine extends StateMachine {
         Log.w(TAG,"processCodecConfigEvent: new_codec_type = " + new_codec_type);
 
         if (isSplitA2dpEnabled) {
-            if (new_codec_type  == BluetoothCodecConfig.SOURCE_CODEC_TYPE_MAX) {
+            if (new_codec_type  == BluetoothCodecConfig.SOURCE_QVA_CODEC_TYPE_MAX) {
                 if (adapterService.isVendorIntfEnabled() &&
                     adapterService.isTwsPlusDevice(mDevice)) {
                     Log.d(TAG,"TWSP device streaming,not calling reconfig");
