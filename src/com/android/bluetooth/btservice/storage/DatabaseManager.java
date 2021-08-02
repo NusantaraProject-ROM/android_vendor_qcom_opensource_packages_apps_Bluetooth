@@ -776,7 +776,7 @@ public class DatabaseManager {
         boolean ret = false;
         synchronized (mMetadataCache) {
             if (device == null) {
-                Log.e(TAG, "setConnectionStateForBc: device is null");
+                Log.e(TAG, "wasBCConnectedDevice: device is null");
                 return false;
             }
 
@@ -788,6 +788,32 @@ public class DatabaseManager {
             Metadata metadata = mMetadataCache.get(address);
             if (metadata != null) {
                 ret = metadata.was_previously_connected_to_bc;
+            }
+        }
+        return ret;
+    }
+
+    /**
+     * check if the BC profile is supported by remote device
+     *
+     * @return true if BC profile is supported by this device
+     *         false otherwise
+     */
+    public boolean deviceSupportsBCprofile(BluetoothDevice device) {
+        boolean ret = false;
+        synchronized (mMetadataCache) {
+            if (device == null) {
+                Log.e(TAG, "deviceSupportsBCprofile: device is null");
+                return false;
+            }
+            String address = device.getAddress();
+
+            if (!mMetadataCache.containsKey(address)) {
+                return false;
+            }
+            Metadata metadata = mMetadataCache.get(address);
+            if (metadata != null) {
+                ret = metadata.device_supports_bc_profile;
             }
         }
         return ret;
@@ -1076,6 +1102,7 @@ public class DatabaseManager {
         else
            data = new Metadata(address);
         data.was_previously_connected_to_bc = true;
+        data.device_supports_bc_profile = true;
         mMetadataCache.put(address, data);
         updateDatabase(data);
     }
