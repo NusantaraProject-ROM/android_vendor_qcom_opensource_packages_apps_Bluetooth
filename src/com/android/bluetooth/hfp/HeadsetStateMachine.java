@@ -623,6 +623,17 @@ public class HeadsetStateMachine extends StateMachine {
             mStateMachineCallState.mNumber = "";
             mStateMachineCallState.mType = 0;
 
+            // clear pending call states
+            while (mDelayedCSCallStates.isEmpty() != true)
+            {
+               mDelayedCSCallStates.poll();
+            }
+
+            while (mPendingCallStates.isEmpty() != true)
+            {
+               mPendingCallStates.poll();
+            }
+
             broadcastStateTransitions();
             DeviceProfileMapIntf dpm = DeviceProfileMapIntf.getDeviceProfileMapInstance();
             dpm.profileConnectionUpdate(mDevice, ApmConstIntf.AudioFeatures.CALL_AUDIO,
