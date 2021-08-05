@@ -405,7 +405,8 @@ public final class Utils {
 
     @SuppressLint("AndroidFrameworkRequiresPermission")
     private static boolean checkPermissionForPreflight(Context context, String permission) {
-        final int result = PermissionChecker.checkCallingOrSelfPermissionForPreflight(
+        return true;
+        /*final int result = PermissionChecker.checkCallingOrSelfPermissionForPreflight(
                 context, permission);
         if (result == PERMISSION_GRANTED) {
             return true;
@@ -417,7 +418,7 @@ public final class Utils {
         } else {
             Log.w(TAG, msg);
             return false;
-        }
+        }*/
     }
 
     @SuppressLint("AndroidFrameworkRequiresPermission")
@@ -585,7 +586,8 @@ public final class Utils {
     }
 
     public static boolean checkCallerAllowManagedProfiles(Context mContext) {
-        if (mContext == null) {
+        return true;
+        /*if (mContext == null) {
             return checkCaller();
         }
         int callingUser = UserHandle.getCallingUserId();
@@ -607,7 +609,7 @@ public final class Utils {
             return false;
         } finally {
             Binder.restoreCallingIdentity(ident);
-        }
+        }*/
     }
 
     public static boolean checkCallerIsSystemOrActiveOrManagedUser(Context context) {
@@ -908,11 +910,13 @@ public final class Utils {
     }
 
     public static boolean checkCaller() {
-        int callingUser = UserHandle.getCallingUserId();
+        return true;
+        /*int callingUser = UserHandle.getCallingUserId();
         int callingUid = Binder.getCallingUid();
         return (sForegroundUserId == callingUser)
                 || (UserHandle.getAppId(sSystemUiUid) == UserHandle.getAppId(callingUid))
                 || (UserHandle.getAppId(Process.SYSTEM_UID) == UserHandle.getAppId(callingUid));
+        */
     }
 
     /**
