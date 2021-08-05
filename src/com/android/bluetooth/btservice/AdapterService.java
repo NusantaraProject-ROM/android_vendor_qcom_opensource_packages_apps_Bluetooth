@@ -4411,10 +4411,6 @@ public class AdapterService extends Service {
     }
 
     public int getTotalNumOfTrackableAdvertisements() {
-        if (!Utils.checkConnectPermissionForPreflight(this)) {
-            return 0;
-        }
-
         return mAdapterProperties.getTotalNumOfTrackableAdvertisements();
     }
 
