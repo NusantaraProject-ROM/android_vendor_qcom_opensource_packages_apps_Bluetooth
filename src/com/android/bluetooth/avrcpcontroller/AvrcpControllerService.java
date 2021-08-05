@@ -16,6 +16,7 @@
 
 package com.android.bluetooth.avrcpcontroller;
 
+import android.annotation.RequiresPermission;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothAvrcpPlayerSettings;
 import android.bluetooth.BluetoothDevice;
@@ -206,9 +207,11 @@ public class AvrcpControllerService extends ProfileService {
             implements IProfileServiceBinder {
         private AvrcpControllerService mService;
 
-        private AvrcpControllerService getService() {
-            if (!Utils.checkCaller()) {
-                Log.w(TAG, "AVRCP call not allowed for non-active user");
+        @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
+        private AvrcpControllerService getService(AttributionSource source) {
+            if (!Utils.checkCallerIsSystemOrActiveUser(TAG)
+                    || !Utils.checkServiceAvailable(mService, TAG)
+                    || !Utils.checkConnectPermissionForDataDelivery(mService, source, TAG)) {
                 return null;
             }
 
@@ -229,7 +232,7 @@ public class AvrcpControllerService extends ProfileService {
 
         @Override
         public List<BluetoothDevice> getConnectedDevices(AttributionSource source) {
-            AvrcpControllerService service = getService();
+            AvrcpControllerService service = getService(source);
             if (service == null) {
                 return new ArrayList<BluetoothDevice>(0);
             }
@@ -238,7 +241,7 @@ public class AvrcpControllerService extends ProfileService {
 
         @Override
         public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states, AttributionSource source) {
-            AvrcpControllerService service = getService();
+            AvrcpControllerService service = getService(source);
             if (service == null) {
                 return new ArrayList<BluetoothDevice>(0);
             }
@@ -247,7 +250,7 @@ public class AvrcpControllerService extends ProfileService {
 
         @Override
         public int getConnectionState(BluetoothDevice device, AttributionSource source) {
-            AvrcpControllerService service = getService();
+            AvrcpControllerService service = getService(source);
             if (service == null) {
                 return BluetoothProfile.STATE_DISCONNECTED;
             }

@@ -18,6 +18,7 @@ package com.android.bluetooth.hfp;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.RequiresPermission;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
 import com.android.bluetooth.telephony.BluetoothInCallService;
@@ -154,6 +155,7 @@ public class HeadsetSystemInterface {
      * @param device the Bluetooth device used for answering this call
      */
     @VisibleForTesting
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public void answerCall(BluetoothDevice device) {
         if (device == null) {
             Log.w(TAG, "answerCall device is null");
@@ -182,6 +184,7 @@ public class HeadsetSystemInterface {
      * @param device the Bluetooth device used for hanging up this call
      */
     @VisibleForTesting
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public void hangupCall(BluetoothDevice device) {
         if (device == null) {
             Log.w(TAG, "hangupCall device is null");
@@ -234,6 +237,7 @@ public class HeadsetSystemInterface {
      * @param device the Bluetooth device that sent this code
      */
     @VisibleForTesting
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean sendDtmf(int dtmf, BluetoothDevice device) {
         if (device == null) {
             Log.w(TAG, "sendDtmf device is null");
@@ -253,6 +257,7 @@ public class HeadsetSystemInterface {
      * @param chld index of the call to hold
      */
     @VisibleForTesting
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean processChld(int chld) {
         BluetoothInCallService bluetoothInCallService = getBluetoothInCallServiceInstance();
         if (bluetoothInCallService != null) {
@@ -313,6 +318,7 @@ public class HeadsetSystemInterface {
      * @return null on error, empty string if not available
      */
     @VisibleForTesting
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public String getNetworkOperator() {
         BluetoothInCallService bluetoothInCallService = getBluetoothInCallServiceInstance();
         if (bluetoothInCallService == null) {
@@ -330,6 +336,7 @@ public class HeadsetSystemInterface {
      * @return null if unavailable
      */
     @VisibleForTesting
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public String getSubscriberNumber() {
         BluetoothInCallService bluetoothInCallService = getBluetoothInCallServiceInstance();
         if (bluetoothInCallService == null) {
@@ -353,6 +360,7 @@ public class HeadsetSystemInterface {
      * @return
      */
     @VisibleForTesting
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean listCurrentCalls() {
         BluetoothInCallService bluetoothInCallService = getBluetoothInCallServiceInstance();
         if (bluetoothInCallService == null) {
@@ -367,6 +375,7 @@ public class HeadsetSystemInterface {
      * through {@link BluetoothHeadset#phoneStateChanged(int, int, int, String, int)}
      */
     @VisibleForTesting
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public void queryPhoneState() {
         BluetoothInCallService bluetoothInCallService = getBluetoothInCallServiceInstance();
         if (bluetoothInCallService != null) {

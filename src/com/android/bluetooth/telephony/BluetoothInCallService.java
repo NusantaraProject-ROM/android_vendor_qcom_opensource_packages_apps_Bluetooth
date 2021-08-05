@@ -16,6 +16,7 @@
 
 package com.android.bluetooth.telephony;
 
+import android.annotation.RequiresPermission;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothProfile;
@@ -321,10 +322,12 @@ public class BluetoothInCallService extends InCallService {
         return sInstance;
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     protected void enforceModifyPermission() {
         enforceCallingOrSelfPermission(android.Manifest.permission.MODIFY_PHONE_STATE, null);
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean answerCall() {
         synchronized (LOCK) {
             enforceModifyPermission();
@@ -338,6 +341,7 @@ public class BluetoothInCallService extends InCallService {
         }
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean hangupCall() {
         synchronized (LOCK) {
             enforceModifyPermission();
@@ -374,6 +378,7 @@ public class BluetoothInCallService extends InCallService {
         }
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean sendDtmf(int dtmf) {
         synchronized (LOCK) {
             enforceModifyPermission();
@@ -390,6 +395,7 @@ public class BluetoothInCallService extends InCallService {
         }
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public String getNetworkOperator()  {
         synchronized (LOCK) {
             enforceModifyPermission();
@@ -413,6 +419,7 @@ public class BluetoothInCallService extends InCallService {
         }
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public String getSubscriberNumber() {
         synchronized (LOCK) {
             enforceModifyPermission();
@@ -443,6 +450,7 @@ public class BluetoothInCallService extends InCallService {
         }
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean listCurrentCalls() {
         synchronized (LOCK) {
             enforceModifyPermission();
@@ -460,6 +468,7 @@ public class BluetoothInCallService extends InCallService {
         }
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean queryPhoneState() {
         synchronized (LOCK) {
             enforceModifyPermission();
@@ -511,6 +520,7 @@ public class BluetoothInCallService extends InCallService {
         return isHighDef;
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     public boolean processChld(int chld) {
         synchronized (LOCK) {
             enforceModifyPermission();
