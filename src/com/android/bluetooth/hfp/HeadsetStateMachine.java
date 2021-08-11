@@ -44,6 +44,7 @@ import android.net.ConnectivityManager.NetworkCallback;
 import android.net.NetworkInfo;
 import android.net.Network;
 import android.os.Build;
+import android.os.SystemProperties;
 
 import com.android.bluetooth.BluetoothStatsLog;
 import com.android.bluetooth.Utils;
@@ -2324,7 +2325,8 @@ public class HeadsetStateMachine extends StateMachine {
                  callState.mCallState == HeadsetHalConstants.CALL_STATE_IDLE)) {
               Log.d(TAG, "Incoming call is accepted as Active or Held call");
               mIsRetrySco = true;
-              RETRY_SCO_CONNECTION_DELAY = 3000;
+              RETRY_SCO_CONNECTION_DELAY =
+                      SystemProperties.getInt("persist.vendor.btstack.MT.RETRY_SCO.interval", 2000);
            } else if ((callState.mNumActive == 0 && callState.mNumHeld == 0) &&
                      (mStateMachineCallState.mCallState == HeadsetHalConstants.CALL_STATE_IDLE &&
                      (callState.mCallState == HeadsetHalConstants.CALL_STATE_DIALING ||
@@ -2332,7 +2334,8 @@ public class HeadsetStateMachine extends StateMachine {
            {
                Log.d(TAG, "Dialing or Alerting indication");
                mIsRetrySco = true;
-               RETRY_SCO_CONNECTION_DELAY = 3000;
+               RETRY_SCO_CONNECTION_DELAY =
+                       SystemProperties.getInt("persist.vendor.btstack.MO.RETRY_SCO.interval", 2000);
            }
         }
         mStateMachineCallState.mNumActive = callState.mNumActive;
