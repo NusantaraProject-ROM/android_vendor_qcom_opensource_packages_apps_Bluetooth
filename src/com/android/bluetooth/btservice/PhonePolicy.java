@@ -462,7 +462,7 @@ class PhonePolicy {
         debugLog("processProfileStateChanged, device=" + device + ", profile=" + profileId + ", "
                 + prevState + " -> " + nextState);
         if ((profileId == BluetoothProfile.A2DP) || (profileId == BluetoothProfile.HEADSET)
-                || profileId == BluetoothProfile.A2DP_SINK) {
+                || profileId == BluetoothProfile.A2DP_SINK || profileId == BluetoothProfile.BC_PROFILE) {
             BluetoothDevice peerTwsDevice =
                     (mAdapterService != null && mAdapterService.isTwsPlusDevice(device)) ?
                     mAdapterService.getTwsPlusPeerDevice(device):null;
