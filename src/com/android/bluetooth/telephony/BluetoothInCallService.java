@@ -716,6 +716,16 @@ public class BluetoothInCallService extends InCallService {
             address = PhoneNumberUtils.stripSeparators(address);
         }
 
+        // Don't send host call information when IMS calls are conferenced
+        String subsNum = getSubscriberNumber();
+        if (subsNum != null && address != null) {
+            Log.d(TAG, "subscriber number " + subsNum + " address " + address);
+            if (subsNum.contains(address)) {
+                Log.w(TAG, "return without sending host call in CLCC");
+                  return;
+            }
+        }
+
         int addressType = address == null ? -1 : PhoneNumberUtils.toaFromString(address);
 
         if (shouldLog) {
