@@ -54,8 +54,11 @@ import android.companion.ICompanionDeviceManager;
 import android.content.AttributionSource;
 import android.content.Context;
 import android.content.Intent;
+import android.net.MacAddress;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Message;
 import android.os.ParcelUuid;
 import android.os.RemoteException;
 import android.os.ServiceManager;
@@ -64,9 +67,10 @@ import android.os.UserHandle;
 import android.os.WorkSource;
 import android.provider.DeviceConfig;
 import android.provider.Settings;
+import android.text.format.DateUtils;
 import android.util.Log;
-import android.os.Message;
-import android.os.Handler;
+
+
 import android.os.HandlerThread;
 import android.os.Looper;
 
@@ -78,6 +82,7 @@ import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.util.NumberUtils;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.util.HexDump;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -90,6 +95,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 
 /**
  * Provides Bluetooth Gatt profile, as a service in
@@ -114,7 +120,7 @@ public class GattService extends ProfileService {
     /**
      * The default floor value for LE batch scan report delays greater than 0
      */
-    private static final long DEFAULT_REPORT_DELAY_FLOOR = 5000;
+    private static final long DEFAULT_REPORT_DELAY_FLOOR = 5000 ;
 
     // onFoundLost related constants
     private static final int ADVT_STATE_ONFOUND = 0;
@@ -137,6 +143,17 @@ public class GattService extends ProfileService {
 
     private static final UUID FIDO_SERVICE_UUID =
             UUID.fromString("0000FFFD-0000-1000-8000-00805F9B34FB"); // U2F
+
+    /**
+     * Example raw beacons captured from a Blue Charm BC011
+     */
+    private static final String[] TEST_MODE_BEACONS = new String[] {
+            "020106",
+            "0201060303AAFE1716AAFE10EE01626C7565636861726D626561636F6E730009168020691E0EFE13551109426C7565436861726D5F313639363835000000",
+            "0201060303AAFE1716AAFE00EE626C7565636861726D31000000000001000009168020691E0EFE13551109426C7565436861726D5F313639363835000000",
+            "0201060303AAFE1116AAFE20000BF017000008874803FB93540916802069080EFE13551109426C7565436861726D5F313639363835000000000000000000",
+            "0201061AFF4C000215426C7565436861726D426561636F6E730EFE1355C509168020691E0EFE13551109426C7565436861726D5F31363936383500000000",
+    };
 
     /**
      * Keep the arguments passed in for the PendingIntent.
@@ -199,12 +216,32 @@ public class GattService extends ProfileService {
     private final Map<Integer, Set<Integer>> mRestrictedHandles = new HashMap<>();
 
     private BluetoothAdapter mAdapter;
+    private AdapterService mAdapterService;
     private AdvertiseManager mAdvertiseManager;
     private PeriodicScanManager mPeriodicScanManager;
     private ScanManager mScanManager;
     private AppOpsManager mAppOps;
     private ICompanionDeviceManager mCompanionManager;
     private String mExposureNotificationPackage;
+    private Handler mTestModeHandler;
+    private final Object mTestModeLock = new Object();
+
+    /**
+     */
+    private final Predicate<ScanResult> mLocationDenylistPredicate = (scanResult) -> {
+        final MacAddress parsedAddress = MacAddress
+                .fromString(scanResult.getDevice().getAddress());
+        if (mAdapterService.getLocationDenylistMac().test(parsedAddress.toByteArray())) {
+            Log.v(TAG, "Skipping device matching denylist: " + parsedAddress);
+            return true;
+        }
+        final ScanRecord scanRecord = scanResult.getScanRecord();
+        if (scanRecord.matchesAnyField(mAdapterService.getLocationDenylistAdvertisingData())) {
+            Log.v(TAG, "Skipping data matching denylist: " + scanRecord);
+            return true;
+        }
+        return false;
+    };
 
     private static GattService sGattService;
     private boolean mNativeAvailable;
@@ -266,6 +303,7 @@ public class GattService extends ProfileService {
         initializeNative();
         mNativeAvailable = true;
         mAdapter = BluetoothAdapter.getDefaultAdapter();
+        mAdapterService = AdapterService.getAdapterService();
         mCompanionManager = ICompanionDeviceManager.Stub.asInterface(
                 ServiceManager.getService(Context.COMPANION_DEVICE_SERVICE));
         mAppOps = getSystemService(AppOpsManager.class);
@@ -349,6 +387,38 @@ public class GattService extends ProfileService {
         }
     }
 
+    // While test mode is enabled, pretend as if the underlying stack
+    // discovered a specific set of well-known beacons every second
+    @Override
+    protected void setTestModeEnabled(boolean enableTestMode) {
+        synchronized (mTestModeLock) {
+            if (mTestModeHandler == null) {
+                mTestModeHandler = new Handler(getMainLooper()) {
+                    public void handleMessage(Message msg) {
+                        synchronized (mTestModeLock) {
+                            if (!GattService.this.isTestModeEnabled()) {
+                                return;
+                            }
+                            for (String test : TEST_MODE_BEACONS) {
+                                onScanResultInternal(0x1b, 0x1, "DD:34:02:05:5C:4D", 1, 0, 0xff,
+                                        127, -54, 0x0, HexDump.hexStringToByteArray(test));
+                            }
+                            sendEmptyMessageDelayed(0, DateUtils.SECOND_IN_MILLIS);
+                        }
+                    }
+                };
+            }
+            if (enableTestMode && !isTestModeEnabled()) {
+                super.setTestModeEnabled(true);
+                mTestModeHandler.removeMessages(0);
+                mTestModeHandler.sendEmptyMessageDelayed(0, DateUtils.SECOND_IN_MILLIS);
+            } else if (!enableTestMode && isTestModeEnabled()) {
+                super.setTestModeEnabled(false);
+                mTestModeHandler.removeMessages(0);
+                mTestModeHandler.sendEmptyMessage(0);
+            }
+        }
+    }
 
     /**
      * Get the current instance of {@link GattService}
@@ -1153,34 +1223,26 @@ public class GattService extends ProfileService {
     void HandleScanResult(int eventType, int addressType, String address, int primaryPhy,
             int secondaryPhy, int advertisingSid, int txPower, int rssi, int periodicAdvInt,
             byte[] advData) {
+        // When in testing mode, ignore all real-world events
+        if (isTestModeEnabled()) return;
+        onScanResultInternal(eventType, addressType, address, primaryPhy, secondaryPhy,
+                advertisingSid, txPower, rssi, periodicAdvInt, advData);
+    }
+
+    void onScanResultInternal(int eventType, int addressType, String address, int primaryPhy,
+            int secondaryPhy, int advertisingSid, int txPower, int rssi, int periodicAdvInt,
+            byte[] advData) {
         if (VDBG) {
-            Log.d(TAG, "HandleScanResult() - eventType=0x" + Integer.toHexString(eventType)
+            Log.d(TAG, "onScanResultInternal() - eventType=0x" + Integer.toHexString(eventType)
                     + ", addressType=" + addressType + ", address=" + address + ", primaryPhy="
                     + primaryPhy + ", secondaryPhy=" + secondaryPhy + ", advertisingSid=0x"
                     + Integer.toHexString(advertisingSid) + ", txPower=" + txPower + ", rssi="
                     + rssi + ", periodicAdvInt=0x" + Integer.toHexString(periodicAdvInt));
         }
-        List<UUID> remoteUuids = parseUuids(advData);
 
         byte[] legacyAdvData = Arrays.copyOfRange(advData, 0, 62);
 
         for (ScanClient client : mScanManager.getRegularScanQueue()) {
-            if (client.uuids.length > 0) {
-                int matches = 0;
-                for (UUID search : client.uuids) {
-                    for (UUID remote : remoteUuids) {
-                        if (remote.equals(search)) {
-                            ++matches;
-                            break; // Only count 1st match in case of duplicates
-                        }
-                    }
-                }
-
-                if (matches < client.uuids.length) {
-                    continue;
-                }
-            }
-
             ScannerMap.App app = mScannerMap.getById(client.scannerId);
             if (app == null) {
                 continue;
@@ -1229,7 +1291,11 @@ public class GattService extends ProfileService {
                             record,
                             SystemClock.elapsedRealtimeNanos());
             }
-
+            if (client.hasDisavowedLocation) {
+                if (mLocationDenylistPredicate.test(result)) {
+                    continue;
+                }
+            }
             boolean hasPermission = hasScanResultPermission(client);
             if (!hasPermission) {
                 for (String associatedDevice : client.associatedDevices) {
@@ -1239,9 +1305,7 @@ public class GattService extends ProfileService {
                     }
                 }
             }
-            if (!hasPermission || !matchesFilters(client, result)) {
-                continue;
-            }
+
 
             if (!hasPermission && client.eligibleForSanitizedExposureNotification) {
                 ScanResult sanitized = getSanitizedExposureNotification(result);
@@ -1249,6 +1313,9 @@ public class GattService extends ProfileService {
                     hasPermission = true;
                     result = sanitized;
                 }
+            }
+            if (!hasPermission || !matchesFilters(client, result)) {
+                continue;
             }
 
             if ((settings.getCallbackType() & ScanSettings.CALLBACK_TYPE_ALL_MATCHES) == 0) {
@@ -1311,7 +1378,10 @@ public class GattService extends ProfileService {
                     + Integer.toHexString(advertisingSid) + ", txPower=" + txPower + ", rssi="
                     + rssi + ", periodicAdvInt=0x" + Integer.toHexString(periodicAdvInt));
         }
-
+        // When in testing mode, ignore all real-world events
+        if (isTestModeEnabled()) {
+            return;
+        }
         if (mScanResultHandler == null) {
             Log.d(TAG, "onScanResult: mScanResultHandler is null.");
             return;
@@ -1393,6 +1463,9 @@ public class GattService extends ProfileService {
         if (client.hasNetworkSettingsPermission
                 || client.hasNetworkSetupWizardPermission
                 || client.hasScanWithoutLocationPermission) {
+            return true;
+        }
+        if (client.hasDisavowedLocation) {
             return true;
         }
         return client.hasLocationPermission && !Utils.blockedByLocationOff(this, client.userHandle);
@@ -1877,6 +1950,14 @@ public class GattService extends ProfileService {
 
     void onBatchScanReports(int status, int scannerId, int reportType, int numRecords,
             byte[] recordData) throws RemoteException {
+        // When in testing mode, ignore all real-world events
+        if (isTestModeEnabled()) return;
+
+        onBatchScanReportsInternal(status, scannerId, reportType, numRecords, recordData);
+    }
+
+    void onBatchScanReportsInternal(int status, int scannerId, int reportType, int numRecords,
+            byte[] recordData) throws RemoteException {
         if (DBG) {
             Log.d(TAG, "onBatchScanReports() - scannerId=" + scannerId + ", status=" + status
                     + ", reportType=" + reportType + ", numRecords=" + numRecords);
@@ -1911,6 +1992,10 @@ public class GattService extends ProfileService {
                 if (permittedResults.isEmpty()) {
                     return;
                 }
+            }
+
+            if (client.hasDisavowedLocation) {
+                permittedResults.removeIf(mLocationDenylistPredicate);
             }
 
             if (app.callback != null) {
@@ -2355,18 +2440,23 @@ public class GattService extends ProfileService {
         mAppOps.checkPackage(Binder.getCallingUid(), callingPackage);
         scanClient.eligibleForSanitizedExposureNotification =
                 callingPackage.equals(mExposureNotificationPackage);
+        scanClient.hasDisavowedLocation =
+                Utils.hasDisavowedLocationForScan(this, attributionSource, isTestModeEnabled());
         scanClient.isQApp = Utils.isQApp(this, callingPackage);
-        if (scanClient.isQApp) {
+        if (!scanClient.hasDisavowedLocation) {
+            if (scanClient.isQApp) {
                 scanClient.hasLocationPermission = Utils.checkCallerHasFineLocation(
                         this, attributionSource, scanClient.userHandle);
-        } else {
+            } else {
                 scanClient.hasLocationPermission = Utils.checkCallerHasCoarseOrFineLocation(
                         this, attributionSource, scanClient.userHandle);
+            }
         }
-
         if (callingPackage != null &&
-                callingPackage.equals("com.android.bluetooth")) {
-            Log.d(TAG, "allowAddressTypeInResults only for Bluetooth apk");
+            callingPackage.equals("com.android.bluetooth")) {
+            if (DBG) {
+                Log.d(TAG, "allowAddressTypeInResults only for Bluetooth apk");
+            }
             scanClient.allowAddressTypeInResults  = true;
         }
 
@@ -2406,7 +2496,7 @@ public class GattService extends ProfileService {
         }
         enforcePrivilegedPermissionIfNeeded(settings);
         settings = enforceReportDelayFloor(settings);
-
+        enforcePrivilegedPermissionIfNeeded(filters);
         UUID uuid = UUID.randomUUID();
         if (DBG) {
             Log.d(TAG, "startScan(PI) - UUID=" + uuid);
@@ -2429,18 +2519,24 @@ public class GattService extends ProfileService {
         mAppOps.checkPackage(Binder.getCallingUid(), callingPackage);
         app.mEligibleForSanitizedExposureNotification =
                 callingPackage.equals(mExposureNotificationPackage);
+
+        app.mHasDisavowedLocation =
+                Utils.hasDisavowedLocationForScan(this, attributionSource, isTestModeEnabled());
+
         app.mIsQApp = Utils.isQApp(this, callingPackage);
-        try {
-            if (app.mIsQApp) {
-                app.hasLocationPermission = Utils.checkCallerHasFineLocation(
+        if (!app.mHasDisavowedLocation) {
+            try {
+                if (app.mIsQApp) {
+                    app.hasLocationPermission = Utils.checkCallerHasFineLocation(
                             this, attributionSource, app.mUserHandle);
-            } else {
-                app.hasLocationPermission = Utils.checkCallerHasCoarseOrFineLocation(
+                } else {
+                    app.hasLocationPermission = Utils.checkCallerHasCoarseOrFineLocation(
                             this, attributionSource, app.mUserHandle);
+                }
+            } catch (SecurityException se) {
+                // No need to throw here. Just mark as not granted.
+                app.hasLocationPermission = false;
             }
-        } catch (SecurityException se) {
-            // No need to throw here. Just mark as not granted.
-            app.hasLocationPermission = false;
         }
         app.mHasNetworkSettingsPermission =
                 Utils.checkCallerHasNetworkSettingsPermission(this);
@@ -2465,6 +2561,7 @@ public class GattService extends ProfileService {
         scanClient.hasNetworkSetupWizardPermission = app.mHasNetworkSetupWizardPermission;
         scanClient.hasScanWithoutLocationPermission = app.mHasScanWithoutLocationPermission;
         scanClient.associatedDevices = app.mAssociatedDevices;
+        scanClient.hasDisavowedLocation = app.mHasDisavowedLocation;
 
         AppScanStats scanStats = mScannerMap.getAppScanStatsById(scannerId);
         if (scanStats != null) {
@@ -3973,41 +4070,6 @@ public class GattService extends ProfileService {
         for (Integer handle : handleList) {
             gattServerDeleteServiceNative(serverIf, handle);
         }
-    }
-
-    @VisibleForTesting
-    List<UUID> parseUuids(byte[] advData) {
-        List<UUID> uuids = new ArrayList<UUID>();
-
-        int offset = 0;
-        while (offset < (advData.length - 2)) {
-            int len = Byte.toUnsignedInt(advData[offset++]);
-            if (len == 0) {
-                break;
-            }
-
-            int type = advData[offset++];
-            switch (type) {
-                case 0x02: // Partial list of 16-bit UUIDs
-                case 0x03: // Complete list of 16-bit UUIDs
-                    while (len > 1) {
-                        int uuid16 = advData[offset++];
-                        uuid16 += (advData[offset++] << 8);
-                        len -= 2;
-                        String uuid_prefix = Integer.toHexString(uuid16);
-                        // Pad zeroes to make uuid_prefix length exactly 8.
-                        uuids.add(UUID.fromString(UUID_ZERO_PAD.substring(uuid_prefix.length())
-                                                  + uuid_prefix + UUID_SUFFIX));
-                    }
-                    break;
-
-                default:
-                    offset += (len - 1);
-                    break;
-            }
-        }
-
-        return uuids;
     }
 
     void dumpRegisterId(StringBuilder sb) {
