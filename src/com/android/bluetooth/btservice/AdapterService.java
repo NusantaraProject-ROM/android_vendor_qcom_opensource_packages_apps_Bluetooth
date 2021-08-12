@@ -105,6 +105,7 @@ import android.os.AsyncTask;
 import android.os.BatteryStats;
 import android.os.Binder;
 import android.os.Bundle;
+import android.os.BytesMatcher;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -157,8 +158,11 @@ import com.android.bluetooth.sap.SapService;
 import com.android.bluetooth.sdp.SdpManager;
 import com.android.bluetooth.ba.BATService;
 import com.android.internal.R;
+import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.app.IBatteryStats;
+import com.android.internal.os.BackgroundThread;
+import com.android.internal.os.BinderCallsStats;
 import com.android.internal.util.ArrayUtils;
 import android.media.MediaMetadata;
 
@@ -183,7 +187,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 public class AdapterService extends Service {
     private static final String TAG = "BluetoothAdapterService";
@@ -349,6 +355,9 @@ public class AdapterService extends Service {
     Method mBroadcastGetAddr = null;
     Method mBroadcastDevice = null;
     Method mBroadcastMeta = null;
+
+    private volatile boolean mTestModeEnabled = false;
+
     //_REF*/
     /**
      * Register a {@link ProfileService} with AdapterService.
@@ -607,8 +616,9 @@ public class AdapterService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        debugLog("onCreate()");
+        debugLog("onCreate(sravan 3759518 / 7  )");
         mAdapter = BluetoothAdapter.getDefaultAdapter();
+        mDeviceConfigListener.start();
         mRemoteDevices = new RemoteDevices(this, Looper.getMainLooper());
         mRemoteDevices.init();
         clearDiscoveringPackages();
@@ -3083,31 +3093,29 @@ public class AdapterService extends Service {
         String callingPackage = attributionSource.getPackageName();
         mAppOps.checkPackage(Binder.getCallingUid(), callingPackage);
         boolean isQApp = Utils.isQApp(this, callingPackage);
+        boolean hasDisavowedLocation =
+                Utils.hasDisavowedLocationForScan(this, attributionSource, mTestModeEnabled);
         String permission = null;
         if (Utils.checkCallerHasNetworkSettingsPermission(this)) {
             permission = android.Manifest.permission.NETWORK_SETTINGS;
         } else if (Utils.checkCallerHasNetworkSetupWizardPermission(this)) {
             permission = android.Manifest.permission.NETWORK_SETUP_WIZARD;
-        } else if (isQApp) {
-            if (!Utils.checkCallerHasFineLocation(this,
-                    attributionSource, callingUser)) {
-                return false;
+        } else if (!hasDisavowedLocation) {
+            if (isQApp) {
+                if (!Utils.checkCallerHasFineLocation(this, attributionSource, callingUser)) {
+                    return false;
+                }
+                permission = android.Manifest.permission.ACCESS_FINE_LOCATION;
+            } else {
+                if (!Utils.checkCallerHasCoarseLocation(this, attributionSource, callingUser)) {
+                    return false;
+                }
+                permission = android.Manifest.permission.ACCESS_COARSE_LOCATION;
             }
-            permission = android.Manifest.permission.ACCESS_FINE_LOCATION;
-        } else {
-            if (!Utils.checkCallerHasCoarseLocation(this,
-                    attributionSource, callingUser)) {
-                return false;
-            }
-            permission = android.Manifest.permission.ACCESS_COARSE_LOCATION;
-        }
-
-        if (mAdapterProperties.isDiscovering()) {
-            Log.i(TAG,"discovery already active, ignore startDiscovery");
-            return false;
         }
         synchronized (mDiscoveringPackages) {
-            mDiscoveringPackages.add(new DiscoveringPackage(callingPackage, permission));
+            mDiscoveringPackages.add(
+                    new DiscoveringPackage(callingPackage, permission, hasDisavowedLocation));
         }
 
         return startDiscoveryNative();
@@ -4666,6 +4674,14 @@ public class AdapterService extends Service {
             return;
         }
 
+        if ("set-test-mode".equals(args[0])) {
+            final boolean testModeEnabled = "enabled".equalsIgnoreCase(args[1]);
+            for (ProfileService profile : mRunningProfiles) {
+                profile.setTestModeEnabled(testModeEnabled);
+            }
+            mTestModeEnabled = testModeEnabled;
+            return;
+        }
         verboseLog("dumpsys arguments, check for protobuf output: " + TextUtils.join(" ", args));
         if (args[0].equals("--proto-bin")) {
             dumpMetrics(fd);
@@ -4816,6 +4832,125 @@ public class AdapterService extends Service {
         return initFlags.toArray(new String[0]);
     }
 
+    private final Object mDeviceConfigLock = new Object();
+
+    /**
+     * Predicate that can be applied to names to determine if a device is
+     * well-known to be used for physical location.
+     */
+    @GuardedBy("mDeviceConfigLock")
+    private Predicate<String> mLocationDenylistName = (v) -> false;
+
+    /**
+     * Predicate that can be applied to MAC addresses to determine if a device
+     * is well-known to be used for physical location.
+     */
+    @GuardedBy("mDeviceConfigLock")
+    private Predicate<byte[]> mLocationDenylistMac = (v) -> false;
+
+    /**
+     * Predicate that can be applied to Advertising Data payloads to determine
+     * if a device is well-known to be used for physical location.
+     */
+    @GuardedBy("mDeviceConfigLock")
+    private Predicate<byte[]> mLocationDenylistAdvertisingData = (v) -> false;
+
+    @GuardedBy("mDeviceConfigLock")
+    private int mScanQuotaCount = DeviceConfigListener.DEFAULT_SCAN_QUOTA_COUNT;
+    @GuardedBy("mDeviceConfigLock")
+    private long mScanQuotaWindowMillis = DeviceConfigListener.DEFAULT_SCAN_QUOTA_WINDOW_MILLIS;
+    @GuardedBy("mDeviceConfigLock")
+    private long mScanTimeoutMillis = DeviceConfigListener.DEFAULT_SCAN_TIMEOUT_MILLIS;
+
+    public @NonNull Predicate<String> getLocationDenylistName() {
+        synchronized (mDeviceConfigLock) {
+            return mLocationDenylistName;
+        }
+    }
+
+    public @NonNull Predicate<byte[]> getLocationDenylistMac() {
+        synchronized (mDeviceConfigLock) {
+            return mLocationDenylistMac;
+        }
+    }
+
+    public @NonNull Predicate<byte[]> getLocationDenylistAdvertisingData() {
+        synchronized (mDeviceConfigLock) {
+            return mLocationDenylistAdvertisingData;
+        }
+    }
+
+    public int getScanQuotaCount() {
+        synchronized (mDeviceConfigLock) {
+            return mScanQuotaCount;
+        }
+    }
+
+    public long getScanQuotaWindowMillis() {
+        synchronized (mDeviceConfigLock) {
+            return mScanQuotaWindowMillis;
+        }
+    }
+
+    public long getScanTimeoutMillis() {
+        synchronized (mDeviceConfigLock) {
+            return mScanTimeoutMillis;
+        }
+    }
+
+    private final DeviceConfigListener mDeviceConfigListener = new DeviceConfigListener();
+
+    private class DeviceConfigListener implements DeviceConfig.OnPropertiesChangedListener {
+        private static final String LOCATION_DENYLIST_NAME =
+                "location_denylist_name";
+        private static final String LOCATION_DENYLIST_MAC =
+                "location_denylist_mac";
+        private static final String LOCATION_DENYLIST_ADVERTISING_DATA =
+                "location_denylist_advertising_data";
+        private static final String SCAN_QUOTA_COUNT =
+                "scan_quota_count";
+        private static final String SCAN_QUOTA_WINDOW_MILLIS =
+                "scan_quota_window_millis";
+        private static final String SCAN_TIMEOUT_MILLIS =
+                "scan_timeout_millis";
+
+        /**
+         * Default denylist which matches Eddystone and iBeacon payloads.
+         */
+        private static final String DEFAULT_LOCATION_DENYLIST_ADVERTISING_DATA =
+                "⊆0016AAFE/00FFFFFF,⊆00FF4C0002/00FFFFFFFF";
+
+        private static final int DEFAULT_SCAN_QUOTA_COUNT = 5;
+        private static final long DEFAULT_SCAN_QUOTA_WINDOW_MILLIS = 30 * SECOND_IN_MILLIS;
+        private static final long DEFAULT_SCAN_TIMEOUT_MILLIS = 30 * MINUTE_IN_MILLIS;
+
+        public void start() {
+            DeviceConfig.addOnPropertiesChangedListener(DeviceConfig.NAMESPACE_BLUETOOTH,
+                    BackgroundThread.getExecutor(), this);
+            onPropertiesChanged(DeviceConfig.getProperties(DeviceConfig.NAMESPACE_BLUETOOTH));
+        }
+
+        @Override
+        public void onPropertiesChanged(DeviceConfig.Properties properties) {
+            synchronized (mDeviceConfigLock) {
+                final String name = properties.getString(LOCATION_DENYLIST_NAME, null);
+                mLocationDenylistName = !TextUtils.isEmpty(name)
+                        ? Pattern.compile(name).asPredicate()
+                        : (v) -> false;
+                mLocationDenylistMac = BytesMatcher
+                        .decode(properties.getString(LOCATION_DENYLIST_MAC, null));
+                mLocationDenylistAdvertisingData = BytesMatcher
+                        .decode(properties.getString(LOCATION_DENYLIST_ADVERTISING_DATA,
+                                DEFAULT_LOCATION_DENYLIST_ADVERTISING_DATA));
+                mScanQuotaCount = properties.getInt(SCAN_QUOTA_COUNT,
+                        DEFAULT_SCAN_QUOTA_COUNT);
+                mScanQuotaWindowMillis = properties.getLong(SCAN_QUOTA_WINDOW_MILLIS,
+                        DEFAULT_SCAN_QUOTA_WINDOW_MILLIS);
+                mScanTimeoutMillis = properties.getLong(SCAN_TIMEOUT_MILLIS,
+                        DEFAULT_SCAN_TIMEOUT_MILLIS);
+            }
+        }
+    }
     /**
      *  Obfuscate Bluetooth MAC address into a PII free ID string
      *

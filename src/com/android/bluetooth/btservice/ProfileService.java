@@ -61,6 +61,7 @@ public abstract class ProfileService extends Service {
     private AdapterService mAdapterService;
     private BroadcastReceiver mUserSwitchedReceiver;
     private boolean mProfileStarted = false;
+    private volatile boolean mTestModeEnabled = false;
 
     public String getName() {
         return getClass().getSimpleName();
@@ -68,6 +69,10 @@ public abstract class ProfileService extends Service {
 
     public boolean isAvailable() {
         return mProfileStarted;
+    }
+
+    protected boolean isTestModeEnabled() {
+        return mTestModeEnabled;
     }
 
     /**
@@ -122,6 +127,15 @@ public abstract class ProfileService extends Service {
     // Suppressed since this is called from framework
     @SuppressLint("AndroidFrameworkRequiresPermission")
     protected void setUserUnlocked(int userId) {}
+
+    /**
+     * @param testEnabled if the profile should enter or exit a testing mode
+     */
+    // Suppressed since this is called from framework
+    @SuppressLint("AndroidFrameworkRequiresPermission")
+    protected void setTestModeEnabled(boolean testModeEnabled) {
+        mTestModeEnabled = testModeEnabled;
+    }
 
     protected ProfileService() {
         mName = getName();
