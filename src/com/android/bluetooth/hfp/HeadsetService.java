@@ -508,10 +508,9 @@ public class HeadsetService extends ProfileService {
                 case AudioManager.VOLUME_CHANGED_ACTION: {
                     int streamType = intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, -1);
                     if (streamType == AudioManager.STREAM_BLUETOOTH_SCO) {
-                       synchronized (mStateMachines) {
-                          doForEachConnectedStateMachine(stateMachine -> stateMachine.sendMessage(
-                                HeadsetStateMachine.INTENT_SCO_VOLUME_CHANGED, intent));
-                       }
+                        if(!ApmConstIntf.getLeAudioEnabled()) {
+                            setIntentScoVolume(intent);
+                        }
                     }
                     break;
                 }
@@ -585,6 +584,14 @@ public class HeadsetService extends ProfileService {
     public void updateAudioState(BluetoothDevice device, int mAudioState) {
             CallAudioIntf mCallAudio = CallAudioIntf.get();
             mCallAudio.onAudioStateChange(device, mAudioState);
+    }
+
+    public void setIntentScoVolume(Intent intent) {
+        Log.w(TAG, "setIntentScoVolume");
+        synchronized (mStateMachines) {
+            doForEachConnectedStateMachine(stateMachine -> stateMachine.sendMessage(
+                    HeadsetStateMachine.INTENT_SCO_VOLUME_CHANGED, intent));
+        }
     }
 
     /**
