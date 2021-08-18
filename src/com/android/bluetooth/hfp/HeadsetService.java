@@ -2643,10 +2643,17 @@ public class HeadsetService extends ProfileService {
                             }
                         }
                         if (mVirtualCallStarted) {
-                            if (!stopScoUsingVirtualVoiceCall()) {
-                                Log.w(TAG,"onAudioStateChangedFromStateMachine:"
-                                    + " failed to stop virtual "
-                                    + " voice call");
+                            if(ApmConstIntf.getLeAudioEnabled()) {
+                                CallAudioIntf mCallAudio = CallAudioIntf.get();
+                                if(mCallAudio != null) {
+                                    mCallAudio.remoteDisconnectVirtualVoiceCall(device);
+                                }
+                            } else {
+                                if (!stopScoUsingVirtualVoiceCall()) {
+                                    Log.w(TAG,"onAudioStateChangedFromStateMachine:"
+                                        + " failed to stop virtual "
+                                        + " voice call");
+                                }
                             }
                         }
                     }
