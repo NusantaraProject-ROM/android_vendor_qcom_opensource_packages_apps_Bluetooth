@@ -320,7 +320,7 @@ public class BluetoothCall {
     public static List<String> getIds(List<Call> calls) {
         List<String> result = new ArrayList<>();
         for (Call call : calls) {
-            if (call != null) {
+            if (call != null && call.getDetails() != null) {
                 result.add(call.getDetails().getTelecomCallId());
             }
         }
