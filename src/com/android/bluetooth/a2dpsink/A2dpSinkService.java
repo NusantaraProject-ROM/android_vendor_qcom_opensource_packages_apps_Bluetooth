@@ -15,6 +15,7 @@
  */
 package com.android.bluetooth.a2dpsink;
 
+import android.annotation.RequiresPermission;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothAudioConfig;
 import android.bluetooth.BluetoothDevice;
@@ -131,9 +132,11 @@ public class A2dpSinkService extends ProfileService {
             implements IProfileServiceBinder {
         private A2dpSinkService mService;
 
-        private A2dpSinkService getService() {
-            if (!Utils.checkCaller()) {
-                Log.w(TAG, "A2dp call not allowed for non-active user");
+        @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
+        private A2dpSinkService getService(AttributionSource source) {
+            if (!Utils.checkCallerIsSystemOrActiveUser(TAG)
+                    || !Utils.checkServiceAvailable(mService, TAG)
+                    || !Utils.checkConnectPermissionForDataDelivery(mService, source, TAG)) {
                 return null;
             }
 
@@ -154,7 +157,7 @@ public class A2dpSinkService extends ProfileService {
 
         @Override
         public boolean connect(BluetoothDevice device, AttributionSource source) {
-            A2dpSinkService service = getService();
+            A2dpSinkService service = getService(source);
             if (service == null) {
                 return false;
             }
@@ -163,7 +166,7 @@ public class A2dpSinkService extends ProfileService {
 
         @Override
         public boolean disconnect(BluetoothDevice device, AttributionSource source) {
-            A2dpSinkService service = getService();
+            A2dpSinkService service = getService(source);
             if (service == null) {
                 return false;
             }
@@ -172,7 +175,7 @@ public class A2dpSinkService extends ProfileService {
 
         @Override
         public List<BluetoothDevice> getConnectedDevices(AttributionSource source) {
-            A2dpSinkService service = getService();
+            A2dpSinkService service = getService(source);
             if (service == null) {
                 return new ArrayList<BluetoothDevice>(0);
             }
@@ -181,7 +184,7 @@ public class A2dpSinkService extends ProfileService {
 
         @Override
         public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states, AttributionSource source) {
-            A2dpSinkService service = getService();
+            A2dpSinkService service = getService(source);
             if (service == null) {
                 return new ArrayList<BluetoothDevice>(0);
             }
@@ -190,7 +193,7 @@ public class A2dpSinkService extends ProfileService {
 
         @Override
         public int getConnectionState(BluetoothDevice device, AttributionSource source) {
-            A2dpSinkService service = getService();
+            A2dpSinkService service = getService(source);
             if (service == null) {
                 return BluetoothProfile.STATE_DISCONNECTED;
             }
@@ -199,7 +202,7 @@ public class A2dpSinkService extends ProfileService {
 
         @Override
         public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy, AttributionSource source) {
-            A2dpSinkService service = getService();
+            A2dpSinkService service = getService(source);
             if (service == null) {
                 return false;
             }
@@ -208,7 +211,7 @@ public class A2dpSinkService extends ProfileService {
 
         @Override
         public int getConnectionPolicy(BluetoothDevice device, AttributionSource source) {
-            A2dpSinkService service = getService();
+            A2dpSinkService service = getService(source);
             if (service == null) {
                 return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
             }
@@ -217,7 +220,7 @@ public class A2dpSinkService extends ProfileService {
 
         @Override
         public boolean isA2dpPlaying(BluetoothDevice device, AttributionSource source) {
-            A2dpSinkService service = getService();
+            A2dpSinkService service = getService(source);
             if (service == null) {
                 return false;
             }
@@ -226,7 +229,7 @@ public class A2dpSinkService extends ProfileService {
 
         @Override
         public BluetoothAudioConfig getAudioConfig(BluetoothDevice device, AttributionSource source) {
-            A2dpSinkService service = getService();
+            A2dpSinkService service = getService(source);
             if (service == null) {
                 return null;
             }
@@ -241,6 +244,7 @@ public class A2dpSinkService extends ProfileService {
      *
      * @return true if connection is successful, false otherwise.
      */
+    @RequiresPermission(android.Manifest.permission.BLUETOOTH_PRIVILEGED)
     public synchronized boolean connect(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH_PRIVILEGED permission");
@@ -276,9 +280,6 @@ public class A2dpSinkService extends ProfileService {
      * @return true if disconnect is successful, false otherwise.
      */
     public synchronized boolean disconnect(BluetoothDevice device) {
-        if (!Utils.checkConnectPermissionForPreflight(this)) {
-            return false;
-        }
         if (DBG) {
             StringBuilder sb = new StringBuilder();
             dump(sb);
@@ -447,6 +448,7 @@ public class A2dpSinkService extends ProfileService {
      * @param connectionPolicy is the connection policy to set to for this profile
      * @return true if connectionPolicy is set, false on error
      */
+    @RequiresPermission(android.Manifest.permission.BLUETOOTH_PRIVILEGED)
     public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
         enforceCallingOrSelfPermission(
                 BLUETOOTH_PRIVILEGED, "Need BLUETOOTH_PRIVILEGED permission");
@@ -472,6 +474,7 @@ public class A2dpSinkService extends ProfileService {
      * @param device the remote device
      * @return connection policy of the specified device
      */
+    @RequiresPermission(android.Manifest.permission.BLUETOOTH_PRIVILEGED)
     public int getConnectionPolicy(BluetoothDevice device) {
         enforceCallingOrSelfPermission(
                 BLUETOOTH_PRIVILEGED, "Need BLUETOOTH_PRIVILEGED permission");

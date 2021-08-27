@@ -35,11 +35,9 @@ import static android.os.PowerExemptionManager.TEMPORARY_ALLOW_LIST_TYPE_FOREGRO
 import android.Manifest;
 
 import android.annotation.NonNull;
-import android.annotation.Nullable;
 import android.annotation.RequiresPermission;
 import android.annotation.SuppressLint;
 import android.app.AppGlobals;
-import android.app.ActivityManager;
 import android.app.AppOpsManager;
 import android.app.BroadcastOptions;
 import android.bluetooth.BluetoothAdapter;
@@ -64,6 +62,7 @@ import android.os.RemoteException;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.provider.DeviceConfig;
 import android.util.Log;
 import com.android.bluetooth.btservice.ProfileService;
 
@@ -77,7 +76,9 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
-import java.util.List;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -89,19 +90,11 @@ public final class Utils {
     private static final String TAG = "BluetoothUtils";
     private static final int MICROS_PER_UNIT = 625;
     private static final String PTS_TEST_MODE_PROPERTY = "persist.bluetooth.pts";
+    private static final String KEY_TEMP_ALLOW_LIST_DURATION_MS = "temp_allow_list_duration_ms";
+    private static final long DEFAULT_TEMP_ALLOW_LIST_DURATION_MS = 20_000;
 
     static final int BD_ADDR_LEN = 6; // bytes
     static final int BD_UUID_LEN = 16; // bytes
-
-    public static final Bundle sTempAllowlistBroadcastOptions;
-    static {
-        final long durationMs = 10_000;
-        final BroadcastOptions bOptions = BroadcastOptions.makeBasic();
-        bOptions.setTemporaryAppAllowlist(durationMs,
-                TEMPORARY_ALLOW_LIST_TYPE_FOREGROUND_SERVICE_ALLOWED,
-                PowerExemptionManager.REASON_BLUETOOTH_BROADCAST, "");
-        sTempAllowlistBroadcastOptions = bOptions.toBundle();
-    }
 
     public static String getAddressStringFromByte(byte[] address) {
         if (address == null || address.length != BD_ADDR_LEN) {
@@ -115,6 +108,10 @@ public final class Utils {
     public static byte[] getByteAddress(BluetoothDevice device) {
         if (device == null) return new byte[BD_ADDR_LEN];
         return getBytesFromAddress(device.getAddress());
+   }
+
+    public static byte[] addressToBytes(String address) {
+        return getBytesFromAddress(address);
     }
 
     public static byte[] getBytesFromAddress(String address) {
@@ -405,8 +402,7 @@ public final class Utils {
 
     @SuppressLint("AndroidFrameworkRequiresPermission")
     private static boolean checkPermissionForPreflight(Context context, String permission) {
-        return true;
-        /*final int result = PermissionChecker.checkCallingOrSelfPermissionForPreflight(
+        final int result = PermissionChecker.checkCallingOrSelfPermissionForPreflight(
                 context, permission);
         if (result == PERMISSION_GRANTED) {
             return true;
@@ -418,7 +414,7 @@ public final class Utils {
         } else {
             Log.w(TAG, msg);
             return false;
-        }*/
+        }
     }
 
     @SuppressLint("AndroidFrameworkRequiresPermission")
@@ -522,12 +518,6 @@ public final class Utils {
     @RequiresPermission(android.Manifest.permission.BLUETOOTH_ADVERTISE)
     public static boolean checkAdvertisePermissionForDataDelivery(
             Context context, AttributionSource attributionSource, String message) {
-        if (attributionSource != null &&
-            attributionSource.getPackageName().equals("com.android.bluetooth")) {
-            // This is a WAR for BDCST security exception. It will be removed once
-            // the proper fix is identified.
-            return true;
-        }
         return checkPermissionForDataDelivery(context, BLUETOOTH_ADVERTISE,
                 attributionSource, message);
     }
@@ -585,33 +575,6 @@ public final class Utils {
         return checkCallerIsSystemOrActiveUser(tag + "." + method + "()");
     }
 
-    public static boolean checkCallerAllowManagedProfiles(Context mContext) {
-        return true;
-        /*if (mContext == null) {
-            return checkCaller();
-        }
-        int callingUser = UserHandle.getCallingUserId();
-        int callingUid = Binder.getCallingUid();
-
-        // Use the Bluetooth process identity when making call to get parent user
-        long ident = Binder.clearCallingIdentity();
-        try {
-            UserManager um = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
-            UserInfo ui = um.getProfileParent(callingUser);
-            int parentUser = (ui != null) ? ui.id : UserHandle.USER_NULL;
-
-            // Always allow SystemUI/System access.
-            return (sForegroundUserId == callingUser) || (sForegroundUserId == parentUser)
-                    || (UserHandle.getAppId(sSystemUiUid) == UserHandle.getAppId(callingUid))
-                    || (UserHandle.getAppId(Process.SYSTEM_UID) == UserHandle.getAppId(callingUid));
-        } catch (Exception ex) {
-            Log.e(TAG, "checkCallerAllowManagedProfiles: Exception ex=" + ex);
-            return false;
-        } finally {
-            Binder.restoreCallingIdentity(ident);
-        }*/
-    }
-
     public static boolean checkCallerIsSystemOrActiveOrManagedUser(Context context) {
         if (context == null) {
             return checkCallerIsSystemOrActiveUser();
@@ -631,7 +594,7 @@ public final class Utils {
                     || (UserHandle.getAppId(sSystemUiUid) == UserHandle.getAppId(callingUid))
                     || (UserHandle.getAppId(Process.SYSTEM_UID) == UserHandle.getAppId(callingUid));
         } catch (Exception ex) {
-            Log.e(TAG, "checkCallerAllowManagedProfiles: Exception ex=" + ex);
+            Log.e(TAG, "checkCallerIsSystemOrActiveOrManagedUser: Exception ex=" + ex);
             return false;
         } finally {
             Binder.restoreCallingIdentity(ident);
@@ -812,17 +775,6 @@ public final class Utils {
         return true;
     }
 
-    /**
-     * Return true if the specified package name is a foreground app.
-     *
-     * @param pkgName application package name.
-     */
-    private static boolean isForegroundApp(Context context, String pkgName) {
-        ActivityManager am = (ActivityManager)context.getSystemService(Context.ACTIVITY_SERVICE);
-        List<ActivityManager.RunningTaskInfo> tasks = am.getRunningTasks(1);
-        return !tasks.isEmpty() && pkgName.equals(tasks.get(0).topActivity.getPackageName());
-    }
-
     private static boolean isAppOppAllowed(AppOpsManager appOps, String op, String callingPackage,
             @NonNull String callingFeatureId) {
         return appOps.noteOp(op, Binder.getCallingUid(), callingPackage, callingFeatureId, null)
@@ -882,18 +834,16 @@ public final class Utils {
         return "uid/pid=" + Binder.getCallingUid() + "/" + Binder.getCallingPid();
     }
 
-    public static void enforceBluetoothPermission(Context context) {
-        context.enforceCallingOrSelfPermission(
-            android.Manifest.permission.BLUETOOTH,
-                "Need BLUETOOTH permission");
+    /**
+     * Get system local time
+     *
+     * @return "MM-dd HH:mm:ss.SSS"
+     */
+    public static String getLocalTimeString() {
+        return DateTimeFormatter.ofPattern("MM-dd HH:mm:ss.SSS")
+                .withZone(ZoneId.systemDefault()).format(Instant.now());
     }
 
-    public static void enforceBluetoothAdminPermission(Context context) {
-        context.enforceCallingOrSelfPermission(
-                android.Manifest.permission.BLUETOOTH_ADMIN,
-                "Need BLUETOOTH ADMIN permission");
-    }
-    
     public static void skipCurrentTag(XmlPullParser parser)
             throws XmlPullParserException, IOException {
         int outerDepth = parser.getDepth();
@@ -906,28 +856,63 @@ public final class Utils {
 
 
     public static @NonNull Bundle getTempAllowlistBroadcastOptions() {
-        return sTempAllowlistBroadcastOptions;
+        // Use the Bluetooth process identity to pass permission check when reading DeviceConfig
+        final long ident = Binder.clearCallingIdentity();
+        final BroadcastOptions bOptions = BroadcastOptions.makeBasic();
+        try {
+            final long durationMs = DeviceConfig.getLong(DeviceConfig.NAMESPACE_BLUETOOTH,
+                    KEY_TEMP_ALLOW_LIST_DURATION_MS, DEFAULT_TEMP_ALLOW_LIST_DURATION_MS);
+            bOptions.setTemporaryAppAllowlist(durationMs,
+                    TEMPORARY_ALLOW_LIST_TYPE_FOREGROUND_SERVICE_ALLOWED,
+                    PowerExemptionManager.REASON_BLUETOOTH_BROADCAST, "");
+        } finally {
+            Binder.restoreCallingIdentity(ident);
+        }
+        return bOptions.toBundle();
     }
 
     public static boolean checkCaller() {
-        return true;
-        /*int callingUser = UserHandle.getCallingUserId();
+        int callingUser = UserHandle.getCallingUserId();
         int callingUid = Binder.getCallingUid();
         return (sForegroundUserId == callingUser)
                 || (UserHandle.getAppId(sSystemUiUid) == UserHandle.getAppId(callingUid))
                 || (UserHandle.getAppId(Process.SYSTEM_UID) == UserHandle.getAppId(callingUid));
-        */
     }
 
-    /**
-     * Enforce the context has android.Manifest.permission.BLUETOOTH_ADMIN permission. A
-     * {@link SecurityException} would be thrown if neither the calling process or the application
-     * does not have BLUETOOTH_ADMIN permission.
-     *
-     * @param context Context for the permission check.
-     */
-    public static void enforceAdminPermission(ContextWrapper context) {
-        context.enforceCallingOrSelfPermission(android.Manifest.permission.BLUETOOTH_ADMIN,
-                "Need BLUETOOTH_ADMIN permission");
+    public static boolean checkCallerAllowManagedProfiles(Context mContext) {
+        if (mContext == null) {
+            return checkCaller();
+        }
+        int callingUser = UserHandle.getCallingUserId();
+        int callingUid = Binder.getCallingUid();
+
+        // Use the Bluetooth process identity when making call to get parent user
+        long ident = Binder.clearCallingIdentity();
+        try {
+            UserManager um = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
+            UserInfo ui = um.getProfileParent(callingUser);
+            int parentUser = (ui != null) ? ui.id : UserHandle.USER_NULL;
+
+            // Always allow SystemUI/System access.
+            return (sForegroundUserId == callingUser) || (sForegroundUserId == parentUser)
+                    || (UserHandle.getAppId(sSystemUiUid) == UserHandle.getAppId(callingUid))
+                    || (UserHandle.getAppId(Process.SYSTEM_UID) == UserHandle.getAppId(callingUid));
+        } catch (Exception ex) {
+            Log.e(TAG, "checkCallerAllowManagedProfiles: Exception ex=" + ex);
+            return false;
+        } finally {
+            Binder.restoreCallingIdentity(ident);
+        }
     }
+
+    public static void enforceBluetoothPermission(Context context) {
+        context.enforceCallingOrSelfPermission(
+            android.Manifest.permission.BLUETOOTH, "Need BLUETOOTH permission");
+    }
+
+    public static void enforceBluetoothAdminPermission(Context context) {
+        context.enforceCallingOrSelfPermission(
+            android.Manifest.permission.BLUETOOTH_ADMIN, "Need BLUETOOTH ADMIN permission");
+    }
+
 }

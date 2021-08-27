@@ -1575,6 +1575,7 @@ static void gattClientScanFilterAddNative(JNIEnv* env, jobject object,
   jfieldID addressFid =
       env->GetFieldID(entryClazz, "address", "Ljava/lang/String;");
   jfieldID addrTypeFid = env->GetFieldID(entryClazz, "addr_type", "B");
+  jfieldID irkTypeFid = env->GetFieldID(entryClazz, "irk", "[B");
   jfieldID uuidFid = env->GetFieldID(entryClazz, "uuid", "Ljava/util/UUID;");
   jfieldID uuidMaskFid =
       env->GetFieldID(entryClazz, "uuid_mask", "Ljava/util/UUID;");
@@ -1589,7 +1590,7 @@ static void gattClientScanFilterAddNative(JNIEnv* env, jobject object,
   jfieldID grpIdentifierSuppportid = env->GetFieldID(entryClazz, "group_filter", "Z");
 
   for (int i = 0; i < numFilters; ++i) {
-    ApcfCommand curr;
+    ApcfCommand curr{};
 
     ScopedLocalRef<jobject> current(env,
                                     env->GetObjectArrayElement(filters, i));
@@ -1603,6 +1604,25 @@ static void gattClientScanFilterAddNative(JNIEnv* env, jobject object,
     }
 
     curr.addr_type = env->GetByteField(current.get(), addrTypeFid);
+
+    ScopedLocalRef<jbyteArray> irkByteArray(
+        env, (jbyteArray)env->GetObjectField(current.get(), irkTypeFid));
+
+    if (irkByteArray.get() != nullptr) {
+      int len = env->GetArrayLength(irkByteArray.get());
+      // IRK is 128 bits or 16 octets, set the bytes or zero it out
+      if (len != 16) {
+        ALOGE("%s: Invalid IRK length '%d'; expected 16", __func__, len);
+        jniThrowIOException(env, EINVAL);
+      }
+      jbyte* irkBytes = env->GetByteArrayElements(irkByteArray.get(), NULL);
+      if (irkBytes == NULL) {
+        jniThrowIOException(env, EINVAL);
+      }
+      for (int j = 0; j < len; j++) {
+        curr.irk[j] = irkBytes[j];
+      }
+    }
 
     ScopedLocalRef<jobject> uuid(env,
                                  env->GetObjectField(current.get(), uuidFid));

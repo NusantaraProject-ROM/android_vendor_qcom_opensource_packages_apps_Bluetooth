@@ -201,6 +201,22 @@ public class CallAudioIntf {
         return false;
     }
 
+    public void remoteDisconnectVirtualVoiceCall(BluetoothDevice device) {
+        Class[] arg = new Class[1];
+        arg[0] = BluetoothDevice.class;
+
+        try {
+            Method remoteDisconnectVirtualVoiceCall = CallAudio.getDeclaredMethod("remoteDisconnectVirtualVoiceCall", arg);
+            remoteDisconnectVirtualVoiceCall.invoke(mCallAudio, device);
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+    }
+
     public boolean connectAudio() {
         if(CallAudio == null)
             return false;

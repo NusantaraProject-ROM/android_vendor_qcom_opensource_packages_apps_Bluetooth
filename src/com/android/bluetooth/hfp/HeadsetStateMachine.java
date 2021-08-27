@@ -18,6 +18,7 @@ package com.android.bluetooth.hfp;
 
 import static android.Manifest.permission.BLUETOOTH_CONNECT;
 
+import android.annotation.RequiresPermission;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothAssignedNumbers;
 import android.bluetooth.BluetoothDevice;
@@ -43,8 +44,10 @@ import android.net.ConnectivityManager.NetworkCallback;
 import android.net.NetworkInfo;
 import android.net.Network;
 import android.os.Build;
+import android.os.SystemProperties;
 
 import com.android.bluetooth.BluetoothStatsLog;
+import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.InteropUtil;
 import com.android.bluetooth.btservice.ProfileService;
@@ -131,6 +134,7 @@ public class HeadsetStateMachine extends StateMachine {
     static final int A2DP_STATE_CHANGED = 24;
     static final int RESUME_A2DP = 26;
     static final int AUDIO_SERVER_UP = 27;
+    static final int SCO_RETRIAL_NOT_REQ = 28;
 
     static final int STACK_EVENT = 101;
     private static final int CLCC_RSP_TIMEOUT = 104;
@@ -166,6 +170,8 @@ public class HeadsetStateMachine extends StateMachine {
     private static final int VR_FAILURE = 0;
 
     private final BluetoothDevice mDevice;
+    private int RETRY_SCO_CONNECTION_DELAY = 0;
+    private int SCO_RETRIAL_REQ_TIMEOUT = 5000;
 
     // maintain call states in state machine as well
     private final HeadsetCallState mStateMachineCallState =
@@ -218,6 +224,8 @@ public class HeadsetStateMachine extends StateMachine {
     private boolean mIsBlacklistedDevice = false;
     private boolean mIsBlacklistedForSCOAfterSLC = false;
     private int retryConnectCount = 0;
+    private boolean mIsRetrySco = false;
+    private boolean mIsBlacklistedDeviceforRetrySCO = false;
 
     private static boolean mIsAvailable = false;
 
@@ -453,7 +461,7 @@ public class HeadsetStateMachine extends StateMachine {
                 intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
                 intent.addFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
                 mHeadsetService.sendBroadcastAsUser(intent, UserHandle.ALL,
-                    BLUETOOTH_CONNECT);
+                    BLUETOOTH_CONNECT, Utils.getTempAllowlistBroadcastOptions());
             }
         }
 
@@ -480,7 +488,7 @@ public class HeadsetStateMachine extends StateMachine {
                 intent.putExtra(BluetoothProfile.EXTRA_STATE, toState);
                 intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
                 mHeadsetService.sendBroadcastAsUser(intent, UserHandle.ALL,
-                        BLUETOOTH_CONNECT);
+                    BLUETOOTH_CONNECT, Utils.getTempAllowlistBroadcastOptions());
             }
         }
 
@@ -621,6 +629,17 @@ public class HeadsetStateMachine extends StateMachine {
             mStateMachineCallState.mNumber = "";
             mStateMachineCallState.mType = 0;
 
+            // clear pending call states
+            while (mDelayedCSCallStates.isEmpty() != true)
+            {
+               mDelayedCSCallStates.poll();
+            }
+
+            while (mPendingCallStates.isEmpty() != true)
+            {
+               mPendingCallStates.poll();
+            }
+
             broadcastStateTransitions();
             DeviceProfileMapIntf dpm = DeviceProfileMapIntf.getDeviceProfileMapInstance();
             dpm.profileConnectionUpdate(mDevice, ApmConstIntf.AudioFeatures.CALL_AUDIO,
@@ -635,6 +654,8 @@ public class HeadsetStateMachine extends StateMachine {
                 getHandler().post(() -> mHeadsetService.removeStateMachine(mDevice));
             }
             mIsBlacklistedDevice = false;
+            mIsRetrySco = false;
+            mIsBlacklistedDeviceforRetrySCO = false;
         }
 
         @Override
@@ -1383,6 +1404,8 @@ public class HeadsetStateMachine extends StateMachine {
                 mIsBlacklistedDevice = isConnectedDeviceBlacklistedforIncomingCall();
                 // Checking for the Blacklisted device Addresses
                 mIsBlacklistedForSCOAfterSLC = isSCONeededImmediatelyAfterSLC();
+                // Checking for the Blacklisted device Addresses
+                mIsBlacklistedDeviceforRetrySCO = isConnectedDeviceBlacklistedforRetrySco();
                 if (mSystemInterface.isInCall() || mSystemInterface.isRinging()) {
                    stateLogW("Connected: enter: suspending A2DP for Call since SLC connected");
                    // suspend A2DP since call is there
@@ -1587,6 +1610,13 @@ public class HeadsetStateMachine extends StateMachine {
             switch (state) {
                 case HeadsetHalConstants.AUDIO_STATE_DISCONNECTED:
                     stateLogW("processAudioEvent: audio connection failed");
+                    if ((mIsBlacklistedDeviceforRetrySCO == true) && (mIsRetrySco == true)) {
+                        Log.d(TAG, "blacklisted device, retry SCO after " +
+                                     RETRY_SCO_CONNECTION_DELAY + " msec");
+                       Message m = obtainMessage(CONNECT_AUDIO);
+                       sendMessageDelayed(m, RETRY_SCO_CONNECTION_DELAY);
+                       mIsRetrySco = false;
+                    }
                     transitionTo(mConnected);
                     break;
                 case HeadsetHalConstants.AUDIO_STATE_CONNECTING:
@@ -1640,6 +1670,8 @@ public class HeadsetStateMachine extends StateMachine {
 
             setAudioParameters();
             mSystemInterface.getAudioManager().setBluetoothScoOn(true);
+            Message m = obtainMessage(SCO_RETRIAL_NOT_REQ);
+            sendMessageDelayed(m, SCO_RETRIAL_REQ_TIMEOUT);
 
             broadcastStateTransitions();
         }
@@ -1712,6 +1744,11 @@ public class HeadsetStateMachine extends StateMachine {
                     stateLogD("AUDIO_SERVER_UP event");
                     processAudioServerUp();
                     break;
+                case SCO_RETRIAL_NOT_REQ:
+                     //after this timeout, sco retrial is not required
+                     stateLogD("SCO_RETRIIAL_NOT_REQ: ");
+                     mIsRetrySco = false;
+                     break;
                 case STACK_EVENT:
                     HeadsetStackEvent event = (HeadsetStackEvent) message.obj;
                     stateLogD("STACK_EVENT: " + event);
@@ -1756,6 +1793,13 @@ public class HeadsetStateMachine extends StateMachine {
                         mSystemInterface.getHeadsetPhoneState().setIsCsCall(true);
                     } else {
                         stateLogI("Sco disconnected for CS call, do not check network type");
+                    }
+                    if ((mIsBlacklistedDeviceforRetrySCO == true) && (mIsRetrySco == true)) {
+                        Log.d(TAG, "blacklisted device, retry SCO after " +
+                                     RETRY_SCO_CONNECTION_DELAY + " msec");
+                        Message m = obtainMessage(CONNECT_AUDIO);
+                        sendMessageDelayed(m, RETRY_SCO_CONNECTION_DELAY);
+                        mIsRetrySco = false;
                     }
                     transitionTo(mConnected);
                     break;
@@ -1946,7 +1990,8 @@ public class HeadsetStateMachine extends StateMachine {
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         intent.addCategory(BluetoothHeadset.VENDOR_SPECIFIC_HEADSET_EVENT_COMPANY_ID_CATEGORY + "."
                 + Integer.toString(companyId));
-        mHeadsetService.sendBroadcastAsUser(intent, UserHandle.ALL, BLUETOOTH_CONNECT);
+        mHeadsetService.sendBroadcastAsUser(intent, UserHandle.ALL, BLUETOOTH_CONNECT,
+                Utils.getTempAllowlistBroadcastOptions());
     }
 
     private void setAudioParameters() {
@@ -2003,6 +2048,7 @@ public class HeadsetStateMachine extends StateMachine {
         return commandType;
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     private void processDialCall(String number) {
         String dialNumber;
         if (mHeadsetService.hasDeviceInitiatedDialingOut()) {
@@ -2048,6 +2094,7 @@ public class HeadsetStateMachine extends StateMachine {
         mNeedDialingOutReply = true;
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     private void processVrEvent(int state) {
         if (state == HeadsetHalConstants.VR_STATE_STARTED) {
             if (!mHeadsetService.startVoiceRecognitionByHeadset(mDevice)) {
@@ -2268,6 +2315,29 @@ public class HeadsetStateMachine extends StateMachine {
                 }
             }
         }
+
+        /* If device is blacklisted, set retry SCO flag true before creating SCO for 1st time */
+        Log.d(TAG, "mIsBlacklistedDeviceforRetrySCO: " + mIsBlacklistedDeviceforRetrySCO);
+        if (mIsBlacklistedDeviceforRetrySCO) {
+           if (((mStateMachineCallState.mNumActive == 0 && callState.mNumActive == 1) ||
+                (mStateMachineCallState.mNumHeld == 0 && callState.mNumHeld == 1)) &&
+                (mStateMachineCallState.mCallState == HeadsetHalConstants.CALL_STATE_INCOMING &&
+                 callState.mCallState == HeadsetHalConstants.CALL_STATE_IDLE)) {
+              Log.d(TAG, "Incoming call is accepted as Active or Held call");
+              mIsRetrySco = true;
+              RETRY_SCO_CONNECTION_DELAY =
+                      SystemProperties.getInt("persist.vendor.btstack.MT.RETRY_SCO.interval", 2000);
+           } else if ((callState.mNumActive == 0 && callState.mNumHeld == 0) &&
+                     (mStateMachineCallState.mCallState == HeadsetHalConstants.CALL_STATE_IDLE &&
+                     (callState.mCallState == HeadsetHalConstants.CALL_STATE_DIALING ||
+                     callState.mCallState == HeadsetHalConstants.CALL_STATE_ALERTING)))
+           {
+               Log.d(TAG, "Dialing or Alerting indication");
+               mIsRetrySco = true;
+               RETRY_SCO_CONNECTION_DELAY =
+                       SystemProperties.getInt("persist.vendor.btstack.MO.RETRY_SCO.interval", 2000);
+           }
+        }
         mStateMachineCallState.mNumActive = callState.mNumActive;
         mStateMachineCallState.mNumHeld = callState.mNumHeld;
         // get the top of the Q
@@ -2446,6 +2516,7 @@ public class HeadsetStateMachine extends StateMachine {
         }
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     private void processAtChld(int chld, BluetoothDevice device) {
         if (mSystemInterface.processChld(chld)) {
             mNativeInterface.atResponseCode(device, HeadsetHalConstants.AT_RESPONSE_OK, 0);
@@ -2454,6 +2525,7 @@ public class HeadsetStateMachine extends StateMachine {
         }
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     private void processSubscriberNumberRequest(BluetoothDevice device) {
         String number = mSystemInterface.getSubscriberNumber();
         if (number != null) {
@@ -2514,6 +2586,7 @@ public class HeadsetStateMachine extends StateMachine {
         log("Exit processAtCind()");
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     private void processAtCops(BluetoothDevice device) {
         String operatorName = mSystemInterface.getNetworkOperator();
         if (operatorName == null || operatorName.equals("")) {
@@ -2522,6 +2595,7 @@ public class HeadsetStateMachine extends StateMachine {
         mNativeInterface.copsResponse(device, operatorName);
     }
 
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     private void processAtClcc(BluetoothDevice device) {
         if (mHeadsetService.isVirtualCallStarted()) {
             // In virtual call, send our phone number instead of remote phone number
@@ -2725,6 +2799,7 @@ public class HeadsetStateMachine extends StateMachine {
     }
 
     // HSP +CKPD command
+    @RequiresPermission(android.Manifest.permission.MODIFY_PHONE_STATE)
     private void processKeyPressed(BluetoothDevice device) {
         if (mSystemInterface.isRinging()) {
             mSystemInterface.answerCall(device);
@@ -2777,7 +2852,8 @@ public class HeadsetStateMachine extends StateMachine {
         intent.putExtra(BluetoothHeadset.EXTRA_HF_INDICATORS_IND_ID, indId);
         intent.putExtra(BluetoothHeadset.EXTRA_HF_INDICATORS_IND_VALUE, indValue);
 
-        mHeadsetService.sendBroadcast(intent, BLUETOOTH_CONNECT);
+        mHeadsetService.sendBroadcast(intent, BLUETOOTH_CONNECT,
+                Utils.getTempAllowlistBroadcastOptions());
     }
 
     private void processAtBind(String atString, BluetoothDevice device) {
@@ -2968,6 +3044,13 @@ public class HeadsetStateMachine extends StateMachine {
             mDevice.getAddress());
 
         return matched;
+    }
+
+    boolean isConnectedDeviceBlacklistedforRetrySco() {
+       boolean matched = InteropUtil.interopMatchAddrOrName(
+           InteropUtil.InteropFeature.INTEROP_RETRY_SCO_AFTER_REMOTE_REJECT_SCO,
+           mDevice.getAddress());
+       return matched;
     }
 
     boolean isDeviceBlacklistedForSendingCallIndsBackToBack() {

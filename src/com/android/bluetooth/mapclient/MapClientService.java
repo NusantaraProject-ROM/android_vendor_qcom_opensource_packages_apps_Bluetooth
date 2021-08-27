@@ -17,6 +17,7 @@
 package com.android.bluetooth.mapclient;
 
 import android.Manifest;
+import android.annotation.RequiresPermission;
 import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -93,6 +94,7 @@ public class MapClientService extends ProfileService {
      * @param device
      * @return true if connection is successful, false otherwise.
      */
+    @RequiresPermission(android.Manifest.permission.BLUETOOTH_PRIVILEGED)
     public synchronized boolean connect(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH_PRIVILEGED permission");
@@ -162,6 +164,7 @@ public class MapClientService extends ProfileService {
         mMapInstanceMap.put(device, mapStateMachine);
     }
 
+    @RequiresPermission(android.Manifest.permission.BLUETOOTH_PRIVILEGED)
     public synchronized boolean disconnect(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH_PRIVILEGED permission");
@@ -239,6 +242,7 @@ public class MapClientService extends ProfileService {
      * @param connectionPolicy is the connection policy to set to for this profile
      * @return true if connectionPolicy is set, false on error
      */
+    @RequiresPermission(android.Manifest.permission.BLUETOOTH_PRIVILEGED)
     public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy) {
         if (VDBG) {
             Log.v(TAG, "Saved connectionPolicy " + device + " = " + connectionPolicy);
@@ -270,6 +274,7 @@ public class MapClientService extends ProfileService {
      * @return connection policy of the device
      * @hide
      */
+    @RequiresPermission(android.Manifest.permission.BLUETOOTH_PRIVILEGED)
     public int getConnectionPolicy(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PRIVILEGED,
                 "Need BLUETOOTH_PRIVILEGED permission");
@@ -449,17 +454,14 @@ public class MapClientService extends ProfileService {
             mService = service;
         }
 
-        private MapClientService getService() {
-            if (!Utils.checkCaller()) {
-                Log.w(TAG, "MAP call not allowed for non-active user");
+        @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
+        private MapClientService getService(AttributionSource source) {
+            if (!Utils.checkCallerIsSystemOrActiveUser(TAG)
+                    || !Utils.checkServiceAvailable(mService, TAG)
+                    || !Utils.checkConnectPermissionForDataDelivery(mService, source, TAG)) {
                 return null;
             }
-
-            if (mService != null && mService.isAvailable() &&
-                Utils.checkConnectPermissionForPreflight(mService)) {
-                return mService;
-            }
-            return null;
+            return mService;
         }
 
         @Override
@@ -472,7 +474,7 @@ public class MapClientService extends ProfileService {
             if (VDBG) {
                 Log.v(TAG, "isConnected()");
             }
-            MapClientService service = getService();
+            MapClientService service = getService(source);
             if (service == null) {
                 return false;
             }
@@ -484,7 +486,7 @@ public class MapClientService extends ProfileService {
             if (VDBG) {
                 Log.v(TAG, "connect()");
             }
-            MapClientService service = getService();
+            MapClientService service = getService(source);
             if (service == null) {
                 return false;
             }
@@ -496,7 +498,7 @@ public class MapClientService extends ProfileService {
             if (VDBG) {
                 Log.v(TAG, "disconnect()");
             }
-            MapClientService service = getService();
+            MapClientService service = getService(source);
             if (service == null) {
                 return false;
             }
@@ -508,7 +510,7 @@ public class MapClientService extends ProfileService {
             if (VDBG) {
                 Log.v(TAG, "getConnectedDevices()");
             }
-            MapClientService service = getService();
+            MapClientService service = getService(source);
             if (service == null) {
                 return new ArrayList<BluetoothDevice>(0);
             }
@@ -520,7 +522,7 @@ public class MapClientService extends ProfileService {
             if (VDBG) {
                 Log.v(TAG, "getDevicesMatchingConnectionStates()");
             }
-            MapClientService service = getService();
+            MapClientService service = getService(source);
             if (service == null) {
                 return new ArrayList<BluetoothDevice>(0);
             }
@@ -532,7 +534,7 @@ public class MapClientService extends ProfileService {
             if (VDBG) {
                 Log.v(TAG, "getConnectionState()");
             }
-            MapClientService service = getService();
+            MapClientService service = getService(source);
             if (service == null) {
                 return BluetoothProfile.STATE_DISCONNECTED;
             }
@@ -540,8 +542,9 @@ public class MapClientService extends ProfileService {
         }
 
         @Override
-        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy, AttributionSource source) {
-            MapClientService service = getService();
+        public boolean setConnectionPolicy(BluetoothDevice device, int connectionPolicy,
+                AttributionSource source) {
+            MapClientService service = getService(source);
             if (service == null) {
                 return false;
             }
@@ -550,7 +553,7 @@ public class MapClientService extends ProfileService {
 
         @Override
         public int getConnectionPolicy(BluetoothDevice device, AttributionSource source) {
-            MapClientService service = getService();
+            MapClientService service = getService(source);
             if (service == null) {
                 return BluetoothProfile.CONNECTION_POLICY_UNKNOWN;
             }
@@ -560,7 +563,7 @@ public class MapClientService extends ProfileService {
         @Override
         public boolean sendMessage(BluetoothDevice device, Uri[] contacts, String message,
                 PendingIntent sentIntent, PendingIntent deliveredIntent, AttributionSource source) {
-            MapClientService service = getService();
+            MapClientService service = getService(source);
             if (service == null) {
                 return false;
             }
@@ -573,7 +576,7 @@ public class MapClientService extends ProfileService {
 
         @Override
         public boolean getUnreadMessages(BluetoothDevice device, AttributionSource source) {
-            MapClientService service = getService();
+            MapClientService service = getService(source);
             if (service == null) {
                 return false;
             }
@@ -584,8 +587,8 @@ public class MapClientService extends ProfileService {
 
         @Override
         public int getSupportedFeatures(BluetoothDevice device, AttributionSource source) {
-            MapClientService service = getService();
-            if (service == null || !Utils.checkConnectPermissionForPreflight(mService)) {
+            MapClientService service = getService(source);
+            if (service == null) {
                 if (DBG) {
                     Log.d(TAG,
                             "in MapClientService getSupportedFeatures stub, returning 0");
@@ -596,8 +599,9 @@ public class MapClientService extends ProfileService {
         }
 
         @Override
-        public boolean setMessageStatus(BluetoothDevice device, String handle, int status, AttributionSource source) {
-            MapClientService service = getService();
+        public boolean setMessageStatus(BluetoothDevice device, String handle, int status,
+                AttributionSource source) {
+            MapClientService service = getService(source);
             if (service == null) {
                 return false;
             }
