@@ -370,7 +370,7 @@ public class AddressedMediaPlayer {
 
             /* Set display name for current item */
             folderDataNative.mDisplayNames[itemIndex] =
-                    getAttrValue(bdaddr, AvrcpConstants.ATTRID_TITLE, item, mediaController);
+                    getAttrValue(AvrcpConstants.ATTRID_TITLE, item, mediaController);
 
             int maxAttributesRequested = 0;
             boolean isAllAttribRequested = false;
@@ -394,7 +394,7 @@ public class AddressedMediaPlayer {
 
                     int attribId =
                             isAllAttribRequested ? (idx + 1) : folderItemsReqObj.mAttrIDs[idx];
-                    value = getAttrValue(bdaddr, attribId, item, mediaController);
+                    value = getAttrValue(attribId, item, mediaController);
                     if (value != null) {
                         attrArray.add(value);
                         attrId.add(attribId);
@@ -432,7 +432,7 @@ public class AddressedMediaPlayer {
         mMediaInterface.folderItemsRsp(bdaddr, AvrcpConstants.RSP_NO_ERROR, rspObj);
     }
 
-    private String getAttrValue(byte []bdaddr, int attr, MediaSession.QueueItem item,
+    private String getAttrValue(int attr, MediaSession.QueueItem item,
             @Nullable MediaController mediaController) {
         String attrValue = null;
         if (item == null) {
@@ -506,12 +506,6 @@ public class AddressedMediaPlayer {
                     break;
 
                 case AvrcpConstants.ATTRID_COVER_ART:
-                    if (mAvrcp != null) {
-                        attrValue = mAvrcp.getImgHandleFromTitle(bdaddr,
-                                desc.getTitle().toString());
-                    } else {
-                        if (DEBUG) Log.d(TAG, " mAvrcp null ");
-                    }
                     break;
 
                 default:
@@ -568,7 +562,7 @@ public class AddressedMediaPlayer {
         /* lookup and copy values of attributes for ids requested above */
         for (int idx = 0; idx < attrTempId.size(); idx++) {
             /* check if media player provided requested attributes */
-            String value = getAttrValue(bdaddr, attrTempId.get(idx), mediaItem, mediaController);
+            String value = getAttrValue(attrTempId.get(idx), mediaItem, mediaController);
             if (value != null) {
                 attrArray.add(value);
                 attrId.add(attrTempId.get(idx));
@@ -616,19 +610,19 @@ public class AddressedMediaPlayer {
         sb.append("#");
         sb.append(item.getQueueId());
         sb.append(": ");
-        sb.append(Utils.ellipsize(getAttrValue(null, AvrcpConstants.ATTRID_TITLE, item, null)));
+        sb.append(Utils.ellipsize(getAttrValue(AvrcpConstants.ATTRID_TITLE, item, null)));
         sb.append(" - ");
-        sb.append(Utils.ellipsize(getAttrValue(null, AvrcpConstants.ATTRID_ALBUM, item, null)));
+        sb.append(Utils.ellipsize(getAttrValue(AvrcpConstants.ATTRID_ALBUM, item, null)));
         sb.append(" by ");
-        sb.append(Utils.ellipsize(getAttrValue(null, AvrcpConstants.ATTRID_ARTIST, item, null)));
+        sb.append(Utils.ellipsize(getAttrValue(AvrcpConstants.ATTRID_ARTIST, item, null)));
         sb.append(" (");
-        sb.append(getAttrValue(null, AvrcpConstants.ATTRID_PLAY_TIME, item, null));
+        sb.append(getAttrValue(AvrcpConstants.ATTRID_PLAY_TIME, item, null));
         sb.append(" ");
-        sb.append(getAttrValue(null, AvrcpConstants.ATTRID_TRACK_NUM, item, null));
+        sb.append(getAttrValue(AvrcpConstants.ATTRID_TRACK_NUM, item, null));
         sb.append("/");
-        sb.append(getAttrValue(null, AvrcpConstants.ATTRID_NUM_TRACKS, item, null));
+        sb.append(getAttrValue(AvrcpConstants.ATTRID_NUM_TRACKS, item, null));
         sb.append(") ");
-        sb.append(getAttrValue(null, AvrcpConstants.ATTRID_GENRE, item, null));
+        sb.append(getAttrValue(AvrcpConstants.ATTRID_GENRE, item, null));
         return sb.toString();
     }
 
