@@ -383,7 +383,11 @@ public class BluetoothInCallService extends InCallService {
                 Log.e(TAG, "no such call with Index");
                 return false;
             }
-            call.disconnect();
+           if (call.getState() == Call.STATE_RINGING) {
+                call.reject(false, "");
+            } else {
+                call.disconnect();
+            }
             ret = true;
             return ret;
         }
