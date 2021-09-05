@@ -389,7 +389,9 @@ public class A2dpSinkService extends ProfileService {
                    /* set autoconnect priority of non-streaming device to PRIORITY_ON and priority
                     *  of streaming device to PRIORITY_AUTO_CONNECT */
                    avrcpService.onDeviceUpdated(device);
-                   setConnectionPolicy(otherDevice, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+                   setConnectionPolicy(otherDevice, BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
+                   setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+                   mDatabaseManager.setConnectionForA2dpSrc(device);
                    break;
                }
            }
@@ -572,6 +574,19 @@ public class A2dpSinkService extends ProfileService {
             Log.d(TAG, "Release Audio Focus for Streaming device: " + device);
             mA2dpSinkStreamHandler.obtainMessage(
                     A2dpSinkStreamHandler.RELEASE_FOCUS).sendToTarget();
+
+            //While streaming device got diconnected,
+            //make other device prority to auto connect, so that it would
+            //get reconnect when BT turn off/On
+            for (A2dpSinkStateMachine otherSm: mDeviceStateMap.values()) {
+               BluetoothDevice otherDevice = otherSm.getDevice();
+               if (otherDevice != null && !otherDevice.equals(mStreamingDevice)) {
+                   Log.d(TAG, "Other connected device: " + otherDevice);
+                   setConnectionPolicy(device, BluetoothProfile.CONNECTION_POLICY_UNKNOWN);
+                   setConnectionPolicy(otherDevice, BluetoothProfile.CONNECTION_POLICY_ALLOWED);
+                   mDatabaseManager.setConnectionForA2dpSrc(otherDevice);
+               }
+            }
             mStreamingDevice = null;
         }
 
