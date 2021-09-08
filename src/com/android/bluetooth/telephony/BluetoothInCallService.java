@@ -190,6 +190,11 @@ public class BluetoothInCallService extends InCallService {
                 return;
             }
 
+            if (state == Call.STATE_DISCONNECTING) {
+                Log.w(TAG, "ignoring DISCONNECTING call state");
+                mLastState = state;
+                return;
+            }
             // If a BluetoothCall is being put on hold because of a new connecting call, ignore the
             // CONNECTING since the BT state update needs to send out the numHeld = 1 + dialing
             // state atomically.
