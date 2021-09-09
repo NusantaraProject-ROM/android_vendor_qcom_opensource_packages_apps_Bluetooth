@@ -230,13 +230,19 @@ public class BluetoothInCallService extends InCallService {
         }
 
         public void onDetailsChanged(BluetoothCall call, Call.Details details) {
+            Log.i(TAG, "onDetailsChanged call: " + call + "details: " + details);
             if (mCallInfo.isNullCall(call)) {
                 return;
             }
             if (call.isExternalCall()) {
                 onCallRemoved(call);
             } else {
-                onCallAdded(call);
+                if (!mBluetoothCallHashMap.containsKey(call.getTelecomCallId())) {
+                    onCallAdded(call);
+                 }else{
+                   Log.i(TAG, "onDetailsChanged call was already added");
+                   updateHeadsetWithCallState(false /* force */);
+                }
             }
         }
 
@@ -1057,8 +1063,12 @@ public class BluetoothInCallService extends InCallService {
         int bluetoothCallState = CALL_STATE_IDLE;
         if (!mCallInfo.isNullCall(ringingCall) && !ringingCall.isSilentRingingRequested()) {
             bluetoothCallState = CALL_STATE_INCOMING;
-        } else if (!mCallInfo.isNullCall(dialingCall)) {
+        } else if ((!mCallInfo.isNullCall(dialingCall))
+                  &&(dialingCall.getState() == Call.STATE_DIALING)
+                  &&(null != dialingCall.getDetails().getExtras())
+                  &&(0 != dialingCall.getDetails().getExtras().getInt(TelecomManager.EXTRA_CALL_TECHNOLOGY_TYPE))) {
             bluetoothCallState = CALL_STATE_ALERTING;
+            Log.i(TAG, "updateHeadsetWithCallState CALL_STATE_ALERTING");
         } else if (hasOnlyDisconnectedCalls || mIsDisconnectedTonePlaying) {
             // Keep the DISCONNECTED state until the disconnect tone's playback is done
             bluetoothCallState = CALL_STATE_DISCONNECTED;
