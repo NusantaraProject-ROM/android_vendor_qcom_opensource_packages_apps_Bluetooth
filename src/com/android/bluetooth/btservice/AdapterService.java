@@ -616,7 +616,7 @@ public class AdapterService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        debugLog("onCreate(sravan 3759518 / 7  )");
+        debugLog("onCreate()");
         mAdapter = BluetoothAdapter.getDefaultAdapter();
         mDeviceConfigListener.start();
         mRemoteDevices = new RemoteDevices(this, Looper.getMainLooper());
