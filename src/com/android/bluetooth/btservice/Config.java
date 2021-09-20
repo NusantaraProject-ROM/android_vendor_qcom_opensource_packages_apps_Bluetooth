@@ -229,7 +229,7 @@ public class Config {
         adv_audio_feature_mask = SystemProperties.getInt(
                                     "persist.vendor.service.bt.adv_audio_mask", 0);
         boolean isCCEnabled = SystemProperties.getBoolean(
-                                    "persist.vendor.service.bt.cc", false);
+                                    "persist.vendor.service.bt.cc", true);
         setAdvAudioMaskFromHostAddOnBits();
 
         Log.d(TAG, "adv_audio_feature_mask = " + adv_audio_feature_mask);
