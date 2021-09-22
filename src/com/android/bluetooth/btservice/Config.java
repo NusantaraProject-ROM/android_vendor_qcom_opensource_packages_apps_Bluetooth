@@ -143,7 +143,8 @@ public class Config {
             new ArrayList<ProfileConfig>(
                 Arrays.asList(
                     new ProfileConfig(ApmConstIntf.MusicPlayerControlService,
-                        R.bool.profile_supported_music_player_service, (1 << 11)),
+                        R.bool.profile_supported_music_player_service,
+                        (1 << BluetoothProfile.MCP_SERVER)),
                     new ProfileConfig(mCcServiceClass, R.bool.profile_supported_cc_server,
                         (1 << BluetoothProfile.CC_SERVER))
             ));
