@@ -504,6 +504,11 @@ public class BluetoothInCallService extends InCallService {
         }
     }
 
+    public void cleanUp() {
+        mBluetoothCallHashMap.clear();
+        Log.i(TAG, "BluetoothCallHashMap Cleared");
+    }
+
     public boolean isCsCallInProgress() {
         boolean isCsCall = false;
         BluetoothCall activeCall = mCallInfo.getActiveCall();
