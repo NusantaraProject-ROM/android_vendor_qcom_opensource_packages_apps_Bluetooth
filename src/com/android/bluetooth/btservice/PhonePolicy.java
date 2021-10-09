@@ -766,7 +766,10 @@ class PhonePolicy {
                 Log.d(TAG, "not a BC connected device earlier, Ignoring");
                 continue;
             }
-            connectBC(device);
+            final BluetoothDevice mostRecentlyActiveA2dpDevice =
+                mDatabaseManager.getMostRecentlyConnectedA2dpDevice();
+            if (Objects.equals(mostRecentlyActiveA2dpDevice, device))
+                connectBC(device);
         }
     }
     private void connectBC(BluetoothDevice device) {

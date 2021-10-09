@@ -240,6 +240,7 @@ class AdapterProperties {
     AdapterProperties(AdapterService service) {
         mService = service;
         mAdapter = BluetoothAdapter.getDefaultAdapter();
+        invalidateBluetoothCaches();
     }
 
     public void init(RemoteDevices remoteDevices) {
@@ -287,6 +288,7 @@ class AdapterProperties {
         filter.addAction(BluetoothPbapClient.ACTION_CONNECTION_STATE_CHANGED);
         mService.registerReceiver(mReceiver, filter);
         mReceiverRegistered = true;
+        invalidateBluetoothCaches();
     }
 
     public void cleanup() {
@@ -301,6 +303,22 @@ class AdapterProperties {
         mService = null;
         mBondedDevices.clear();
         mWhitelistedPlayers.clear();
+        invalidateBluetoothCaches();
+    }
+
+    private static void invalidateGetProfileConnectionStateCache() {
+        BluetoothAdapter.invalidateGetProfileConnectionStateCache();
+    }
+    private static void invalidateIsOffloadedFilteringSupportedCache() {
+        BluetoothAdapter.invalidateIsOffloadedFilteringSupportedCache();
+    }
+    private static void invalidateGetBondStateCache() {
+        BluetoothDevice.invalidateBluetoothGetBondStateCache();
+    }
+    private static void invalidateBluetoothCaches() {
+        invalidateGetProfileConnectionStateCache();
+        invalidateIsOffloadedFilteringSupportedCache();
+        invalidateGetBondStateCache();
     }
 
     @Override
@@ -924,6 +942,7 @@ class AdapterProperties {
                     debugLog("Failed to remove device: " + device);
                 }
             }
+            invalidateGetBondStateCache();
         } catch (Exception ee) {
             Log.w(TAG, "onBondStateChanged: Exception ", ee);
         }
@@ -1200,6 +1219,7 @@ class AdapterProperties {
 
         if (update) {
             mProfileConnectionState.put(profile, new Pair<Integer, Integer>(newHashState, numDev));
+            invalidateGetProfileConnectionStateCache();
         }
     }
 
@@ -1347,6 +1367,7 @@ class AdapterProperties {
                 + mDynamicAudioBufferSizeSupportedCodecsGroup1
                 + " mDynamicAudioBufferSizeSupportedCodecsGroup2 = "
                 + mDynamicAudioBufferSizeSupportedCodecsGroup2);
+        invalidateIsOffloadedFilteringSupportedCache();
     }
 
     public void updateSocFeatureSupport(byte[] val) {
@@ -1485,6 +1506,7 @@ class AdapterProperties {
             // Reset adapter and profile connection states
             setConnectionState(BluetoothAdapter.STATE_DISCONNECTED);
             mProfileConnectionState.clear();
+            invalidateGetProfileConnectionStateCache();
             mProfilesConnected = 0;
             mProfilesConnecting = 0;
             mProfilesDisconnecting = 0;
