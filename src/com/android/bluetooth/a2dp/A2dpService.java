@@ -131,7 +131,7 @@ public class A2dpService extends ProfileService {
 
     private static final int APTX_HQ = 0x1000;
     private static final int APTX_LL = 0x2000;
-    private static final int APTX_ULL = 0x6000;
+    private static final int APTX_ULL = 0x5000;
     private static final long APTX_MODE_MASK = 0x7000;
     private static final long APTX_SCAN_FILTER_MASK = 0x8000;
 
