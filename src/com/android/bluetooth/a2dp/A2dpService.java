@@ -558,7 +558,7 @@ public class A2dpService extends ProfileService {
     }
 
     public List<BluetoothDevice> getConnectedDevices() {
-        synchronized (mBtA2dpLock) {
+        synchronized (mStateMachines) {
             List<BluetoothDevice> devices = new ArrayList<>();
             for (A2dpStateMachine sm : mStateMachines.values()) {
                 if (sm.isConnected()) {
@@ -856,6 +856,8 @@ public class A2dpService extends ProfileService {
 
     private void removeActiveDevice(boolean forceStopPlayingAudio) {
         BluetoothDevice previousActiveDevice = mActiveDevice;
+        boolean suppressNoisyIntent = false;
+        boolean isBAActive = false;
         Log.d(TAG," removeActiveDevice(): forceStopPlayingAudio:  " + forceStopPlayingAudio);
 
         // Make sure volume has been store before device been remove from active.
@@ -883,25 +885,25 @@ public class A2dpService extends ProfileService {
                 // Make sure the Audio Manager knows the previous Active device is disconnected.
                 // However, if A2DP is still connected and not forcing stop audio for that remote
                 // device, the user has explicitly switched the output to the local device and music
-                // should continue playing. Otherwise, the remote device has been indeed disconnected
+                // should continue playing. Otherwise, remote device has been indeed disconnected
                 // and audio should be suspended before switching the output to the local device.
-                boolean suppressNoisyIntent = !forceStopPlayingAudio
+                suppressNoisyIntent = !forceStopPlayingAudio
                         && (getConnectionState(previousActiveDevice)
                         == BluetoothProfile.STATE_CONNECTED);
-                Log.i(TAG, "removeActiveDevice: suppressNoisyIntent=" + suppressNoisyIntent);
+                Log.i(TAG, "removeActiveDevice: suppressNoisyIntent = " + suppressNoisyIntent);
 
-                boolean isBAActive = false;
                 BATService mBatService = BATService.getBATService();
                 isBAActive = (mBatService != null) && (mBatService.isBATActive());
                 Log.d(TAG," removeActiveDevice: BA active " + isBAActive);
                 // If BA streaming is ongoing, we don't want to pause music player
-                synchronized (mAudioManagerLock) {
-                    if(!isBAActive && mAudioManager != null) {
-                        mAudioManager.handleBluetoothA2dpActiveDeviceChange(
-                               previousActiveDevice, BluetoothProfile.STATE_DISCONNECTED,
-                               BluetoothProfile.A2DP, suppressNoisyIntent, -1);
-                    }
-               }
+            }
+
+            synchronized (mAudioManagerLock) {
+                if (!isBAActive && mAudioManager != null) {
+                    mAudioManager.handleBluetoothA2dpActiveDeviceChange(
+                            previousActiveDevice, BluetoothProfile.STATE_DISCONNECTED,
+                            BluetoothProfile.A2DP, suppressNoisyIntent, -1);
+                }
             }
         }
         // Make sure the Active device in native layer is set to null and audio is off
@@ -1492,7 +1494,7 @@ public class A2dpService extends ProfileService {
         boolean isBAActive = false;
         BATService mBatService = BATService.getBATService();
         isBAActive = (mBatService != null) && (mBatService.isBATActive());
-        synchronized (mBtA2dpLock) {
+        synchronized (mStateMachines) {
             if (device == null) {
                 device = mActiveDevice;
             }
