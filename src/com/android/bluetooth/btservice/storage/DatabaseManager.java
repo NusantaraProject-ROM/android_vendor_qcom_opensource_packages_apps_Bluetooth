@@ -756,6 +756,7 @@ public class DatabaseManager {
         Metadata metadata = mMetadataCache.get(address);
         if (state == BluetoothProfile.STATE_CONNECTED) {
             metadata.was_previously_connected_to_bc = true;
+            metadata.device_supports_bc_profile = true;
         } else {
             metadata.was_previously_connected_to_bc = false;
         }
@@ -813,6 +814,8 @@ public class DatabaseManager {
             }
             Metadata metadata = mMetadataCache.get(address);
             if (metadata != null) {
+                Log.v(TAG, "deviceSupportsBCprofile: " +
+                                metadata.device_supports_bc_profile);
                 ret = metadata.device_supports_bc_profile;
             }
         }
