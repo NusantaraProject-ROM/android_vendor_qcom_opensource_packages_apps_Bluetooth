@@ -1668,12 +1668,18 @@ public class HeadsetStateMachine extends StateMachine {
             // If current device is TWSPLUS device and peer TWSPLUS device is already
             // has SCO, dont need to update teh Audio Manager
 
-            setAudioParameters();
-            mSystemInterface.getAudioManager().setBluetoothScoOn(true);
+            if (!ApmConstIntf.getLeAudioEnabled()) {
+                setAudioParameters();
+                mSystemInterface.getAudioManager().setBluetoothScoOn(true);
+            }
             Message m = obtainMessage(SCO_RETRIAL_NOT_REQ);
             sendMessageDelayed(m, SCO_RETRIAL_REQ_TIMEOUT);
 
             broadcastStateTransitions();
+            if (ApmConstIntf.getLeAudioEnabled()) {
+                setAudioParameters();
+                mSystemInterface.getAudioManager().setBluetoothScoOn(true);
+            }
         }
 
         @Override
