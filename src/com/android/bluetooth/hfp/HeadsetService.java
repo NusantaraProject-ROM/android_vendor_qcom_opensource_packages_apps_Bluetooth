@@ -1763,7 +1763,13 @@ public class HeadsetService extends ProfileService {
                     }
                 }
                 if (mVirtualCallStarted) {
-                    if (!stopScoUsingVirtualVoiceCall()) {
+                    if (ApmConstIntf.getLeAudioEnabled()) {
+                        Log.d(TAG, "stopScoUsingVirtualVoiceCall Adv Audio enabled");
+                        CallAudioIntf mCallAudio = CallAudioIntf.get();
+                        if (mCallAudio != null) {
+                            mCallAudio.remoteDisconnectVirtualVoiceCall(mActiveDevice);
+                        }
+                    } else if (!stopScoUsingVirtualVoiceCall()) {
                         Log.w(TAG, "setActiveDevice: fail to stopScoUsingVirtualVoiceCall from "
                                 + mActiveDevice);
                     }
@@ -2139,7 +2145,15 @@ public class HeadsetService extends ProfileService {
                 return false;
             }
             if (isVirtualCallStarted()) {
-                if (!stopScoUsingVirtualVoiceCall()) {
+                if (ApmConstIntf.getLeAudioEnabled()) {
+                    CallAudioIntf mCallAudio = CallAudioIntf.get();
+                    if (mCallAudio != null) {
+                        if (!mCallAudio.stopScoUsingVirtualVoiceCall()) {
+                            Log.e(TAG, "dialOutgoingCall LE enabled failed to stop VOIP call");
+                            return false;
+                        }
+                    }
+                } else if (!stopScoUsingVirtualVoiceCall()) {
                     Log.e(TAG, "dialOutgoingCall failed to stop current virtual call");
                     return false;
                 }
@@ -2343,7 +2357,14 @@ public class HeadsetService extends ProfileService {
             if ((numActive + numHeld) > 0 || callState != HeadsetHalConstants.CALL_STATE_IDLE) {
                 if (!isVirtualCall && mVirtualCallStarted) {
                     // stop virtual voice call if there is an incoming Telecom call update
-                    stopScoUsingVirtualVoiceCall();
+                    if (ApmConstIntf.getLeAudioEnabled()) {
+                        CallAudioIntf mCallAudio = CallAudioIntf.get();
+                       if (mCallAudio != null) {
+                           mCallAudio.remoteDisconnectVirtualVoiceCall(mActiveDevice);
+                       }
+                    } else {
+                        stopScoUsingVirtualVoiceCall();
+                    }
                 }
                 if (mVoiceRecognitionStarted) {
                     // stop voice recognition if there is any incoming call
