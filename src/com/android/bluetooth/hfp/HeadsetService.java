@@ -109,6 +109,8 @@ public class HeadsetService extends ProfileService {
     private static final ParcelUuid[] HEADSET_UUIDS = {BluetoothUuid.HSP, BluetoothUuid.HFP};
     private static final int[] CONNECTING_CONNECTED_STATES =
             {BluetoothProfile.STATE_CONNECTING, BluetoothProfile.STATE_CONNECTED};
+    private static final int[] AUDIO_DISCONNECTING_AND_AUDIO_CONNECTED_STATES =
+            {BluetoothHeadset.STATE_AUDIO_DISCONNECTING, BluetoothHeadset.STATE_AUDIO_CONNECTED};
     private static final int DIALING_OUT_TIMEOUT_MS = 10000;
 
     private int mMaxHeadsetConnections = 1;
@@ -1328,6 +1330,38 @@ public class HeadsetService extends ProfileService {
         }
         return devices;
     }
+    /**
+     * Helper method to get all devices with matching audio states
+     *
+     */
+    private List<BluetoothDevice> getAllDevicesMatchingAudioStates(int[] states) {
+
+        ArrayList<BluetoothDevice> devices = new ArrayList<>();
+        if (states == null) {
+            Log.e(TAG, "->States is null");
+            return devices;
+        }
+        synchronized (mStateMachines) {
+            final BluetoothDevice[] bondedDevices = mAdapterService.getBondedDevices();
+            if (bondedDevices == null) {
+                Log.e(TAG, "->Bonded device is null");
+                return devices;
+            }
+            for (BluetoothDevice device : bondedDevices) {
+
+                int audioState = getAudioState(device);
+                Log.e(TAG, "audio state for: " + device + "is" + audioState);
+                for (int state : states) {
+                    if (audioState == state) {
+                        devices.add(device);
+                        Log.e(TAG, "getAllDevicesMatchingAudioStates:Adding device: " + device);
+                        break;
+                    }
+                }
+            }
+        }
+        return devices;
+    }
 
     /**
      * Helper method to get all devices with matching connection state
@@ -1782,8 +1816,10 @@ public class HeadsetService extends ProfileService {
                 if (!mNativeInterface.setActiveDevice(null)) {
                     Log.w(TAG, "setActiveDevice: Cannot set active device as null in native layer");
                 }
-                if ((getAudioState(mActiveDevice) == BluetoothHeadset.STATE_AUDIO_DISCONNECTING) ||
-                   (getAudioState(mActiveDevice) == BluetoothHeadset.STATE_AUDIO_CONNECTED))
+                List<BluetoothDevice> audioInProgressDevices =
+                    getAllDevicesMatchingAudioStates(AUDIO_DISCONNECTING_AND_AUDIO_CONNECTED_STATES);
+                //If there is any device whose audio is still in progress
+                if (audioInProgressDevices.size() != 0)
                 {
                    if (ApmConstIntf.getLeAudioEnabled()) {
                       mSHOStatus = true;
