@@ -41,6 +41,7 @@
     <bool name="profile_supported_group_client">true</bool>
     <bool name="profile_supported_music_player_service">true</bool>
     <bool name="profile_supported_cc_server">true</bool>
+    <bool name="avrcp_target_enable_bip">true</bool>
 
     <!-- If true, we will require location to be enabled on the device to
          fire Bluetooth LE scan result callbacks in addition to having one

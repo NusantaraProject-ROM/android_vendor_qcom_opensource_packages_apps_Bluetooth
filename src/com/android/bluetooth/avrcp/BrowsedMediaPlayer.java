@@ -258,7 +258,7 @@ class BrowsedMediaPlayer {
             /* lookup and copy values of attributes for ids requested above */
             for (int attrId : attrReqIds) {
                 /* check if media player provided requested attributes */
-                String value = getAttrValue(mBDAddr, attrId, mediaItem);
+                String value = getAttrValue(attrId, mediaItem);
                 if (value != null) {
                     attrIdArray.add(attrId);
                     attrValueArray.add(value);
@@ -796,7 +796,7 @@ class BrowsedMediaPlayer {
 
             /* Set display name for current item */
             folderDataNative.mDisplayNames[itemIndex] =
-                    getAttrValue(bdaddr, AvrcpConstants.ATTRID_TITLE, item);
+                    getAttrValue(AvrcpConstants.ATTRID_TITLE, item);
 
             int maxAttributesRequested = 0;
             boolean isAllAttribRequested = false;
@@ -820,7 +820,7 @@ class BrowsedMediaPlayer {
 
                     int attribId =
                             isAllAttribRequested ? (idx + 1) : mFolderItemsReqObj.mAttrIDs[idx];
-                    value = getAttrValue(bdaddr, attribId, resultItems.get(itemIndex));
+                    value = getAttrValue(attribId, resultItems.get(itemIndex));
                     if (value != null) {
                         attrArray.add(value);
                         attrId.add(attribId);
@@ -852,7 +852,7 @@ class BrowsedMediaPlayer {
         mMediaInterface.folderItemsRsp(bdaddr, AvrcpConstants.RSP_NO_ERROR, rspObj);
     }
 
-    public String getAttrValue(byte []bdaddr, int attr, MediaBrowser.MediaItem item) {
+    public String getAttrValue(int attr, MediaBrowser.MediaItem item) {
         String attrValue = null;
         try {
             MediaDescription desc = item.getDescription();
@@ -888,8 +888,6 @@ class BrowsedMediaPlayer {
                     break;
 
                 case AvrcpConstants.ATTRID_COVER_ART:
-                    attrValue = Avrcp_ext.getImgHandleFromTitle(bdaddr,
-                            desc.getTitle().toString());
                     break;
 
                 default:

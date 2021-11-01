@@ -2609,9 +2609,10 @@ public class AdapterService extends Service {
         }
 
         @Override
-        public boolean isBroadcastActive() {
+        public boolean isBroadcastActive(AttributionSource attributionSource) {
             AdapterService service = getService();
-            if (service == null) {
+            if (service == null || !Utils.checkConnectPermissionForDataDelivery(
+                         service, attributionSource, "AdapterService isBroadcastActive")) {
                 return false;
             }
             return service.isBroadcastActive();
