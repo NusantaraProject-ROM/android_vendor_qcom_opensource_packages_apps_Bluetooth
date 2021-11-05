@@ -572,6 +572,14 @@ public class BluetoothKeystoreService {
                     messageDigest.update(dataBuffer, 0, bytesRead);
                 }
 
+                try {
+                    /* Closing the fileStream to avoid StrictMode */
+                    fileStream.close();
+                } catch (IOException e) {
+                    /* Ignore if we cannot close the stream. */
+                    debugLog("Fail to close the stream");
+                }
+
                 byte[] messageDigestBytes = messageDigest.digest();
                 StringBuffer hashString = new StringBuffer();
                 for (int index = 0; index < messageDigestBytes.length; index++) {
