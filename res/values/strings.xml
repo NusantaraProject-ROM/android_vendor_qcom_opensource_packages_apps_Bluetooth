@@ -258,4 +258,6 @@
     <string name="bluetooth_rc_feat_title">Bluetooth Media Browsing</string>
     <string name="bluetooth_rc_feat_content">Peer supports advanced feature</string>
     <string name="bluetooth_rc_feat_subtext">Re-pair from peer to enable it</string>
+    <string name="broadcast_notification_name">Broadcast status</string>
+    <string name="bluetooth_broadcast_status">Broadcast on</string>
 </resources>
