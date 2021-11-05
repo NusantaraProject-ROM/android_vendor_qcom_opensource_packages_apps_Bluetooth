@@ -959,17 +959,16 @@ public class HeadsetService extends ProfileService {
         @Override
         public void phoneStateChanged(int numActive, int numHeld, int callState, String number,
                 int type, String name, AttributionSource source) {
-            if (ApmConstIntf.getLeAudioEnabled()) {
-                Log.d(TAG, "Adv Audio enabled: phoneStateChanged");
-                CallControlIntf mCallControl = CallControlIntf.get();
-                mCallControl.phoneStateChanged(numActive, numHeld, callState, number, type, name, false);
-            }
-
             HeadsetService service = getService(source);
             if (service == null) {
                 return;
             }
             service.phoneStateChanged(numActive, numHeld, callState, number, type, name, false);
+            if (ApmConstIntf.getLeAudioEnabled()) {
+                Log.d(TAG, "Adv Audio enabled: phoneStateChanged");
+                CallControlIntf mCallControl = CallControlIntf.get();
+                mCallControl.phoneStateChanged(numActive, numHeld, callState, number, type, name, false);
+            }
         }
 
         @Override
