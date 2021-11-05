@@ -350,7 +350,7 @@
         <service
             android:process="@string/process"
             android:name = ".acm.AcmService"
-            android:exported="true"
+            android:exported="false"
             android:enabled="@bool/profile_supported_ca">
             <intent-filter>
                 <action android:name="android.bluetooth.IBluetoothAcm" />
