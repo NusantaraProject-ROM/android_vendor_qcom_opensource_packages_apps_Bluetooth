@@ -118,6 +118,12 @@ public class HeadsetSystemInterface {
      * Stop this system interface
      */
     public synchronized void stop() {
+        BluetoothInCallService bluetoothInCallService = getBluetoothInCallServiceInstance();
+        if (bluetoothInCallService != null) {
+            bluetoothInCallService.cleanUp();
+        } else {
+            Log.e(TAG, "No Cleanup, as BluetoothInCallService is null");
+        }
         mHeadsetPhoneState.cleanup();
     }
 
