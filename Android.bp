@@ -1,25 +1,6 @@
 soong_namespace {
 }
 
-soong_config_module_type_import {
-    from: "device/qcom/qssi/Android.bp",
-    module_types: [
-         "bredr_vs_btadva_java_defaults",
-    ],
-}
-
-bredr_vs_btadva_java_defaults {
-    name: "btadva_java_defaults",
-
-    soong_config_variables: {
-        bredr_or_btadva: {
-           btadva: {
-              srcs: [ ":bluetooth-apps-adva-srcs" ],
-           }
-       }
-   }
-}
-
 // MAP API module
 
 java_library {
@@ -33,7 +14,6 @@ java_library {
 android_app {
     name: "Bluetooth",
 
-    defaults: ["btadva_java_defaults"],
     srcs: [
         "src/**/*.java",
         ":vendor_qcom_opensource_commonsys_bluetooth_ext_packages_apps_bluetooth_ext",
