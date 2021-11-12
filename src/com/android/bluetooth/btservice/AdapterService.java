@@ -2911,7 +2911,6 @@ public class AdapterService extends Service {
             service.mAdapterStateMachine.sendMessage(AdapterState.BLE_TURN_OFF);
         }
 
-        @Override
         public int setSocketOpt(int type, int channel, int optionName, byte [] optionVal,
                 int optionLen) {
             AdapterService service = getService();
@@ -2924,7 +2923,6 @@ public class AdapterService extends Service {
             return service.setSocketOpt(type, channel, optionName, optionVal, optionLen);
         }
 
-        @Override
         public int getSocketOpt(int type, int channel, int optionName, byte [] optionVal) {
             AdapterService service = getService();
             if (service == null || !Utils.checkCallerIsSystemOrActiveUser(TAG)
