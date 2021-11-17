@@ -311,6 +311,11 @@ public class A2dpService extends ProfileService {
 
         // Step 9: Clear active device and stop playing audio
         removeActiveDevice(true);
+        if (ApmConstIntf.getLeAudioEnabled()) {
+           synchronized (mBtA2dpLock) {
+	    updateAndBroadcastActiveDevice(null);
+        }
+       }
         // Step 8: Mark service as stopped
         setA2dpService(null);
 
