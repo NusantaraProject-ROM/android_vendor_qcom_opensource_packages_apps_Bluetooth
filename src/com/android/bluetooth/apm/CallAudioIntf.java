@@ -373,6 +373,30 @@ public class CallAudioIntf {
         return devices;
     }
 
+    public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
+        ArrayList<BluetoothDevice> devices = new ArrayList<>();
+        if(CallAudio == null)
+            return devices;
+
+        Class[] arg = new Class[1];
+        arg[0] = int[].class;
+
+        try {
+            Method getDevicesMatchingConnectionStates =
+                    CallAudio.getDeclaredMethod("getDevicesMatchingConnectionStates", arg);
+            List<BluetoothDevice>  ret =
+                    (List<BluetoothDevice>)getDevicesMatchingConnectionStates.invoke(mCallAudio, states);
+            return ret;
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+        return devices;
+    }
+
     public int getConnectionState(BluetoothDevice device) {
         if(CallAudio == null)
             return BluetoothProfile.STATE_DISCONNECTED;

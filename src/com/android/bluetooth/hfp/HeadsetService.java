@@ -691,6 +691,11 @@ public class HeadsetService extends ProfileService {
         @Override
         public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states,
                 AttributionSource source) {
+            if(ApmConstIntf.getLeAudioEnabled()) {
+                 Log.d(TAG, "getDevicesMatchingConnectionStates Adv Audio enabled");
+                CallAudioIntf mCallAudio = CallAudioIntf.get();
+                return mCallAudio.getDevicesMatchingConnectionStates(states);
+            }
             HeadsetService service = getService(source);
             if (service == null) {
                 return new ArrayList<BluetoothDevice>(0);
