@@ -231,6 +231,11 @@ public class ActiveDeviceManager {
                             // New connected device: select it as active
                             setA2dpActiveDevice(device);
                             break;
+                        } else {
+                         if (!ApmConstIntf.getLeAudioEnabled()) {
+                            setHearingAidActiveDevice(null);
+                            setA2dpActiveDevice(device);
+                         }
                         }
                         break;
                     }
