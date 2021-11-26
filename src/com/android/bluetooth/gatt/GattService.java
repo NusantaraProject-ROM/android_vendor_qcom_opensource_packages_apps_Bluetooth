@@ -1314,6 +1314,15 @@ public class GattService extends ProfileService {
                     result = sanitized;
                 }
             }
+
+            if (!hasPermission && client.callingPackage != null
+                               && client.callingPackage.equals("com.android.bluetooth")) {
+                if (client.filters.size() == 1 &&
+                        client.filters.get(0).getGroupFilteringValue()) {
+                    hasPermission = true;
+                }
+            }
+
             if (!hasPermission || !matchesFilters(client, result)) {
                 continue;
             }
@@ -2460,6 +2469,7 @@ public class GattService extends ProfileService {
             scanClient.allowAddressTypeInResults  = true;
         }
 
+        scanClient.callingPackage = callingPackage;
         scanClient.hasNetworkSettingsPermission =
                 Utils.checkCallerHasNetworkSettingsPermission(this);
         scanClient.hasNetworkSetupWizardPermission =
