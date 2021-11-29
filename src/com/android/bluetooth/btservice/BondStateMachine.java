@@ -195,13 +195,14 @@ final class BondStateMachine extends StateMachine {
                     break;
                  case ADD_DEVICE_BOND_QUEUE:
                     int groupIdentifer = msg.arg1;
-                    Log.i(TAG, "Adding to bonding queue in stable state "
-                        +dev.getAddress());
+                    Log.i(TAG, "Adding to bonding queue in stableState, " + dev +
+                        ", mDevices.size()=" + mDevices.size() +
+                        ", mPendingBondedDevices.size()=" + mPendingBondedDevices.size());
                     Integer groupId = new Integer(groupIdentifer);
                     mBondingQueue.put(dev , groupId);
                     mBondingDevStatus.put(dev, 0);
 
-                    if (mDevices.size() == 0) {
+                    if (mDevices.size() == 0 && mPendingBondedDevices.isEmpty()) {
                         if (mAdapterService.isSdpCompleted(dev)) {
                             boolean status = createBond(dev, 0, null, null, true);
                             if (status)
@@ -348,13 +349,15 @@ final class BondStateMachine extends StateMachine {
                     break;
                 case ADD_DEVICE_BOND_QUEUE:
                     int groupIdentifer = msg.arg1;
-                    Log.i(TAG, "Adding to bonding queue pendingState " + dev.getAddress());
+                    Log.i(TAG, "Adding to bonding queue in pendingState " + dev +
+                        ", mDevices.size()=" + mDevices.size() +
+                        ", mPendingBondedDevices.size()=" + mPendingBondedDevices.size());
                     Integer groupId = new Integer(groupIdentifer);
                     //mAdapterProperties.onBondStateChanged(dev, BluetoothDevice.BOND_NONE);
                     mBondingQueue.put(dev , groupId);
                     mBondingDevStatus.put(dev, 0);
 
-                    if (mDevices.size() == 0) {
+                    if (mDevices.size() == 0 && mPendingBondedDevices.isEmpty()) {
                         if (mAdapterService.isSdpCompleted(dev)) {
                             boolean status = createBond(dev, 0, null, null, true);
                             if (status)
