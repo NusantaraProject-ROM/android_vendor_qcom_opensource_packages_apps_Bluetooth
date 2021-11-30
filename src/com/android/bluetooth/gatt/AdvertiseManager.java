@@ -32,6 +32,7 @@ import com.android.bluetooth.btservice.AdapterService;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 /**
@@ -436,11 +437,14 @@ class AdvertiseManager {
 
     void stopAdvertisingSets() {
         Log.d(TAG, "stopAdvertisingSets()");
-        for (Map.Entry<IBinder, AdvertiserInfo> entry : mAdvertisers.entrySet()) {
+        Iterator<Map.Entry<IBinder, AdvertiserInfo>> it = mAdvertisers.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<IBinder, AdvertiserInfo> entry = it.next();
             Integer advertiser_id = entry.getValue().id;
             IAdvertisingSetCallback callback = entry.getValue().callback;
             IBinder binder = toBinder(callback);
             binder.unlinkToDeath(entry.getValue().deathRecipient, 0);
+            it.remove();
 
             if (advertiser_id < 0) {
                 Log.i(TAG, "stopAdvertisingSets() - advertiser not finished registration yet");

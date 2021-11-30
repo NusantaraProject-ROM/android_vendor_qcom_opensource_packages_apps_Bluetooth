@@ -1162,6 +1162,9 @@ public class AdapterService extends Service {
         ParcelUuid ADV_AUDIO_W_MEDIA =
             ParcelUuid.fromString("2587db3c-ce70-4fc9-935f-777ab4188fd7");
 
+        ParcelUuid ADV_AUDIO_G_VBC =
+            ParcelUuid.fromString("00006AD6-0000-1000-8000-00805F9B34FB");
+
         if (remoteDeviceUuids == null || remoteDeviceUuids.length == 0) {
             Log.e(TAG, "isSupported: Remote Device Uuids Empty");
         }
@@ -1186,7 +1189,8 @@ public class AdapterService extends Service {
                     || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_HEARINGAID)
                     || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_G_MEDIA)
                     || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_W_MEDIA)
-                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_P_MEDIA);
+                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_P_MEDIA)
+                    || ArrayUtils.contains(remoteDeviceUuids, ADV_AUDIO_G_VBC);
         }
         if (profile == BluetoothProfile.A2DP_SINK) {
             return ArrayUtils.contains(remoteDeviceUuids, BluetoothUuid.ADV_AUDIO_DIST)

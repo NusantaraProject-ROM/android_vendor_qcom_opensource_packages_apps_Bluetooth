@@ -343,6 +343,9 @@ class PhonePolicy {
         ParcelUuid ADV_AUDIO_W_MEDIA =
             ParcelUuid.fromString("2587db3c-ce70-4fc9-935f-777ab4188fd7");
 
+        ParcelUuid ADV_AUDIO_G_VBC =
+            ParcelUuid.fromString("00006AD6-0000-1000-8000-00805F9B34FB");
+
         debugLog("processInitProfilePriorities() - device " + device);
         HidHostService hidService = mFactory.getHidHostService();
         A2dpService a2dpService = mFactory.getA2dpService();

@@ -38,7 +38,7 @@ Status BluetoothSocketManagerBinderServer::connectSocket(
         Status::EX_SECURITY, String8("Not allowed for non-active users"));
   }
 
-  ENFORCE_PERMISSION(PERMISSION_BLUETOOTH);
+  ENFORCE_PERMISSION(PERMISSION_BLUETOOTH_CONNECT);
 
   IPCThreadState* ipc = IPCThreadState::self();
 
@@ -70,7 +70,7 @@ Status BluetoothSocketManagerBinderServer::createSocketChannel(
         Status::EX_SECURITY, String8("Not allowed for non-active users"));
   }
 
-  ENFORCE_PERMISSION(PERMISSION_BLUETOOTH);
+  ENFORCE_PERMISSION(PERMISSION_BLUETOOTH_CONNECT);
 
   VLOG(1) << __func__ << ": SOCK FLAG=" << flag;
 
@@ -107,7 +107,7 @@ Status BluetoothSocketManagerBinderServer::requestMaximumTxDataLength(
         Status::EX_SECURITY, String8("Not allowed for non-active users"));
   }
 
-  ENFORCE_PERMISSION(PERMISSION_BLUETOOTH);
+  ENFORCE_PERMISSION(PERMISSION_BLUETOOTH_CONNECT);
 
   VLOG(1) << __func__;
 
