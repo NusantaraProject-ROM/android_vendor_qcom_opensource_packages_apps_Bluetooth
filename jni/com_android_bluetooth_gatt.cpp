@@ -215,7 +215,7 @@ void btgattc_scan_result_cb(uint16_t event_type, uint8_t addr_type,
                             uint8_t secondary_phy, uint8_t advertising_sid,
                             int8_t tx_power, int8_t rssi,
                             uint16_t periodic_adv_int,
-                            std::vector<uint8_t> adv_data) {
+                            std::vector<uint8_t> adv_data, RawAddress* original_bda) {
   CallbackEnv sCallbackEnv(__func__);
   if (!sCallbackEnv.valid()) return;
   if (!mCallbacksObj) {
@@ -230,10 +230,13 @@ void btgattc_scan_result_cb(uint16_t event_type, uint8_t addr_type,
   sCallbackEnv->SetByteArrayRegion(jb.get(), 0, adv_data.size(),
                                    (jbyte*)adv_data.data());
 
+  ScopedLocalRef<jstring> original_address(sCallbackEnv.get(),
+                                  bdaddr2newjstr(sCallbackEnv.get(), original_bda));
+
   sCallbackEnv->CallVoidMethod(mCallbacksObj, method_onScanResult, event_type,
                                addr_type, address.get(), primary_phy,
                                secondary_phy, advertising_sid, tx_power, rssi,
-                               periodic_adv_int, jb.get());
+                               periodic_adv_int, jb.get(), original_address.get());
 }
 
 void btgattc_open_cb(int conn_id, int status, int clientIf,
