@@ -254,7 +254,11 @@ public class BluetoothInCallService extends InCallService {
                     onCallAdded(call);
                  }else{
                    Log.i(TAG, "onDetailsChanged call was already added");
-                   updateHeadsetWithCallState(false /* force */);
+                   if (details.getState() == Call.STATE_DISCONNECTING) {
+                     Log.i(TAG, "Ignore Call STATE_DISCONNECTING");
+                   } else {
+                     updateHeadsetWithCallState(false /* force */);
+                   }
                 }
             }
         }
