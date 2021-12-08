@@ -241,6 +241,28 @@ public class ActiveDeviceManagerServiceIntf {
 
     }
 
+    public BluetoothDevice getActiveAbsoluteDevice(int mAudioType) {
+        if(activeDeviceManagerService == null)
+            return null;
+
+        Class[] arg = new Class[1];
+        arg[0] = Integer.class;
+
+        try {
+            Method getActiveDevice = activeDeviceManagerService.getDeclaredMethod("getActiveAbsoluteDevice", arg);
+            BluetoothDevice ret = (BluetoothDevice)getActiveDevice.invoke(mActiveDeviceManagerService, mAudioType);
+            return ret;
+        } catch(IllegalAccessException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(NoSuchMethodException e) {
+            Log.i(TAG, "Exception" + e);
+        } catch(InvocationTargetException e) {
+            Log.i(TAG, "Exception" + e);
+        }
+
+        return null;
+    }
+
     public int getActiveProfile(int mAudioType) {
         if(activeDeviceManagerService == null)
             return -1;
