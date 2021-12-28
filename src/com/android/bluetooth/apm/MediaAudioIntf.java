@@ -213,11 +213,13 @@ public class MediaAudioIntf {
             return devices;
 
         Class[] arg = new Class[1];
-        arg[0] = Integer[].class;
+        arg[0] = int[].class;
 
         try {
-            Method getConnectedDevices = MediaAudio.getDeclaredMethod("getConnectedDevices", arg);
-            List<BluetoothDevice>  ret = (List<BluetoothDevice>)getConnectedDevices.invoke(mMediaAudio, states);
+            Method getDevicesMatchingConnectionStates =
+                    MediaAudio.getDeclaredMethod("getDevicesMatchingConnectionStates", arg);
+            List<BluetoothDevice>  ret =
+                    (List<BluetoothDevice>)getDevicesMatchingConnectionStates.invoke(mMediaAudio, states);
             return ret;
         } catch(IllegalAccessException e) {
             Log.i(TAG, "Exception" + e);

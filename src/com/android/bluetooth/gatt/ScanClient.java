@@ -49,6 +49,7 @@ import java.util.Objects;
     public boolean hasDisavowedLocation;
     public List<String> associatedDevices;
     public boolean allowAddressTypeInResults;
+    public String callingPackage;
 
     public AppScanStats stats = null;
 

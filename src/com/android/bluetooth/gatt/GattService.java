@@ -1314,6 +1314,15 @@ public class GattService extends ProfileService {
                     result = sanitized;
                 }
             }
+
+            if (!hasPermission && client.callingPackage != null
+                               && client.callingPackage.equals("com.android.bluetooth")) {
+                if (client.filters.size() == 1 &&
+                        client.filters.get(0).getGroupFilteringValue()) {
+                    hasPermission = true;
+                }
+            }
+
             if (!hasPermission || !matchesFilters(client, result)) {
                 continue;
             }
@@ -2460,6 +2469,7 @@ public class GattService extends ProfileService {
             scanClient.allowAddressTypeInResults  = true;
         }
 
+        scanClient.callingPackage = callingPackage;
         scanClient.hasNetworkSettingsPermission =
                 Utils.checkCallerHasNetworkSettingsPermission(this);
         scanClient.hasNetworkSetupWizardPermission =
@@ -2691,6 +2701,11 @@ public class GattService extends ProfileService {
         for (Integer appId : mScannerMap.getAllAppsIds()) {
             if (DBG) Log.d(TAG, "clearPendingOperations ID: " + appId);
             if (isScanClient(appId)) {
+                AppScanStats app = mScannerMap.getAppScanStatsById(appId);
+                if (app != null) {
+                    app.recordScanStop(appId);
+                }
+
                 ScanClient client = new ScanClient(appId);
                 mScanManager.cancelScans(client);
                 unregisterScanner(appId, getAttributionSource());

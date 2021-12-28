@@ -139,6 +139,7 @@ public final class AbstractionLayer {
     public static final int MAP = 3;
     public static final int MAX_POW = 4;
     public static final int OPP = 5;
+    public static final int RF_PATH_LOSS = 6;
 
     // Profile features supported in profile_conf
     public static final int PROFILE_VERSION =1;
@@ -152,6 +153,8 @@ public final class AbstractionLayer {
     public static final int EDR_MAX_POW_SUPPORT = 9;
     public static final int BLE_MAX_POW_SUPPORT = 10;
     public static final int OPP_0100_SUPPORT = 11;
+    public static final int RF_TX_PATH_COMPENSATION_VALUE = 12;
+    public static final int RF_RX_PATH_COMPENSATION_VALUE = 13;
 
 
     static final int BT_VENDOR_PROPERTY_TWS_PLUS_DEVICE_TYPE = 0x01;

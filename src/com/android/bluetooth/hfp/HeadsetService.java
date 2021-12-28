@@ -691,6 +691,11 @@ public class HeadsetService extends ProfileService {
         @Override
         public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states,
                 AttributionSource source) {
+            if(ApmConstIntf.getLeAudioEnabled()) {
+                 Log.d(TAG, "getDevicesMatchingConnectionStates Adv Audio enabled");
+                CallAudioIntf mCallAudio = CallAudioIntf.get();
+                return mCallAudio.getDevicesMatchingConnectionStates(states);
+            }
             HeadsetService service = getService(source);
             if (service == null) {
                 return new ArrayList<BluetoothDevice>(0);
@@ -2569,21 +2574,23 @@ public class HeadsetService extends ProfileService {
                         if (peerDevice != null) {
                             setActiveDevice(peerDevice);
                         }
-                    }/* else {
+                    }else if (!ApmConstIntf.getLeAudioEnabled()) {
                         setActiveDevice(null);
-                    }*/
+                    }
                 }
             }
         }
 
         // if active device is null, SLC connected, make this device as active.
-        /*if (fromState == BluetoothProfile.STATE_CONNECTING &&
+        if (!ApmConstIntf.getLeAudioEnabled()) {
+          if (fromState == BluetoothProfile.STATE_CONNECTING &&
              toState == BluetoothProfile.STATE_CONNECTED &&
              mActiveDevice == null) {
              Log.i(TAG, "onConnectionStateChangedFromStateMachine: SLC connected, no active"
                               + " is present. Setting active device to " + device);
              setActiveDevice(device);
-        }*/
+         }
+      }
     }
 
     public HeadsetA2dpSync getHfpA2DPSyncInterface(){
