@@ -1492,14 +1492,14 @@ public class AdapterService extends Service {
             if (bcClass != null) {
                 Log.d(TAG, "Able to get BC class handle");
                 try {
-                    mBCGetService =  bcClass.getMethod("getBCService", null);
+                    mBCGetService =  bcClass.getMethod("getBCService", (Class<?>)null);
                 } catch (NoSuchMethodException e) {
                     Log.e(TAG, "no BC:getBCService method exists");
                     return;
                 }
                 if (mBCGetService != null) {
                     try {
-                       mBCService = mBCGetService.invoke(null, null);
+                       mBCService = mBCGetService.invoke(null, (Object[])null);
                     } catch(IllegalAccessException e) {
                        Log.e(TAG, "BC:Connect IllegalAccessException");
                     } catch (InvocationTargetException e) {
@@ -1567,14 +1567,14 @@ public class AdapterService extends Service {
             }
             if (broadcastClass != null) {
                 try {
-                    mBroadcastGetService = broadcastClass.getMethod("getBroadcastService", null);
+                    mBroadcastGetService = broadcastClass.getMethod("getBroadcastService", (Class<?>)null);
                 } catch (NoSuchMethodException e) {
                     Log.e(TAG, "no BroadcastService method exists");
                     return;
                 }
                 if (mBroadcastGetService != null) {
                     try {
-                        mBroadcastService = mBroadcastGetService.invoke(null, null);
+                        mBroadcastService = mBroadcastGetService.invoke(null, (Object[])null);
                     } catch(IllegalAccessException e) {
                         Log.e(TAG, "BroadcastService IllegalAccessException");
                     } catch (InvocationTargetException e) {
