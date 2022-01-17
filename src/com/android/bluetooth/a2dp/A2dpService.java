@@ -2406,7 +2406,7 @@ public class A2dpService extends ProfileService {
         public BluetoothDevice getActiveDevice(AttributionSource source) {
             if(ApmConstIntf.getLeAudioEnabled()) {
                 ActiveDeviceManagerServiceIntf activeDeviceManager = ActiveDeviceManagerServiceIntf.get();
-                return activeDeviceManager.getActiveDevice(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
+                return activeDeviceManager.getActiveAbsoluteDevice(ApmConstIntf.AudioFeatures.MEDIA_AUDIO);
             }
             A2dpService service = getService(source);
             if (service == null) {
