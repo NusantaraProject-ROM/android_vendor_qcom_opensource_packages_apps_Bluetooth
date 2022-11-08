@@ -60,6 +60,7 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -76,7 +77,7 @@ public class BluetoothOppUtility {
             new ConcurrentHashMap<Uri, BluetoothOppSendFileInfo>();
 
     public static boolean isBluetoothShareUri(Uri uri) {
-        return uri.toString().startsWith(BluetoothShare.CONTENT_URI.toString());
+        return Objects.equals(uri.toString(), BluetoothShare.CONTENT_URI.toString());
     }
 
     public static BluetoothOppTransferInfo queryRecord(Context context, Uri uri) {
